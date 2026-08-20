@@ -467,15 +467,16 @@ function activeYear(){
 }
 function yStart(){return activeYear()+"-01-01"}
 function yEnd(){return activeYear()+"-12-31"}
-function inYear(dt){return dt>=yStart()&&dt<=yEnd()}
-function beforeYear(dt){return dt<yStart()}
-function setYear(v){_yearSel=(v==="auto"?null:+v);ren()}
+function inYear(dt){if(_yearSel==="all")return !!dt;return dt>=yStart()&&dt<=yEnd()}
+function beforeYear(dt){if(_yearSel==="all")return false;return dt<yStart()}
+function setYear(v){_yearSel=(v==="auto"?null:(v==="all"?"all":+v));ren()}
+function yearLabel(){return _yearSel==="all"?"Total":String(activeYear())}
 function yearPicker(){
   var ys=yearsInData();
-  if(ys.length<=1)return "";/* só um ano nos dados: sem seletor */
   var cur=activeYear();
   var opts='<option value="auto"'+(_yearSel===null?" selected":"")+'>Ano '+cur+' (auto)</option>';
   ys.forEach(function(y){opts+='<option value="'+y+'"'+(_yearSel===y?" selected":"")+'>Ano '+y+'</option>'});
+  opts+='<option value="all"'+(_yearSel==="all"?" selected":"")+'>Total (todos os anos)</option>';
   return '<select onchange="setYear(this.value)" style="border:1px solid #ece6dc;border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;font-weight:600;color:#5a5347;background:#fff;cursor:pointer">'+opts+'</select>';
 }
 function fmtD(d){return d?new Date(d).toLocaleDateString("pt-PT",{day:"numeric",month:"short"}):"—"}
@@ -844,7 +845,7 @@ if(cTab==="dashboard"){
   SPECS.forEach(function(sp){h+=barH(sp,S.bs[sp]||0,S.inv,spc[sp]||G)});
   h+='</div></div>';
 } else if(cTab==="pl"){
-  h=pgHead("📈","P&L 2026")+'<div class="kr">'+kpi("Proveitos",fmt(S.inv),"",GRN,GRN)+kpi("Custos","-"+fmt(S.exp),"",R,R)+kpi("Resultado",fmt(S.inv-S.exp),"",S.inv-S.exp<0?R:GRN,S.inv-S.exp<0?R:GRN)+'</div><div class="g2"><div class="cd"><div class="ct2" style="margin-bottom:12px">RECEITAS POR CLIENTE</div>';
+  h=pgHead("📈","P&L "+yearLabel(),yearPicker())+'<div class="kr">'+kpi("Proveitos",fmt(S.inv),"",GRN,GRN)+kpi("Custos","-"+fmt(S.exp),"",R,R)+kpi("Resultado",fmt(S.inv-S.exp),"",S.inv-S.exp<0?R:GRN,S.inv-S.exp<0?R:GRN)+'</div><div class="g2"><div class="cd"><div class="ct2" style="margin-bottom:12px">RECEITAS POR CLIENTE</div>';
   var byC={};D.invoices.forEach(function(i){if(beforeYear(i.date))return;var d=D.deals.find(function(x){return x.id===i.dealId});if(d){var n=cn(d.clientId);byC[n]=(byC[n]||0)+i.amount}});
   Object.entries(byC).sort(function(a,b){return b[1]-a[1]}).forEach(function(e){h+=barH(e[0],e[1],S.inv,GRN)});
   h+='</div><div class="cd"><div class="ct2" style="margin-bottom:12px">CUSTOS POR DESTINO</div>';
@@ -870,7 +871,7 @@ if(cTab==="dashboard"){
       h+='<button style="background:#f4f0e8;color:#8a8072;border:none;border-radius:5px;padding:2px 6px;font-size:9px;cursor:pointer" onclick="loseDl(\''+dl.id+'\')">✗ Perdido</button>';
       h+='<button style="background:#fdf2f3;color:'+R+';border:none;border-radius:5px;padding:2px 6px;font-size:9px;cursor:pointer" onclick="delDl(\''+dl.id+'\')">✕</button></div></div>'});h+='</div>'});h+='</div>';
 } else if(cTab==="clientes"){
-  h=pgHead("🏥","Vendas 2026 por Especialidade",'<button class="btn" style="background:'+R+'" onclick="openCM()">+ Cliente</button>');
+  h=pgHead("🏥","Vendas "+yearLabel()+" por Especialidade",yearPicker()+' <button class="btn" style="background:'+R+'" onclick="openCM()">+ Cliente</button>');
   var vDeals=D.deals.filter(function(d){return isWon(d)&&inYear(d.date)});
   var vTotal=vDeals.reduce(function(a,d){return a+d.value},0);
   var vAdj=vDeals.filter(function(d){return billStatus(d.id).k==="adj"}).reduce(function(a,d){return a+d.value},0);
@@ -939,7 +940,7 @@ if(cTab==="dashboard"){
 } else if(cTab==="ganhas"){
   var gD=D.deals.filter(function(d){return d.stage==="ganho"&&inYear(d.date)}).sort(function(a,b){return b.date.localeCompare(a.date)});
   var gTot=gD.reduce(function(a,d){return a+d.value},0);
-  h=pgHead("🏆","Propostas Ganhas '+activeYear()+'");
+  h=pgHead("🏆","Propostas Ganhas "+yearLabel(),yearPicker());
   h+='<div class="kr">'+kpi("Ganhas",""+gD.length,"",GRN,GRN)+kpi("Valor total",fmt(gTot),"",GRN,GRN)+'</div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th>Data</th><th style="text-align:right">Valor</th><th style="text-align:right">Estado facturação</th><th></th></tr>';
   if(!gD.length)h+='<tr><td colspan="6" style="text-align:center;padding:24px;color:#a89d8d">Sem propostas ganhas.</td></tr>';
@@ -951,7 +952,7 @@ if(cTab==="dashboard"){
   var cD=D.deals.filter(function(d){return d.stage==="concluido"&&inYear(d.date)}).sort(function(a,b){return(b.doneDate||b.date).localeCompare(a.doneDate||a.date)});
   var cTot=cD.reduce(function(a,d){return a+d.value},0);
   var comRel=cD.filter(function(d){return dealAtts(d.id).some(function(a){return a.kind==="relatorio"})}).length;
-  h=pgHead("✅","Projetos Concluídos "+activeYear());
+  h=pgHead("✅","Projetos Concluídos "+yearLabel(),yearPicker());
   h+='<div class="kr">'+kpi("Concluídos",""+cD.length,"",TEAL,TEAL)+kpi("Valor entregue",fmt(cTot),"",TEAL,TEAL)+kpi("Com relatório",comRel+" de "+cD.length,"",GD,G)+'</div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th>Concluído em</th><th style="text-align:right">Valor</th><th>Relatório</th><th></th></tr>';
   if(!cD.length)h+='<tr><td colspan="6" style="text-align:center;padding:24px;color:#a89d8d">Ainda não há projetos concluídos. Na aba Ganhas, marca um projeto como concluído quando o entregares.</td></tr>';
@@ -959,9 +960,9 @@ if(cTab==="dashboard"){
     h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+esc(d.product.slice(0,45))+'</td><td>'+fmtD(d.doneDate||d.date)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td>'+(rel.length?bdg("✓ "+rel.length+" relatório(s)",TEAL):'<span style="font-size:11px;color:#c9a227">sem relatório</span>')+'</td><td style="text-align:right;white-space:nowrap"><button style="background:'+rgba(TEAL,.12)+';color:'+TEAL+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="openAttM(\''+d.id+'\',\'relatorio\')">📎 Relatório</button> <button style="background:#f4f0e8;color:#5a5347;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="mvDl(\''+d.id+'\',\'ganho\')">↩ Reabrir</button></td></tr>'});
   h+='</table></div></div>';
 } else if(cTab==="perdidas"){
-  var pD=D.deals.filter(function(d){return d.stage==="perdido"}).sort(function(a,b){return(b.lostDate||"").localeCompare(a.lostDate||"")});
+  var pD=D.deals.filter(function(d){return d.stage==="perdido"&&inYear(d.lostDate||d.date)}).sort(function(a,b){return(b.lostDate||"").localeCompare(a.lostDate||"")});
   var pTot=pD.reduce(function(a,d){return a+d.value},0);
-  h=pgHead("🕳️","Propostas Perdidas");
+  h=pgHead("🕳️","Propostas Perdidas "+yearLabel(),yearPicker());
   h+='<div class="kr">'+kpi("Perdidas",""+pD.length,"",SL,SL)+kpi("Valor perdido",fmt(pTot),"",R,R)+'</div>';
   if(pD.length){var reasons={};pD.forEach(function(d){var k=d.lostReason||"Não especificada";reasons[k]=(reasons[k]||0)+1});
     h+='<div class="ins"><div style="font-weight:600;margin-bottom:4px">Razões mais frequentes</div><div style="font-size:13px;color:#7a7268">'+Object.entries(reasons).sort(function(a,b){return b[1]-a[1]}).map(function(e){return e[0]+" ("+e[1]+")"}).join(" · ")+'</div></div>'}
@@ -1583,7 +1584,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var el=document.getElementById("fupMtgList");
     el.innerHTML=ms.length?ms.map(function(m){
       var dt=m.date?new Date(m.date+"T00:00:00").toLocaleDateString("pt-PT",{day:"2-digit",month:"short",year:"numeric"}):"—";
-      return '<div style="border:1px solid #ece6dc;border-radius:11px;padding:14px 16px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:13px">'+dt+'</div><button class="fupEditMtg btn bs" data-id="'+m.id+'" style="background:#f4f0e8;color:#7a7268">Editar</button></div>'+
+      return '<div id="mtg-'+m.id+'" style="border:1px solid #ece6dc;border-radius:11px;padding:14px 16px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:13px">'+dt+'</div><button class="fupEditMtg btn bs" data-id="'+m.id+'" style="background:#f4f0e8;color:#7a7268">Editar</button></div>'+
+        (m.title?'<div style="font-family:\'Fraunces\',serif;font-weight:600;font-size:14px;color:#1a1713;margin-bottom:6px">'+esc(m.title)+'</div>':"")+
         ((m.tags&&m.tags.length)?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">'+m.tags.map(function(t){var isC=m.cliTag&&t.toLowerCase()===m.cliTag.toLowerCase();return bdg(t,isC?R:SL);}).join("")+'</div>':"")+
         '<div style="font-size:12.5px;color:#4a453d;white-space:pre-wrap;line-height:1.55">'+esc(m.notes||"—")+'</div></div>';
     }).join(""):'<div style="text-align:center;padding:24px;color:#a89d8d;font-size:12.5px">'+(q?"Sem reuniões para esta pesquisa.":'Sem reuniões registadas. Usa "+ Registar reunião" para começar.')+'</div>';
@@ -1598,7 +1600,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var leads=all.filter(function(o){return o.d.stage==="lead";}).length;
     var defNotes=m?(m.notes||""):("Pipeline em aberto: "+fmt(totalVal)+" ("+all.length+" oportunidades).\nParados >"+AGE+"d: "+stalled+".\nLeads a qualificar: "+leads+".\n\nDecisões / próximos passos:\n- ");
     var cliDL='<datalist id="fupCliDL">'+D.clients.map(function(c){return '<option value="'+esc(c.name)+'">';}).join("")+'</datalist>';
-    var body=fld("Data da reunião",'<input type="date" id="fm1" value="'+(m?m.date:new Date().toISOString().slice(0,10))+'">')
+    var body=fld("Título da reunião",'<input id="fm0" placeholder="ex.: Revisão de pipeline Q3" value="'+(m?esc(m.title||""):"")+'">')
+      +fld("Data da reunião",'<input type="date" id="fm1" value="'+(m?m.date:new Date().toISOString().slice(0,10))+'">')
       +fld("Cliente associado (opcional)",'<input id="fm2" list="fupCliDL" placeholder="ex.: IMED Valencia" value="'+(m?esc(m.cliTag||""):"")+'">'+cliDL)
       +fld("Tags (separadas por vírgula)",'<input id="fm3" placeholder="ex.: pipeline, Q3, IMED" value="'+(m?esc((m.tags||[]).join(", ")):"")+'">')
       +fld("Notas / decisões",'<textarea id="fm4" rows="7" style="resize:vertical">'+esc(defNotes)+'</textarea>')
@@ -1608,11 +1611,50 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var cliTag=document.getElementById("fm2").value.trim();
       var tags=document.getElementById("fm3").value.split(",").map(function(t){return t.trim();}).filter(Boolean);
       if(cliTag&&!tags.some(function(t){return t.toLowerCase()===cliTag.toLowerCase();}))tags.push(cliTag);
-      var rec={date:document.getElementById("fm1").value||new Date().toISOString().slice(0,10),notes:document.getElementById("fm4").value.trim(),cliTag:cliTag,tags:tags};
+      var rec={title:document.getElementById("fm0").value.trim(),date:document.getElementById("fm1").value||new Date().toISOString().slice(0,10),notes:document.getElementById("fm4").value.trim(),cliTag:cliTag,tags:tags};
       if(id){Object.assign(D.meetings.find(function(x){return x.id===id;}),rec);}else{rec.id=uid();D.meetings.push(rec);if(typeof logAct==="function")logAct("Nota","Reunião de follow-up registada"+(cliTag?" — "+cliTag:""));}
       save();clM();if(typeof toast==="function")toast("Reunião guardada",{type:"ok"});renderFollowup();
     };
     if(id){document.getElementById("fmDel").onclick=function(){confirmM("Eliminar esta reunião do registo?",function(){D.meetings=D.meetings.filter(function(x){return x.id!==id;});save();clM();renderFollowup();},{yesLabel:"Eliminar"});};}
+  }
+
+  // Ir para uma reunião a partir de qualquer sítio (ex.: ficha de cliente)
+  window.gotoMeeting=function(id){
+    if(typeof clM==="function")clM();
+    cTab="followup";
+    if(typeof rTabs==="function")rTabs();
+    if(typeof rPnl==="function")rPnl();
+    setTimeout(function(){
+      var el=document.getElementById("mtg-"+id);
+      if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.transition="box-shadow .3s";el.style.boxShadow="0 0 0 3px "+rgba(R,.5);setTimeout(function(){el.style.boxShadow="";},1700);}
+    },140);
+  };
+
+  // Secção "Reuniões" no fundo da ficha de cliente (reuniões com esse cliente definido ou nas tags)
+  function appendClientMeetings(clientId){
+    var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
+    if(!Array.isArray(D.meetings))D.meetings=[];
+    var name=(cl.name||"").toLowerCase();
+    var ms=D.meetings.filter(function(m){
+      if(m.cliTag&&m.cliTag.toLowerCase()===name)return true;
+      return (m.tags||[]).some(function(t){return t.toLowerCase()===name;});
+    }).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+    var mdl=document.querySelector("#mArea .mdl");if(!mdl)return;
+    var sec=document.createElement("div");
+    sec.style.cssText="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px";
+    var h='<div class="ct2" style="margin-bottom:8px">Reuniões ('+ms.length+')</div>';
+    if(!ms.length){h+='<div style="font-size:12px;color:#a89d8d">Sem reuniões associadas a este cliente.</div>';}
+    else{ms.forEach(function(m){
+      var dt=m.date?new Date(m.date+"T00:00:00").toLocaleDateString("pt-PT",{day:"2-digit",month:"short",year:"numeric"}):"—";
+      var title=m.title||((m.notes||"").split("\n")[0]||"").slice(0,60)||"Reunião";
+      h+='<div onclick="gotoMeeting(\''+m.id+'\')" style="cursor:pointer;padding:8px 11px;border:1px solid #ece6dc;border-radius:9px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:12.5px;font-weight:600;color:#1a1713">'+esc(title)+'</div><div style="font-size:10.5px;color:#a89d8d;margin-top:1px">'+dt+'</div></div><span style="color:'+R+';font-size:12px;font-weight:600;white-space:nowrap">ver ›</span></div>';
+    });}
+    sec.innerHTML=h;
+    mdl.appendChild(sec);
+  }
+  if(typeof window.openClient==="function"){
+    var _openClient=window.openClient;
+    window.openClient=function(clientId){_openClient(clientId);try{appendClientMeetings(clientId);}catch(e){}};
   }
 
   // Mudar a etapa a partir do follow-up — usa o mvDl da própria app (muda stage no pipeline,
