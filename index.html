@@ -881,7 +881,7 @@ if(cTab==="dashboard"){
   h+='<div class="kr">'+kpi("Total Vendas",fmt(vTotal),vDeals.length+" vendas",GD,G)+kpi("ARR ganho",fmt(vARR),"receita recorrente/ano",PUR,PUR)+kpi("Adjudicado",fmt(vAdj),"",GD,GD)+kpi("Facturado",fmt(vFac),"",SL,SL)+kpi("Pago",fmt(vPago),"",GRN,GRN)+'</div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Canal</th><th>Especialidade</th><th>Produto</th><th>Tipo</th><th style="text-align:right">Valor</th><th style="text-align:right">ARR</th><th>Estado</th><th></th></tr>';
   vDeals.forEach(function(d){var cl=D.clients.find(function(c){return c.id===d.clientId});var bs=billStatus(d.id);var sc=d.specialty==="Gastro"?GD:d.specialty==="Pneumo"?PUR:BLU;
-    h+='<tr><td>'+(cl?'<a onclick="openClient(\''+cl.id+'\')" style="font-weight:600;color:'+R+';cursor:pointer;text-decoration:none;border-bottom:1px dotted '+rgba(R,.4)+'">'+cl.name+'</a>':"—")+'</td><td>'+(cl?cl.channel:"")+'</td><td>'+bdg(d.specialty,sc)+'</td><td style="color:#7a7268">'+d.product+'</td><td>'+bdg(d.type,SL)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td style="text-align:right"><span style="font-weight:600;color:'+(d.arr>0?PUR:"#c9c1b4")+'">'+(d.arr>0?fmt(d.arr):"—")+'</span> <button style="background:none;border:none;font-size:11px;cursor:pointer;color:#c9c1b4" onclick="editARR(\''+d.id+'\')" title="Editar ARR">✎</button></td><td>'+bdg(bs.label,bs.color)+(bs.sub?'<div style="font-size:9px;color:#b0a89c;margin-top:2px">'+bs.sub+'</div>':'')+'</td><td><button style="background:#edf8f3;color:'+GRN+';border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap" onclick="addSpecialty(\''+d.clientId+'\')" title="Upsell — adicionar especialidade a este cliente">+ Especialidade</button></td></tr>'});
+    h+='<tr><td>'+(cl?'<a onclick="openClient(\''+cl.id+'\')" style="font-weight:600;color:'+R+';cursor:pointer;text-decoration:none;border-bottom:1px dotted '+rgba(R,.4)+'">'+cl.name+'</a>':"—")+'</td><td>'+(cl?cl.channel:"")+'</td><td>'+bdg(d.specialty,sc)+'</td><td style="color:#7a7268">'+d.product+'</td><td>'+bdg(d.type,SL)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td style="text-align:right"><span style="font-weight:600;color:'+(d.arr>0?PUR:"#c9c1b4")+'">'+(d.arr>0?fmt(d.arr):"—")+'</span> <button style="background:none;border:none;font-size:11px;cursor:pointer;color:#c9c1b4" onclick="editARR(\''+d.id+'\')" title="Editar ARR">✎</button></td><td>'+bdg(bs.label,bs.color)+(bs.sub?'<div style="font-size:9px;color:#b0a89c;margin-top:2px">'+bs.sub+'</div>':'')+'</td><td style="white-space:nowrap"><button style="background:'+rgba(BLU,.1)+';color:'+BLU+';border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer;margin-right:4px" onclick="openAttM(\''+d.id+'\',\'proposta\')" title="Ficheiros da proposta">📎'+(dealAtts(d.id).length?' '+dealAtts(d.id).length:'')+'</button><button style="background:#edf8f3;color:'+GRN+';border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer" onclick="addSpecialty(\''+d.clientId+'\')" title="Upsell — adicionar especialidade a este cliente">+ Especialidade</button></td></tr>'});
   h+='<tr style="border-top:2px solid #e5e0da"><td colspan="5" style="font-weight:700;text-align:right;padding-top:10px">Total</td><td style="font-weight:700;padding-top:10px;text-align:right">'+fmt(vTotal)+'</td><td style="font-weight:700;padding-top:10px;text-align:right;color:'+PUR+'">'+fmt(vARR)+'</td><td colspan="2" style="padding-top:10px"></td></tr>';
   h+='</table></div></div>';
 } else if(cTab==="arr"){
@@ -969,7 +969,7 @@ if(cTab==="dashboard"){
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th>Perdida em</th><th style="text-align:right">Valor</th><th>Razão</th><th></th></tr>';
   if(!pD.length)h+='<tr><td colspan="6" style="text-align:center;padding:24px;color:#a89d8d">Sem propostas perdidas — bom sinal.</td></tr>';
   pD.forEach(function(d){
-    h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+d.product.slice(0,45)+'</td><td>'+(d.lostDate?fmtD(d.lostDate):"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td style="font-size:11px;color:#7a7268;max-width:200px">'+(d.lostReason||"—")+'</td><td style="text-align:right"><button style="background:#edf8f3;color:'+GRN+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="reopenDl(\''+d.id+'\')">↩ Reabrir</button></td></tr>'});
+    h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+d.product.slice(0,45)+'</td><td>'+(d.lostDate?fmtD(d.lostDate):"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td style="font-size:11px;color:#7a7268;max-width:200px">'+(d.lostReason||"—")+'</td><td style="text-align:right;white-space:nowrap"><button style="background:'+rgba(BLU,.1)+';color:'+BLU+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer;margin-right:4px" onclick="openAttM(\''+d.id+'\',\'proposta\')" title="Ficheiros da proposta">📎'+(dealAtts(d.id).length?' '+dealAtts(d.id).length:'')+'</button><button style="background:#edf8f3;color:'+GRN+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="reopenDl(\''+d.id+'\')">↩ Reabrir</button></td></tr>'});
   h+='</table></div></div>';
 } else if(cTab==="clientesTotais"){
   window._ctF=window._ctF||{region:"Todos",channel:"Todos",spec:"Todos",at:"Todos"};
@@ -1630,32 +1630,133 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     },140);
   };
 
-  // Secção "Reuniões" no fundo da ficha de cliente (reuniões com esse cliente definido ou nas tags)
-  function appendClientMeetings(clientId){
-    var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
+  // ===================== FICHA DE CLIENTE EM ACORDEÃO =====================
+  var __accId=0;
+  window.mwAccToggle=function(id){var el=document.getElementById(id);var c=document.getElementById(id+"_c");if(!el)return;var open=el.style.display!=="none";el.style.display=open?"none":"";if(c)c.classList.toggle("open",!open);};
+  function accSection(key,title,count,bodyHtml,headerBtn,openKey){
+    var id="acc"+(__accId++);var isOpen=(openKey&&openKey===key);
+    return '<div style="border-top:1px solid #f4f0e8;margin-top:10px;padding-top:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+      +'<div onclick="mwAccToggle(\''+id+'\')" class="mw-acc-head" style="display:flex;align-items:center;gap:9px;cursor:pointer;flex:1;user-select:none"><span class="mw-chev'+(isOpen?" open":"")+'" id="'+id+'_c">›</span><div class="ct2">'+title+(count!=null?' <span style="color:#a89d8d">('+count+')</span>':"")+'</div></div>'
+      +(headerBtn?'<div>'+headerBtn+'</div>':"")
+      +'</div>'
+      +'<div id="'+id+'" style="'+(isOpen?"":"display:none;")+'margin-top:10px">'+bodyHtml+'</div></div>';
+  }
+  function canEditClient(){return window.__mwRole==="admin"||window.__mwRole==="editor"||window.__mwRole==null;}
+
+  function buildMorada(cl){
+    var h="";
+    if(cl.address||cl.phone||cl.web){
+      h+='<div style="font-size:12.5px;color:#3a352e;line-height:1.7">';
+      if(cl.address)h+='📍 '+esc(cl.address).replace(/\n/g,"<br>&nbsp;&nbsp;&nbsp;")+'<br>';
+      if(cl.phone)h+='📞 <a href="tel:'+esc(cl.phone).replace(/\s/g,"")+'" style="color:'+BLU+';text-decoration:none">'+esc(cl.phone)+'</a><br>';
+      if(cl.web)h+='🌐 '+esc(cl.web);
+      h+='</div>';
+    } else h='<div style="font-size:12px;color:#a89d8d">Sem morada registada.</div>';
+    return h;
+  }
+  function buildContactos(cts){
+    if(!cts.length)return '<div style="font-size:12px;color:#a89d8d">Sem contactos registados.</div>';
+    var canEdit=canEditClient();var h="";
+    cts.forEach(function(c){
+      h+='<div style="padding:9px 0;border-bottom:1px solid #f8f7f5"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1"><div style="font-size:13px;font-weight:600">'+esc(c.name)+'</div>'+(c.role?'<div style="font-size:11px;color:#7a7268">'+esc(c.role)+'</div>':"")+'<div style="font-size:11.5px;margin-top:3px">'+(c.phone?'<a href="tel:'+esc(c.phone).replace(/\s/g,"")+'" style="color:'+BLU+';text-decoration:none">📞 '+esc(c.phone)+'</a>&nbsp;&nbsp;':"")+(c.email?'<a href="mailto:'+esc(c.email)+'" style="color:'+BLU+';text-decoration:none">✉️ '+esc(c.email)+'</a>':"")+'</div>'+(c.notes?'<div style="font-size:11px;color:#a89d8d;margin-top:3px">'+esc(c.notes)+'</div>':"")+'</div>'+(canEdit?'<div style="white-space:nowrap"><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#c9c1b4" onclick="editCt(\''+c.id+'\')">✎</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#c9c1b4" onclick="delCt(\''+c.id+'\')">✕</button></div>':"")+'</div></div>';
+    });
+    return h;
+  }
+  function buildInstall(cl){
+    var items=cl.install||[];var canEdit=canEditClient();
+    if(!items.length)return '<div style="font-size:12px;color:#a89d8d">Sem itens registados (licenças, integrações, cloud, image box, sharebox...).</div>';
+    var h='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    items.forEach(function(it){
+      h+='<div style="background:#f4f0e8;border-radius:9px;padding:8px 11px;min-width:118px"><div style="font-size:9.5px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px;font-weight:700">'+esc(it.label)+'</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px"><div style="font-size:14px;font-weight:700;color:#1a1713">'+esc(it.value||"—")+'</div>'+(canEdit?'<span style="margin-left:auto;white-space:nowrap"><button style="background:none;border:none;font-size:11px;cursor:pointer;color:#b0a89c" onclick="openInstallM(\''+cl.id+'\',\''+it.id+'\')">✎</button><button style="background:none;border:none;font-size:11px;cursor:pointer;color:#b0a89c" onclick="delInstall(\''+cl.id+'\',\''+it.id+'\')">✕</button></span>':"")+'</div></div>';
+    });
+    return h+'</div>';
+  }
+  function clientAtts(clientId){return (D.attachments||[]).filter(function(a){var dl=D.deals.find(function(d){return d.id===a.dealId;});return dl&&dl.clientId===clientId;});}
+  function buildFiles(clientId){
+    var atts=clientAtts(clientId);
+    if(!atts.length)return '<div style="font-size:12px;color:#a89d8d">Sem ficheiros. Anexa no Pipeline / Vendas (botão 📎) e ficam sempre acessíveis aqui.</div>';
+    atts.sort(function(a,b){return (b.at||"").localeCompare(a.at||"");});var h="";
+    atts.forEach(function(a){
+      var dl=D.deals.find(function(d){return d.id===a.dealId;});
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#faf8f4;border-radius:8px;margin-bottom:6px"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(typeof attIcon==="function"?attIcon(a):"📎")+' '+esc(a.name)+'</div><div style="font-size:10px;color:#a89d8d">'+(dl?esc(dl.product.slice(0,40)):"—")+(dl&&typeof SL2!=="undefined"?" · "+SL2[dl.stage]:"")+'</div></div><button class="btn bs" style="background:'+BLU+';margin-left:8px" onclick="openAtt(\''+a.id+'\')">Abrir</button></div>';
+    });
+    return h;
+  }
+  function clientMeetings(cl){
     if(!Array.isArray(D.meetings))D.meetings=[];
     var name=(cl.name||"").toLowerCase();
-    var ms=D.meetings.filter(function(m){
-      if(m.cliTag&&m.cliTag.toLowerCase()===name)return true;
-      return (m.tags||[]).some(function(t){return t.toLowerCase()===name;});
-    }).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
-    var mdl=document.querySelector("#mArea .mdl");if(!mdl)return;
-    var sec=document.createElement("div");
-    sec.style.cssText="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px";
-    var h='<div class="ct2" style="margin-bottom:8px">Reuniões ('+ms.length+')</div>';
-    if(!ms.length){h+='<div style="font-size:12px;color:#a89d8d">Sem reuniões associadas a este cliente.</div>';}
-    else{ms.forEach(function(m){
+    return D.meetings.filter(function(m){if(m.cliTag&&m.cliTag.toLowerCase()===name)return true;return (m.tags||[]).some(function(t){return t.toLowerCase()===name;});}).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+  }
+  function buildMeetings(ms){
+    if(!ms.length)return '<div style="font-size:12px;color:#a89d8d">Sem reuniões associadas a este cliente.</div>';
+    var h="";
+    ms.forEach(function(m){
       var dt=m.date?new Date(m.date+"T00:00:00").toLocaleDateString("pt-PT",{day:"2-digit",month:"short",year:"numeric"}):"—";
       var title=m.title||((m.notes||"").split("\n")[0]||"").slice(0,60)||"Reunião";
       h+='<div onclick="gotoMeeting(\''+m.id+'\')" style="cursor:pointer;padding:8px 11px;border:1px solid #ece6dc;border-radius:9px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:12.5px;font-weight:600;color:#1a1713">'+esc(title)+'</div><div style="font-size:10.5px;color:#a89d8d;margin-top:1px">'+dt+'</div></div><span style="color:'+R+';font-size:12px;font-weight:600;white-space:nowrap">ver ›</span></div>';
-    });}
-    sec.innerHTML=h;
-    mdl.appendChild(sec);
+    });
+    return h;
   }
-  if(typeof window.openClient==="function"){
-    var _openClient=window.openClient;
-    window.openClient=function(clientId){_openClient(clientId);try{appendClientMeetings(clientId);}catch(e){}};
-  }
+
+  // Parque instalado — modais (inalterados na lógica; reabrem a ficha na secção Parque)
+  var INSTALL_PRESETS=["Licenças","Integração","Cloud","Nº Image Box","Nº ShareBox","DOCbase","Versão do sistema","PACS/RIS","Outro"];
+  window.openInstallM=function(clientId,itemId){
+    var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
+    var it=itemId?(cl.install||[]).filter(function(x){return x.id===itemId;})[0]:null;
+    var dl='<datalist id="instPresets">'+INSTALL_PRESETS.map(function(x){return '<option value="'+x+'">';}).join("")+'</datalist>';
+    var body=fld("Tipo / Produto",'<input id="inst1" list="instPresets" placeholder="ex.: Licenças, Integração, Cloud, Nº Image Box, ShareBox..." value="'+(it?esc(it.label):"")+'">'+dl)
+      +fld("Valor",'<input id="inst2" placeholder="ex.: 5, HL7, Sim, 2..." value="'+(it?esc(it.value):"")+'">')
+      +'<div style="display:flex;gap:8px;margin-top:6px"><button class="btn" style="background:#f4f0e8;color:#7a7268;flex:1" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+';flex:1" onclick="svInstall(\''+clientId+'\',\''+(itemId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(it?"Editar item":"Adicionar ao parque instalado",body);
+  };
+  window.svInstall=function(clientId,itemId){
+    var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
+    var label=(document.getElementById("inst1").value||"").trim();
+    var value=(document.getElementById("inst2").value||"").trim();
+    if(!label){if(typeof toast==="function")toast("Indica o tipo/produto.",{type:"error"});return;}
+    if(!Array.isArray(cl.install))cl.install=[];
+    if(itemId){var it=cl.install.filter(function(x){return x.id===itemId;})[0];if(it){it.label=label;it.value=value;}}
+    else{cl.install.push({id:uid(),label:label,value:value});}
+    if(typeof logAct==="function")logAct("Cliente","Parque instalado ("+cn(clientId)+"): "+label+" = "+value);
+    save();clM();openClient(clientId,"parque");
+  };
+  window.delInstall=function(clientId,itemId){
+    var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
+    var doIt=function(){cl.install=(cl.install||[]).filter(function(x){return x.id!==itemId;});if(typeof logAct==="function")logAct("Cliente","Item de parque removido ("+cn(clientId)+")");save();openClient(clientId,"parque");};
+    if(typeof confirmM==="function")confirmM("Remover este item do parque instalado?",doIt,{yesLabel:"Remover"});else doIt();
+  };
+
+  // Substitui a ficha de cliente por uma versão em acordeão
+  window.openClient=function(clientId,openKey){
+    var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
+    var specs=(D.clientSpecs||[]).filter(function(x){return x.clientId===clientId;});
+    var cts=(D.contacts||[]).filter(function(x){return x.clientId===clientId;});
+    var ds=D.deals.filter(function(d){return d.clientId===clientId;});
+    var won=ds.filter(function(d){return isWon(d);}).reduce(function(a,d){return a+d.value;},0);
+    var open2=ds.filter(function(d){return !isClosed(d);}).reduce(function(a,d){return a+d.value;},0);
+    var pend=D.invoices.filter(function(i){return !i.collected&&ds.some(function(d){return d.id===i.dealId;});}).reduce(function(a,i){return a+i.amount;},0);
+    var canEdit=canEditClient();
+    var atts=clientAtts(clientId);var ms=clientMeetings(cl);
+
+    var b='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+bdg(cl.region,BLU)+bdg(cl.channel,SL)+specs.map(function(sp){return bdg(sp.specialty+(sp.at?" · AT":""),sp.at?GRN:GD);}).join("")+'</div>';
+    b+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
+    [["Ganho",fmt(won),GRN],["Em aberto",fmt(open2),GD],["Por cobrar",fmt(pend),pend>0?R:SL]].forEach(function(k){
+      b+='<div style="flex:1;min-width:90px;background:#f4f0e8;border-radius:10px;padding:10px 12px"><div style="font-size:9.5px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px;font-weight:600">'+k[0]+'</div><div style="font-size:15px;font-weight:700;color:'+k[2]+'">'+k[1]+'</div></div>';});
+    b+='</div>';
+
+    var editBtn=canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openAddrM(\''+clientId+'\')">✎ Editar</button>':"";
+    var ctBtn=canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openCtM({clientId:\''+clientId+'\'})">+ Contacto</button>':"";
+    var instBtn=canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openInstallM(\''+clientId+'\')">+ Adicionar</button>':"";
+
+    b+=accSection("morada","Morada e contactos gerais",null,buildMorada(cl),editBtn,openKey);
+    b+=accSection("contactos","Contactos",cts.length,buildContactos(cts),ctBtn,openKey);
+    b+=accSection("parque","Parque instalado / Configuração",(cl.install||[]).length,buildInstall(cl),instBtn,openKey);
+    b+=accSection("ficheiros","Ficheiros das propostas",atts.length,buildFiles(clientId),"",openKey);
+    b+=accSection("reunioes","Reuniões",ms.length,buildMeetings(ms),"",openKey);
+
+    document.getElementById("mArea").innerHTML=mWrap(cl.name,b);
+  };
 
   // Mudar a etapa a partir do follow-up — usa o mvDl da própria app (muda stage no pipeline,
   // cria factura automática se for "ganho", regista no histórico e grava). Se sair para
@@ -1805,6 +1906,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       currentRole=(r.data&&r.data.role)||"viewer";
       currentEmail=(r.data&&r.data.email)||currentEmail;
     }catch(e){currentRole="viewer";}
+    window.__mwRole=currentRole;
     document.body.classList.toggle("role-viewer",currentRole==="viewer");
   }
 
@@ -1830,10 +1932,20 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     catch(e){toastSafe("Erro ao gravar: "+(e.message||e));}
   }
 
+  // O editor só pode editar dentro da área Comercial
+  var COMERCIAL=["clientes","pipeline","prospeccao","ganhas","concluidas","perdidas","mapa","followup"];
+  function isComercialTab(t){return COMERCIAL.indexOf(t)>=0;}
+  function isReadOnlyNow(){
+    if(currentRole==="viewer")return true;
+    if(currentRole==="editor"&&!isComercialTab(typeof cTab!=="undefined"?cTab:""))return true;
+    return false;
+  }
+
   // substitui o save() local por gravação na nuvem (com atraso para juntar edições)
   window.save=function(){
     if(!ready)return true;
     if(currentRole==="viewer"){toastSafe("Só tens acesso de leitura — a alteração não foi guardada.");return false;}
+    if(currentRole==="editor"&&!isComercialTab(typeof cTab!=="undefined"?cTab:"")){toastSafe("Como editor só podes editar na área Comercial. Esta alteração não foi guardada.");return false;}
     clearTimeout(saveTimer);saveTimer=setTimeout(pushToSB,450);
     try{prevSnap=snapClone();}catch(e){}
     return true;
@@ -1841,10 +1953,16 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // ---------- esconder edição para visualizadores ----------
   var WRITE=/openDM|svDl|editDl|editARR|quickNext|tgCl|editIv|delIv|mvDl|openEM|svEx|editEx|delEx|addSpecialty|editSpec|delSpec|svSpec|rstData|impData|openUpdM|__fupMove|openMtg|saveMtg/;
+  var GLOBALOPS=/rstData|impData|openUpdM/;
   function applyRoleGating(){
-    var viewer=currentRole==="viewer";
-    document.body.classList.toggle("role-viewer",viewer);
-    if(!viewer)return;
+    var readOnly=isReadOnlyNow();
+    document.body.classList.toggle("role-viewer",readOnly);
+    // operações globais de dados (repor/importar/atualizar) só para admin, em qualquer separador
+    if(currentRole!=="admin"){
+      document.querySelectorAll("[onclick]").forEach(function(el){if(GLOBALOPS.test(el.getAttribute("onclick")||"")){var lb=el.closest("label");(lb||el).style.display="none";}});
+      document.querySelectorAll("[onchange]").forEach(function(el){if(/impData/.test(el.getAttribute("onchange")||"")){var lb=el.closest("label");if(lb)lb.style.display="none";}});
+    }
+    if(!readOnly)return;
     // botões de escrita -> esconder
     document.querySelectorAll("[onclick]").forEach(function(el){
       if(WRITE.test(el.getAttribute("onclick")||"")){var lb=el.closest("label");(lb||el).style.display="none";}
@@ -1935,15 +2053,162 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(typeof TABS!=="undefined"&&!TABS.some(function(t){return t.id==="logs";}))TABS.push({id:"logs"});
   })();
 
-  // aplica o gating depois de cada render; encaminha a aba Logs
+  // ---------- acordeão em cartões (colapsar secções pesadas em páginas longas) ----------
+  (function(){var st=document.createElement("style");st.textContent=
+    ".mw-chev{display:inline-block;color:#a89d8d;font-size:15px;font-weight:700;line-height:1;transform:rotate(0deg);transition:transform .18s ease}"
+    +".mw-chev.open{transform:rotate(90deg)}"
+    +".mw-acc-head{border-radius:8px;padding:3px 5px;margin:0 -5px;transition:background .12s}"
+    +".mw-acc-head:hover{background:rgba(171,35,49,.05)}"
+    +".mw-expandall .btn:hover{filter:brightness(.97)}"
+    +"@media print{.mw-acc-body{display:block !important}.mw-chev,.mw-expandall{display:none !important}}";
+    document.head.appendChild(st);})();
+  function accordionizeCards(firstOpen){
+    var app=document.getElementById("app");if(!app)return;
+    var cards=[].slice.call(app.children).filter(function(el){return el.classList&&el.classList.contains("cd");});
+    cards.forEach(function(card,i){
+      if(card.getAttribute("data-acc"))return;
+      var t=card.querySelector(".ct2");if(!t)return;
+      card.setAttribute("data-acc","1");
+      var title=t.textContent.trim();t.style.display="none";
+      var open=(firstOpen&&i===0);
+      var body=document.createElement("div");body.className="mw-acc-body";body.style.display=open?"":"none";
+      while(card.firstChild){body.appendChild(card.firstChild);}
+      var head=document.createElement("div");head.className="mw-acc-head";
+      head.style.cssText="display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none";
+      head.innerHTML='<span class="mw-chev'+(open?" open":"")+'">›</span><div class="ct2" style="margin:0">'+title+'</div>';
+      head.onclick=function(){var v=body.style.display==="none";body.style.display=v?"":"none";var ch=head.querySelector(".mw-chev");if(ch)ch.classList.toggle("open",v);};
+      card.appendChild(head);card.appendChild(body);
+    });
+  }
+  function setAllAcc(open){
+    document.querySelectorAll("#app .mw-acc-body").forEach(function(b){b.style.display=open?"":"none";});
+    document.querySelectorAll("#app .mw-chev").forEach(function(c){c.classList.toggle("open",open);});
+  }
+  function addExpandAll(){
+    var app=document.getElementById("app");if(!app)return;
+    if(app.querySelector(".mw-expandall"))return;
+    if(!app.querySelector(".mw-acc-body"))return;
+    var bar=document.createElement("div");bar.className="mw-expandall";
+    bar.style.cssText="display:flex;justify-content:flex-end;gap:8px;margin:-2px 0 8px";
+    bar.innerHTML='<button class="btn bs" style="background:#f4f0e8;color:#7a7268" data-a="o">Expandir tudo</button><button class="btn bs" style="background:#f4f0e8;color:#7a7268" data-a="c">Fechar tudo</button>';
+    var head=app.firstChild;
+    if(head&&head.nextSibling)app.insertBefore(bar,head.nextSibling);else app.appendChild(bar);
+    bar.querySelector('[data-a="o"]').onclick=function(){setAllAcc(true);};
+    bar.querySelector('[data-a="c"]').onclick=function(){setAllAcc(false);};
+  }
+
+  // ===================== LEMBRETES DE FOLLOW-UP (sino no cabeçalho) =====================
+  function computeReminders(){
+    var today=new Date().toISOString().slice(0,10);
+    var in7=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+    var res={overdue:[],today:[],upcoming:[]};
+    (D.deals||[]).forEach(function(d){
+      if(!d.nextDate)return;
+      if(typeof isClosed==="function"&&isClosed(d))return;
+      if(d.nextDate<today)res.overdue.push(d);
+      else if(d.nextDate===today)res.today.push(d);
+      else if(d.nextDate<=in7)res.upcoming.push(d);
+    });
+    var s=function(a,b){return (a.nextDate||"").localeCompare(b.nextDate||"");};
+    res.overdue.sort(s);res.today.sort(s);res.upcoming.sort(s);
+    return res;
+  }
+  window.mwOpenReminder=function(dealId){if(typeof clM==="function")clM();if(typeof sTab==="function")sTab("pipeline","");setTimeout(function(){if(typeof quickNext==="function")quickNext(dealId);},70);};
+  function reminderRow(d,cls){
+    var today=new Date().toISOString().slice(0,10);
+    var late=(cls==="over"&&typeof daysLate==="function")?daysLate(d):0;
+    var col=cls==="over"?R:(cls==="today"?GD:SL);
+    var dt=d.nextDate?new Date(d.nextDate+"T00:00:00").toLocaleDateString("pt-PT",{day:"2-digit",month:"short"}):"—";
+    return '<div onclick="mwOpenReminder(\''+d.id+'\')" style="cursor:pointer;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;color:#1a1713;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cn(d.clientId))+'</div><div style="font-size:10.5px;color:#a89d8d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+esc(d.nextAction||d.product||"follow-up")+'</div></div><div style="text-align:right;white-space:nowrap"><span style="font-size:11px;font-weight:700;color:'+col+'">'+dt+(late>0?" · "+late+"d":"")+'</span></div></div>';
+  }
+  function renderReminders(){
+    var r=computeReminders();var body="";
+    if(r.overdue.length)body+='<div class="ct2" style="color:'+R+';margin:2px 0 8px">Em atraso ('+r.overdue.length+')</div>'+r.overdue.map(function(d){return reminderRow(d,"over");}).join("");
+    if(r.today.length)body+='<div class="ct2" style="color:'+GD+';margin:14px 0 8px">Hoje ('+r.today.length+')</div>'+r.today.map(function(d){return reminderRow(d,"today");}).join("");
+    if(r.upcoming.length)body+='<div class="ct2" style="margin:14px 0 8px">Próximos 7 dias ('+r.upcoming.length+')</div>'+r.upcoming.map(function(d){return reminderRow(d,"up");}).join("");
+    if(!body)body='<div style="text-align:center;padding:26px;color:#a89d8d;font-size:13px">🎉 Sem follow-ups pendentes. Tudo em dia!</div>';
+    document.getElementById("mArea").innerHTML=mWrap("🔔 Lembretes de follow-up",body);
+  }
+  function ensureBell(){
+    if(document.getElementById("mwBell"))return;
+    var right=document.querySelector(".hdr-in > div:last-child");if(!right)return;
+    var wrap=document.createElement("div");wrap.id="mwBell";wrap.style.cssText="position:relative;display:flex;align-items:center";
+    wrap.innerHTML='<button title="Lembretes de follow-up" style="background:#f4f0e8;border:none;border-radius:9px;min-width:38px;height:32px;font-size:15px;cursor:pointer;position:relative;line-height:1">🔔<span id="mwBellCount" style="position:absolute;top:-6px;right:-6px;background:'+R+';color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px">0</span></button>';
+    right.insertBefore(wrap,right.firstChild);
+    wrap.querySelector("button").onclick=function(){renderReminders();};
+  }
+  function updateBell(){
+    ensureBell();
+    var badge=document.getElementById("mwBellCount");if(!badge)return;
+    var r=computeReminders();var n=r.overdue.length+r.today.length;
+    if(n>0){badge.textContent=n>99?"99+":String(n);badge.style.display="inline-flex";}else{badge.style.display="none";}
+  }
+
+  // aplica o gating depois de cada render; encaminha a aba Logs; acordeão onde faz sentido
   if(typeof rPnl==="function"){
     var _r=rPnl;
     rPnl=function(){
       if(typeof cTab!=="undefined"&&cTab==="logs"){try{renderLogs();}catch(e){}try{applyRoleGating();}catch(e){}return;}
-      var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}return x;
+      var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
+      try{if(typeof cTab!=="undefined"){if(cTab==="estrategia"||cTab==="correcoes"){accordionizeCards(true);addExpandAll();}}}catch(e){}
+      try{updateBell();}catch(e){}
+      return x;
     };
   }
   if(typeof rTabs==="function")try{rTabs();}catch(e){}
+
+  // ===================== ANEXOS NO SUPABASE STORAGE =====================
+  var ATT_BUCKET="anexos", ATT_MAX2=20*1024*1024;
+  function attWritable(){return !isReadOnlyNow();}
+  window.openAttM=function(dealId,kind){
+    var dl=(D.deals||[]).filter(function(d){return d.id===dealId;})[0];if(!dl)return;
+    var kindLabel=kind==="relatorio"?"relatório":kind==="proposta"?"proposta":"ficheiro";
+    var atts=(D.attachments||[]).filter(function(a){return a.dealId===dealId;});
+    var canW=attWritable();
+    var b='<div style="font-size:12px;color:#7a7268;margin-bottom:14px">'+esc(cn(dl.clientId))+' — '+esc(dl.product.slice(0,45))+'</div>';
+    if(canW){
+      b+='<div style="border:2px dashed #e5e0da;border-radius:10px;padding:18px;text-align:center;margin-bottom:14px">';
+      b+='<input type="file" id="attFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.zip" style="display:none" onchange="doAttach(\''+dealId+'\',\''+kind+'\')">';
+      b+='<button class="btn" style="background:'+R+'" onclick="document.getElementById(\'attFile\').click()">📎 Escolher '+kindLabel+'</button>';
+      b+='<div id="attProg" style="font-size:11px;color:#a89d8d;margin-top:8px">Guardado no Supabase Storage · máx. 20 MB por ficheiro.</div></div>';
+    }
+    if(atts.length){
+      b+='<div style="font-size:11px;font-weight:700;color:#8a8072;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Anexos ('+atts.length+')</div>';
+      atts.forEach(function(a){
+        b+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#faf8f4;border-radius:8px;margin-bottom:6px"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(typeof attIcon==="function"?attIcon(a):"📎")+' '+esc(a.name)+'</div><div style="font-size:10px;color:#a89d8d">'+bdg(a.kind==="relatorio"?"Relatório":a.kind==="proposta"?"Proposta":"Ficheiro",a.kind==="relatorio"?TEAL:a.kind==="proposta"?G:SL)+' '+(typeof fmtKB==="function"?fmtKB(a.size):"")+(a.data?" · legado":"")+'</div></div><div style="white-space:nowrap;margin-left:8px"><button class="btn bs" style="background:'+BLU+'" onclick="openAtt(\''+a.id+'\')">Abrir</button>'+(canW?' <button style="background:none;border:none;font-size:13px;cursor:pointer;color:#c9c1b4" onclick="delAtt(\''+a.id+'\')" title="Remover">✕</button>':'')+'</div></div>';
+      });
+    } else b+='<div style="font-size:12px;color:#a89d8d">Sem ficheiros.</div>';
+    document.getElementById("mArea").innerHTML=mWrap("Anexos — "+kindLabel,b);
+  };
+  window.doAttach=async function(dealId,kind){
+    if(!attWritable()){toastSafe("Sem permissão para anexar aqui.");return;}
+    if(!sb){toastSafe("Sem ligação ao servidor.");return;}
+    var el=document.getElementById("attFile");var f=el&&el.files&&el.files[0];if(!f)return;
+    if(f.size>ATT_MAX2){toastSafe("O ficheiro tem "+(typeof fmtKB==="function"?fmtKB(f.size):"")+", acima do limite de 20 MB.");return;}
+    var prog=document.getElementById("attProg");if(prog)prog.textContent="A enviar “"+f.name+"”…";
+    var path="deals/"+dealId+"/"+uid()+"-"+f.name.replace(/[^\w.\-]+/g,"_");
+    var up=await sb.storage.from(ATT_BUCKET).upload(path,f,{contentType:f.type||undefined,upsert:false});
+    if(up.error){toastSafe("Erro a enviar: "+up.error.message);if(prog)prog.textContent="";return;}
+    if(!D.attachments)D.attachments=[];
+    var att={id:uid(),dealId:dealId,name:f.name,type:f.type||"",size:f.size,path:path,kind:kind,at:new Date().toISOString().slice(0,10)};
+    D.attachments.push(att);
+    if(save()){if(typeof logAct==="function")logAct("Anexo","Anexado ("+kind+"): "+f.name+" — "+cn((D.deals.find(function(d){return d.id===dealId;})||{}).clientId));openAttM(dealId,kind);}
+    else{try{await sb.storage.from(ATT_BUCKET).remove([path]);}catch(e){}D.attachments=D.attachments.filter(function(a){return a.id!==att.id;});}
+  };
+  window.openAtt=async function(id){
+    var a=(D.attachments||[]).filter(function(x){return x.id===id;})[0];if(!a)return;
+    if(a.data){try{var w=window.open();if(!w){toastSafe("Permite pop-ups para abrir o anexo.");return;}if(/image/i.test(a.type))w.document.write('<img src="'+a.data+'" style="max-width:100%">');else w.document.write('<iframe src="'+a.data+'" style="border:0;width:100%;height:100vh"></iframe>');w.document.title=a.name;}catch(e){toastSafe("Não foi possível abrir.");}return;}
+    if(!sb||!a.path){toastSafe("Anexo indisponível.");return;}
+    var s=await sb.storage.from(ATT_BUCKET).createSignedUrl(a.path,600);
+    if(s.error){toastSafe("Erro a abrir: "+s.error.message);return;}
+    window.open(s.data.signedUrl,"_blank");
+  };
+  window.delAtt=function(id){
+    var a=(D.attachments||[]).filter(function(x){return x.id===id;})[0];if(!a)return;
+    if(!attWritable()){toastSafe("Sem permissão.");return;}
+    var doIt=async function(){if(a.path&&sb){try{await sb.storage.from(ATT_BUCKET).remove([a.path]);}catch(e){}}D.attachments=(D.attachments||[]).filter(function(x){return x.id!==id;});if(typeof logAct==="function")logAct("Anexo","Anexo removido: "+a.name);save();openAttM(a.dealId,a.kind);};
+    if(typeof confirmM==="function")confirmM('Remover o anexo "'+esc(a.name)+'"?',doIt,{yesLabel:"Remover"});else doIt();
+  };
 
   // ---------- arranque ----------
   async function boot(){
@@ -1960,6 +2225,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     hideLogin();
     showUserBadge();
     await loadFromSB();
+    try{updateBell();}catch(e){}
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
