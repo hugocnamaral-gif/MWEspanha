@@ -1385,7 +1385,7 @@ var HIST=[
 {yr:2022,tot:15788,nv:15788,at:0,nc:0,obj:0,ncli:4,note:"Meritxell Andorra. São José LPA"},
 {yr:2023,tot:19541,nv:23101,at:0,nc:-3560,obj:0,ncli:5,note:"Lanzarote pneumo. VOT Madrid"},
 {yr:2024,tot:11904,nv:9340,at:2564,nc:0,obj:30000,ncli:4,note:"La Paloma, Singilis, Valles SaaS"},
-{yr:2025,tot:21218,nv:18454,at:2764,nc:-3830,obj:10000,ncli:6,note:"IMED. Rambla Nova. Andorra pneumo"}
+{yr:2025,tot:16858,nv:14094,at:2764,nc:-3830,obj:10000,ncli:6,note:"IMED. Rambla Nova. Andorra pneumo (duplicado removido)"}
 ];
 
 function rHist(S){
@@ -1822,6 +1822,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     ready=true;
     if(typeof ren==="function")ren();
     applyRoleGating();
+    try{if(!Array.isArray(D._log))D._log=[];prevSnap=snapClone();}catch(e){}
   }
   async function pushToSB(){
     if(currentRole==="viewer")return;
@@ -1834,6 +1835,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!ready)return true;
     if(currentRole==="viewer"){toastSafe("Só tens acesso de leitura — a alteração não foi guardada.");return false;}
     clearTimeout(saveTimer);saveTimer=setTimeout(pushToSB,450);
+    try{prevSnap=snapClone();}catch(e){}
     return true;
   };
 
@@ -1855,8 +1857,93 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     document.querySelectorAll(".fupF").forEach(function(el){el.setAttribute("disabled","disabled");});
     document.querySelectorAll("#fupNewMtg, .fupEditMtg").forEach(function(el){el.style.display="none";});
   }
-  // aplica o gating depois de cada render
-  if(typeof rPnl==="function"){var _r=rPnl;rPnl=function(){var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}return x;};}
+  // ===================== LOGS / AUDITORIA + ANULAÇÃO (só admin) =====================
+  var prevSnap=null;
+  // cópia do estado (sem o próprio log nem anexos, para não inchar)
+  function snapClone(){var d={};for(var k in D){if(k==="_log"||k==="attachments")continue;d[k]=D[k];}return JSON.parse(JSON.stringify(d));}
+
+  // carimba email + hora e guarda a cópia "antes" a cada movimento registado por logAct
+  if(typeof window.logAct==="function"){
+    var _logAct=window.logAct;
+    window.logAct=function(type,desc){
+      _logAct(type,desc);
+      try{
+        if(!Array.isArray(D._log))D._log=[];
+        var lid=(typeof uid==="function"?uid():String(Math.random()).slice(2));
+        D._log.unshift({id:lid,ts:new Date().toISOString(),email:currentEmail||"",type:type,desc:desc,before:prevSnap});
+        if(D._log.length>15)D._log=D._log.slice(0,15);
+        if(D.activities&&D.activities[0]){D.activities[0].email=currentEmail||"";D.activities[0].ts=new Date().toISOString();D.activities[0]._logId=lid;}
+      }catch(e){}
+    };
+  }
+
+  // anular um movimento — repõe o estado imediatamente antes desse movimento
+  window.mwRevert=function(logId){
+    if(currentRole!=="admin"){toastSafe("Só o administrador pode anular movimentos.");return;}
+    var entry=(D._log||[]).filter(function(x){return x.id===logId;})[0];
+    if(!entry||!entry.before){toastSafe("Este movimento não tem cópia guardada para anular.");return;}
+    var doIt=function(){
+      var keep=(D._log||[]).slice();
+      var restored=JSON.parse(JSON.stringify(entry.before));
+      restored.attachments=D.attachments||[];
+      restored._log=keep;
+      D=restored;
+      if(typeof logAct==="function")logAct("Anulação",'Movimento anulado: "'+entry.desc+'"');
+      if(typeof save==="function")save();
+      if(typeof ren==="function")ren();
+      toastSafe("Movimento anulado — dados repostos ao estado anterior.","ok");
+    };
+    if(typeof confirmM==="function")confirmM('Anular este movimento?\n\n"'+entry.desc+'"\n\nRepõe TODOS os dados ao estado imediatamente antes deste movimento. Os movimentos posteriores a este também são revertidos.',doIt,{yesLabel:"Anular"});
+    else if(confirm("Anular este movimento? Repõe o estado anterior."))doIt();
+  };
+
+  function renderLogs(){
+    var acts=(D.activities||[]);
+    var byLog={};(D._log||[]).forEach(function(l){byLog[l.id]=l;});
+    var q=(window.__logSearch||"").toLowerCase();
+    var list=acts.filter(function(a){if(!q)return true;return ((a.desc||"")+" "+(a.type||"")+" "+(a.email||"")).toLowerCase().indexOf(q)>=0;});
+    var users=[];acts.forEach(function(a){if(a.email&&users.indexOf(a.email)<0)users.push(a.email);});
+    var today=new Date().toISOString().slice(0,10);
+    var todayN=acts.filter(function(a){return (a.ts||a.date||"").slice(0,10)===today;}).length;
+    var admin=currentRole==="admin";
+    var h=pgHead("🧾","Logs — Registo de Movimentos");
+    h+='<div class="kr">'+kpi("Movimentos",""+acts.length,"total registado",BLU,BLU)+kpi("Hoje",""+todayN,"movimentos hoje",GD,G)+kpi("Utilizadores",""+users.length,"com atividade",PUR,PUR)+kpi("Anuláveis",""+(D._log||[]).filter(function(l){return l.before;}).length,"recentes com cópia",R,R)+'</div>';
+    h+='<div class="cd"><div class="ch"><div class="ct2">Movimentos ('+list.length+')</div><input id="logSearch" placeholder="Procurar por email, tipo ou texto..." value="'+esc(q)+'" style="border:1px solid #e5e0da;border-radius:8px;padding:7px 11px;font-size:12.5px;max-width:280px;font-family:inherit;outline:none"></div>';
+    h+='<div style="font-size:11.5px;color:#a89d8d;margin-bottom:10px">Cada linha é um movimento feito na app, com o email de quem o fez. '+(admin?'Como administrador podes <b>anular</b> os movimentos recentes — isso repõe os dados ao estado imediatamente antes desse movimento (os posteriores também são revertidos).':'Só o administrador pode anular movimentos.')+'</div>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Data / hora</th><th>Utilizador</th><th>Tipo</th><th>Descrição</th>'+(admin?'<th style="text-align:right">Ação</th>':'')+'</tr></thead><tbody>';
+    if(!list.length)h+='<tr><td colspan="'+(admin?5:4)+'" style="text-align:center;padding:24px;color:#a89d8d">Sem movimentos.</td></tr>';
+    list.forEach(function(a){
+      var raw=a.ts||a.date;
+      var dt=raw?new Date(raw).toLocaleString("pt-PT",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+      var undoable=a._logId&&byLog[a._logId]&&byLog[a._logId].before;
+      h+='<tr><td style="white-space:nowrap;color:#7a7268;font-size:11.5px">'+dt+'</td>'+
+         '<td>'+(a.email?'<span style="font-weight:600;font-size:11.5px">'+esc(a.email)+'</span>':'<span style="color:#c9c1b4">—</span>')+'</td>'+
+         '<td>'+bdg(a.type||"—",SL)+'</td>'+
+         '<td style="color:#3a352e">'+esc(a.desc||"")+'</td>'+
+         (admin?('<td style="text-align:right">'+(undoable?'<button onclick="mwRevert(\''+a._logId+'\')" style="background:#fdf2f3;color:'+R+';border:1px solid '+rgba(R,.3)+';border-radius:7px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">↩ Anular</button>':'<span style="font-size:11px;color:#c9c1b4">—</span>')+'</td>'):'')+
+         '</tr>';
+    });
+    h+='</tbody></table></div></div>';
+    document.getElementById("app").innerHTML=h;
+    var si=document.getElementById("logSearch");
+    if(si)si.oninput=function(e){window.__logSearch=e.target.value;renderLogs();};
+  }
+
+  // regista a aba "Logs" no fim do menu
+  (function(){
+    if(typeof NAV!=="undefined"&&!NAV.some(function(n){return n.id==="logs";}))NAV.push({id:"logs",i:"🧾",l:"Logs"});
+    if(typeof TABS!=="undefined"&&!TABS.some(function(t){return t.id==="logs";}))TABS.push({id:"logs"});
+  })();
+
+  // aplica o gating depois de cada render; encaminha a aba Logs
+  if(typeof rPnl==="function"){
+    var _r=rPnl;
+    rPnl=function(){
+      if(typeof cTab!=="undefined"&&cTab==="logs"){try{renderLogs();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}return x;
+    };
+  }
+  if(typeof rTabs==="function")try{rTabs();}catch(e){}
 
   // ---------- arranque ----------
   async function boot(){
