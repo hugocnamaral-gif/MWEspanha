@@ -2319,6 +2319,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!Array.isArray(r.horas))r.horas=[];
     if(!Array.isArray(r.integracoes))r.integracoes=[];
     if(!Array.isArray(r.riscos))r.riscos=[];
+    if(!Array.isArray(r.entregaveis))r.entregaveis=[];
     return r;
   }
   function projRec(dealId){
@@ -2366,6 +2367,12 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var RK_EST=[["aberto","Aberto"],["mitigado","Mitigado"],["fechado","Fechado"]];
   var RK_EST_COL={aberto:R,mitigado:GD,fechado:GRN};
   function rkLbl(arr,v){var m=arr.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  // ---- entregáveis & sign-off (Passo 4) ----
+  var ENT_TIPO=[["acta","Acta / reunião"],["plano","Plano"],["manual","Manual"],["config","Documento técnico"],["aceitacao","Auto de aceitação"],["outro","Outro"]];
+  var ENT_EST=[["pendente","Pendente"],["entregue","Entregue"],["aceite","Aceite"]];
+  var ENT_EST_COL={pendente:SL,entregue:BLU,aceite:GRN};
+  function entTipoLbl(v){var m=ENT_TIPO.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  function entEstLbl(v){var m=ENT_EST.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
 
   function renderProjetos(){
     if(projView){var dl=(D.deals||[]).filter(function(d){return d.id===projView;})[0];if(dl)return renderProjWorkspace(projView);projView=null;}
@@ -2431,7 +2438,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='<div><div style="font-size:11px;color:#a89d8d;text-transform:uppercase;letter-spacing:.5px;font-weight:700">'+esc(cn(d.clientId))+'</div>'+
        '<div style="font-family:\'Fraunces\',serif;font-size:22px;font-weight:600;margin:2px 0 4px">'+esc(projName(r,d))+'</div>'+
        '<div style="display:flex;gap:6px;flex-wrap:wrap">'+bdg(tipoLbl(r.tipo),r.tipo==="integracao"?TEAL:(r.tipo==="misto"?PUR:BLU))+bdg((PROJ_TPL[r.template]||{}).l||r.template,SL)+bdg(hl.l,hl.c)+'</div></div>';
-    h+='<div style="text-align:right;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openProjEdit(\''+dealId+'\')">Editar projeto</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+'" onclick="delProj(\''+dealId+'\')">Eliminar</button>':'')+'</div>';
+    h+='<div style="text-align:right;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn bs" style="background:'+PUR+'" onclick="projReport(\''+dealId+'\')">📄 Relatório de estado</button>'+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openProjEdit(\''+dealId+'\')">Editar projeto</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+'" onclick="delProj(\''+dealId+'\')">Eliminar</button>':'')+'</div>';
     h+='</div>';
     h+='<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Gestor</div><div style="font-weight:600">'+esc(r.gestor||"—")+'</div></div>'+
@@ -2539,11 +2546,30 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       h+='</tbody></table></div>';
     }else h+='<div style="font-size:12.5px;color:#a89d8d">Sem horas registadas. As horas alimentam o custo com pessoal e a margem do projeto.</div>';
     h+='</div>';
+    // ---- Entregáveis & aceitação ----
+    var ents=r.entregaveis||[];var aceites=ents.filter(function(x){return x.estado==="aceite";}).length;
+    h+='<div class="cd"><div class="ch"><div class="ct2">Entregáveis &amp; aceitação</div>'+(canEdit?'<button class="btn bs" style="background:'+GD+'" onclick="openEntreg(\''+dealId+'\')">+ Entregável</button>':'')+'</div>';
+    if(ents.length)h+='<div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">'+ents.length+' entregáve'+(ents.length>1?'is':'l')+' · '+aceites+' aceite'+(aceites===1?'':'s')+' pelo cliente.</div>';
+    if(!ents.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem entregáveis. Regista actas, planos, manuais e o auto de aceitação; anexa os ficheiros e marca quando o cliente aceita.</div>';
+    else{
+      h+='<div style="overflow-x:auto"><table><thead><tr><th>Entregável</th><th>Tipo</th><th>Fase</th><th>Estado</th><th>Aceite</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      ents.forEach(function(x){
+        var atts=(D.attachments||[]).filter(function(a){return a.dealId===dealId&&a.kind===("ent_"+x.id);}).length;
+        h+='<tr><td style="font-weight:600">'+esc(x.nome||"—")+(atts?' <span style="font-size:10px;color:#a89d8d">📎'+atts+'</span>':'')+'</td>'+
+           '<td>'+bdg(entTipoLbl(x.tipo),SL)+'</td>'+
+           '<td style="font-size:11.5px;color:#7a7268">'+esc(faseLbl(r,x.faseId))+'</td>'+
+           '<td>'+bdg(entEstLbl(x.estado),ENT_EST_COL[x.estado]||SL)+'</td>'+
+           '<td style="font-size:11px;color:#7a7268">'+(x.estado==="aceite"?(esc(x.aceitePor||"—")+(x.aceiteData?" · "+fmtD(x.aceiteData):"")):"—")+'</td>'+
+           (canEdit?'<td style="white-space:nowrap;text-align:right"><button class="btn bs" style="background:'+BLU+';margin-right:4px" onclick="openAttM(\''+dealId+'\',\'ent_'+x.id+'\')">📎</button><button class="btn bs" style="background:'+SL+'" onclick="openEntreg(\''+dealId+'\',\''+x.id+'\')">editar</button></td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</div>';
     // ---- Nota ----
     h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">Nota / próximos passos</div>'+
        '<textarea id="pjNote" '+(canEdit?'':'disabled')+' rows="3" style="width:100%;border:1px solid #e5e0da;border-radius:8px;padding:9px 11px;font-size:12.5px;font-family:inherit;resize:vertical" placeholder="Notas do projeto...">'+esc(r.note||"")+'</textarea>'+
        (canEdit?'<div style="text-align:right;margin-top:8px"><button class="btn bs" style="background:'+R+'" onclick="projSaveNote(\''+dealId+'\')">Guardar nota</button></div>':'')+
-       '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f4f0e8;font-size:11.5px;color:#a89d8d">Nos próximos passos do módulo: tracker de integrações e riscos · entregáveis e relatório de estado.</div></div>';
+       '</div>';
     app.innerHTML=h;
   }
   window.setHrRate=function(v){if(isReadOnlyNow())return;D.hrRate=Number(v)||30;save();ren();};
@@ -2655,6 +2681,89 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(typeof logAct==="function")logAct("Projectos","Risco eliminado");
     save();clM();ren();
   };
+  // ---- entregáveis ----
+  window.openEntreg=function(dealId,entId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);var x=entId?(r.entregaveis||[]).filter(function(z){return z.id===entId;})[0]:null;
+    var faseOpts=[{v:"",t:"— sem fase —"}].concat((r.fases||[]).map(function(f){return {v:f.id,t:f.l};}));
+    var aceite=x&&x.estado==="aceite";
+    var body=fld("Nome do entregável",'<input id="en_n" value="'+(x?esc(x.nome||""):"")+'" placeholder="ex.: Manual de utilizador DOCbase">')
+      +'<div class="r2">'+fld("Tipo",sel("en_t",ENT_TIPO.map(function(o){return {v:o[0],t:o[1]};}),x?x.tipo:"acta"))+fld("Fase",sel("en_f",faseOpts,x?x.faseId:""))+'</div>'
+      +fld("Estado",sel("en_e",ENT_EST.map(function(o){return {v:o[0],t:o[1]};}),x?x.estado:"pendente"))
+      +'<div id="en_ab" style="border:1px solid #ece6dc;border-radius:9px;padding:10px 12px;background:#faf8f4;'+(aceite?'':'display:none')+'">'
+      +'<div style="font-size:10.5px;font-weight:700;color:#8a8072;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Aceitação do cliente</div>'
+      +'<div class="r2">'+fld("Aceite por",'<input id="en_ap" value="'+(x?esc(x.aceitePor||""):"")+'" placeholder="nome do cliente">')+fld("Data de aceitação",'<input type="date" id="en_ad" value="'+(x&&x.aceiteData?x.aceiteData:todayISO())+'">')+'</div></div>'
+      +'<div style="display:flex;gap:8px;margin-top:10px">'+(x?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delEntreg(\''+dealId+'\',\''+x.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+GD+'" onclick="svEntreg(\''+dealId+'\',\''+(entId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(x?"Entregável":"Novo entregável",body);
+    var es=document.getElementById("en_e");if(es)es.onchange=function(){document.getElementById("en_ab").style.display=es.value==="aceite"?"":"none";};
+  };
+  window.svEntreg=function(dealId,entId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);var nome=(document.getElementById("en_n").value||"").trim();
+    if(!nome){toastSafe("Indica o nome do entregável.");return;}
+    var est=document.getElementById("en_e").value;
+    var data={nome:nome,tipo:document.getElementById("en_t").value,faseId:document.getElementById("en_f").value,estado:est};
+    if(est==="aceite"){data.aceitePor=(document.getElementById("en_ap").value||"").trim();data.aceiteData=document.getElementById("en_ad").value||todayISO();}
+    else{data.aceitePor="";data.aceiteData="";}
+    var x=entId?(r.entregaveis||[]).filter(function(z){return z.id===entId;})[0]:null;
+    if(x)Object.assign(x,data);else{data.id=uid();data.createdAt=todayISO();r.entregaveis.push(data);}
+    if(typeof logAct==="function")logAct("Projectos","Entregável "+(x?"atualizado":"criado")+" — "+nome.slice(0,40)+(est==="aceite"?" (aceite)":""));
+    save();clM();ren();
+  };
+  window.delEntreg=function(dealId,entId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);r.entregaveis=(r.entregaveis||[]).filter(function(z){return z.id!==entId;});
+    if(typeof logAct==="function")logAct("Projectos","Entregável eliminado");
+    save();clM();ren();
+  };
+  // ---- relatório de estado (para o cliente) ----
+  window.projReport=function(dealId){
+    var r=projRec(dealId);var d=(D.deals||[]).filter(function(x){return x.id===dealId;})[0]||{};
+    var hl=projHealth(r);var pr=projProgress(r);var cur=projCurrent(r);
+    var hoje=new Date().toLocaleDateString("pt-PT",{day:"2-digit",month:"long",year:"numeric"});
+    var estadoCli={ok:"A decorrer dentro do previsto",atencao:"A decorrer, com pontos a acompanhar",risco:"Com desvios a precisar de atenção",concluido:"Concluído"}[hl.k]||hl.l;
+    var fasesH=r.fases.map(function(f){var ic=f.estado==="concluida"?"✓":(f.estado==="em_curso"?"●":"○");var col=f.estado==="concluida"?"#1a9960":(f.estado==="em_curso"?"#7c5cad":"#c9c1b4");
+      var dt=f.estado==="concluida"?(f.dataReal?"Concluída · "+fmtRepD(f.dataReal):"Concluída"):(f.dataPrev?"Previsto · "+fmtRepD(f.dataPrev):"");
+      return '<tr><td style="width:26px;color:'+col+';font-size:16px;text-align:center;vertical-align:top;padding:7px 4px">'+ic+'</td><td style="padding:7px 6px"><div style="font-weight:600;color:#201c16;font-size:13.5px">'+esc(f.l)+(f.gate?' <span style="font-size:10px;color:#a89d8d">(validação)</span>':'')+'</div><div style="font-size:11px;color:#8a8072">'+dt+'</div></td></tr>';}).join("");
+    var prox=(r.tarefas||[]).filter(function(t){return t.estado==="a_fazer"||t.estado==="em_curso";}).slice(0,8)
+      .map(function(t){return '<li style="margin-bottom:4px">'+esc(t.titulo||"")+(t.responsavel?' <span style="color:#a89d8d">— '+esc(t.responsavel)+'</span>':'')+'</li>';}).join("");
+    var riscosCli=(r.riscos||[]).filter(function(x){return x.estado==="aberto"&&(x.impacto==="alto"||x.impacto==="medio");})
+      .map(function(x){return '<li style="margin-bottom:5px"><b>'+esc(x.descricao||"")+'</b>'+(x.mitigacao?'<br><span style="color:#8a8072;font-size:12px">Plano: '+esc(x.mitigacao)+'</span>':'')+'</li>';}).join("");
+    var integProd=(r.integracoes||[]).filter(function(x){return x.estado==="produtivo";}).length;
+    var integTot=(r.integracoes||[]).length;
+    var css="body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#201c16;max-width:820px;margin:0 auto;padding:34px 30px;line-height:1.5}"
+      +"h1{font-size:22px;margin:0 0 2px}.sub{color:#8a8072;font-size:12px;text-transform:uppercase;letter-spacing:.5px}"
+      +".hd{border-bottom:3px solid #AB2331;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px}"
+      +".mw{font-weight:700;color:#AB2331}.card{border:1px solid #e7e0d5;border-radius:12px;padding:16px 18px;margin-bottom:16px}"
+      +".ct{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#8a8072;font-weight:700;margin-bottom:10px}"
+      +".big{font-size:15px;font-weight:600}.bar{height:9px;border-radius:6px;background:#efe9df;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:#7c5cad}"
+      +".pill{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:700;color:#fff}"
+      +"table{width:100%;border-collapse:collapse}ul{margin:0;padding-left:18px}"
+      +"@media print{.noprint{display:none}body{padding:0}}"
+      +".btn{background:#AB2331;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer}";
+    var html='<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Estado do projeto — '+esc(cn(d.clientId))+'</title><style>'+css+'</style></head><body>'
+      +'<div class="noprint" style="text-align:right;margin-bottom:14px"><button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button></div>'
+      +'<div class="hd"><div><div class="sub">Relatório de estado do projeto</div><h1>'+esc(projName(r,d))+'</h1><div style="color:#8a8072;font-size:13px">'+esc(cn(d.clientId))+'</div></div>'
+      +'<div style="text-align:right"><div class="mw" style="font-size:15px">Mobilwave Espanha</div><div style="font-size:11px;color:#a99e8d">Mobilwave Healthcare Solutions</div><div style="font-size:11px;color:#a99e8d;margin-top:4px">'+hoje+'</div></div></div>'
+      +'<div class="card"><div class="ct">Estado geral</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div class="big">'+esc(estadoCli)+'</div><span class="pill" style="background:'+hl.c+'">'+esc(hl.l)+'</span></div>'
+      +'<div style="margin-top:12px;font-size:13px;color:#5a5347">Fase atual: <b>'+esc(cur.l)+'</b> · Progresso global: <b>'+pr+'%</b></div><div class="bar"><i style="width:'+Math.max(3,pr)+'%"></i></div></div>'
+      +'<div class="card"><div class="ct">Marcos do projeto</div><table>'+fasesH+'</table></div>'
+      +(prox?'<div class="card"><div class="ct">Próximos passos</div><ul>'+prox+'</ul></div>':'')
+      +(integTot?'<div class="card"><div class="ct">Integrações</div><div style="font-size:13px;color:#5a5347">'+integProd+' de '+integTot+' interface'+(integTot>1?'s':'')+' em produção.</div></div>':'')
+      +(riscosCli?'<div class="card"><div class="ct">Pontos a acompanhar</div><ul>'+riscosCli+'</ul></div>':'')
+      +'<div style="margin-top:22px;border-top:1px solid #e7e0d5;padding-top:14px;font-size:12px;color:#a99e8d">'+(r.gestor?'Gestor de projeto: <b style="color:#5a5347">'+esc(r.gestor)+'</b> · ':'')+'Mobilwave Espanha · Relatório gerado a '+hoje+'</div>'
+      +'</body></html>';
+    var w=window.open("","_blank");
+    if(w&&w.document){w.document.open();w.document.write(html);w.document.close();}
+    else{ // popup bloqueado — mostra num overlay imprimível
+      var ov=document.createElement("div");ov.id="repOv";ov.style.cssText="position:fixed;inset:0;z-index:100001;background:#fff;overflow:auto";
+      ov.innerHTML='<div class="noprint" style="position:sticky;top:0;background:#f4f0e8;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;border-bottom:1px solid #e7e0d5"><button class="btn bs" style="background:#7a7268" onclick="document.getElementById(\'repOv\').remove()">Fechar</button><button class="btn bs" style="background:#AB2331" onclick="window.print()">Imprimir / PDF</button></div>'+html.replace(/^[\s\S]*<body>/,'').replace(/<\/body>[\s\S]*$/,'');
+      var st=document.createElement("style");st.textContent="@media print{body>*:not(#repOv){display:none!important}#repOv{position:static!important}.noprint{display:none!important}}";ov.appendChild(st);
+      document.body.appendChild(ov);
+    }
+    if(typeof logAct==="function")logAct("Projectos","Relatório de estado gerado — "+cn(d.clientId));
+  };
+  function fmtRepD(iso){if(!iso)return"";try{return new Date(iso+"T00:00:00").toLocaleDateString("pt-PT",{day:"2-digit",month:"short",year:"numeric"});}catch(e){return iso;}}
   window.projSaveNote=function(dealId){var r=projRec(dealId);var el=document.getElementById("pjNote");if(el){r.note=el.value;save();toastSafe("Nota guardada.","ok");}};
   window.projAdvance=function(dealId){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
