@@ -2317,6 +2317,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(r.fimPrev==null)r.fimPrev="";
     if(!Array.isArray(r.tarefas))r.tarefas=[];
     if(!Array.isArray(r.horas))r.horas=[];
+    if(!Array.isArray(r.integracoes))r.integracoes=[];
+    if(!Array.isArray(r.riscos))r.riscos=[];
     return r;
   }
   function projRec(dealId){
@@ -2332,10 +2334,12 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function projHealth(r){
     if(projDone(r))return {k:"concluido",l:"Concluído",c:SL};
     var today=todayISO(),d7=addDays(today,7);
+    var riscoAlto=(r.riscos||[]).some(function(x){return x.impacto==="alto"&&x.estado==="aberto";});
     var late=r.fases.some(function(f){return f.estado!=="concluida"&&f.dataPrev&&f.dataPrev<today;})||(r.fimPrev&&r.fimPrev<today);
-    if(late)return {k:"risco",l:"Em risco",c:R};
+    if(late||riscoAlto)return {k:"risco",l:"Em risco",c:R};
+    var riscoAberto=(r.riscos||[]).some(function(x){return x.estado==="aberto";});
     var soon=r.fases.some(function(f){return f.estado!=="concluida"&&f.dataPrev&&f.dataPrev>=today&&f.dataPrev<=d7;})||(r.fimPrev&&r.fimPrev>=today&&r.fimPrev<=d7);
-    if(soon)return {k:"atencao",l:"Atenção",c:GD};
+    if(soon||riscoAberto)return {k:"atencao",l:"Atenção",c:GD};
     return {k:"ok",l:"No prazo",c:GRN};
   }
   function hbar(pct,col){return '<div style="height:7px;border-radius:5px;background:#efe9df;overflow:hidden;min-width:70px"><i style="display:block;height:100%;width:'+Math.max(3,pct)+'%;background:'+col+'"></i></div>';}
@@ -2347,6 +2351,21 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function hrRate(){return Number(D.hrRate)||30;}
   function projHoras(r){return (r.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0);}
   function projCusto(r){return projHoras(r)*hrRate();}
+  // ---- integrações (HL7/DICOM/IHE) & riscos (Passo 3) ----
+  var INT_SIST=["HIS","EMR","PACS","RIS","LIS","VNA","Outro"];
+  var INT_PROTO=["HL7 v2","FHIR","DICOM","IHE (XDS/PIX/PDQ)","API REST","Ficheiro/CSV","Outro"];
+  var INT_IFACE=["ADT","ORM","ORU","MDM","SIU","MWL (Modality Worklist)","C-STORE","C-FIND/C-MOVE","Storage Commitment","MPPS","Outro"];
+  var INT_AMB=[["teste","Teste"],["producao","Produção"]];
+  var INT_EST=[["especificacao","Especificação"],["desenvolvimento","Desenvolvimento"],["testes","Testes"],["produtivo","Produtivo"]];
+  var INT_EST_COL={especificacao:SL,desenvolvimento:GD,testes:BLU,produtivo:GRN};
+  function intEstLbl(v){var m=INT_EST.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  function ambLbl(v){var m=INT_AMB.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  var RK_IMP=[["alto","Alto"],["medio","Médio"],["baixo","Baixo"]];
+  var RK_IMP_COL={alto:R,medio:GD,baixo:SL};
+  var RK_PROB=[["alta","Alta"],["media","Média"],["baixa","Baixa"]];
+  var RK_EST=[["aberto","Aberto"],["mitigado","Mitigado"],["fechado","Fechado"]];
+  var RK_EST_COL={aberto:R,mitigado:GD,fechado:GRN};
+  function rkLbl(arr,v){var m=arr.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
 
   function renderProjetos(){
     if(projView){var dl=(D.deals||[]).filter(function(d){return d.id===projView;})[0];if(dl)return renderProjWorkspace(projView);projView=null;}
@@ -2458,6 +2477,45 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       h+='</div>';
     });
     h+='</div><div style="font-size:11px;color:#a89d8d;margin-top:6px">Clica numa tarefa para editar (fase, responsável, estado, horas estimadas).</div></div>';
+    // ---- Integrações (HL7 / DICOM / IHE) ----
+    var ints=r.integracoes||[];var prod=ints.filter(function(x){return x.estado==="produtivo";}).length;
+    h+='<div class="cd"><div class="ch"><div class="ct2">Integrações — HL7 / DICOM / IHE</div>'+(canEdit?'<button class="btn bs" style="background:'+TEAL+'" onclick="openInt(\''+dealId+'\')">+ Interface</button>':'')+'</div>';
+    if(ints.length)h+='<div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">'+ints.length+' interface'+(ints.length>1?'s':'')+' · '+prod+' produtiva'+(prod===1?'':'s')+'.</div>';
+    if(!ints.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem interfaces registadas. Regista aqui cada ligação a HIS/EMR/PACS: protocolo, tipo de mensagem, ambiente e estado.</div>';
+    else{
+      h+='<div style="overflow-x:auto"><table><thead><tr><th>Sistema</th><th>Fornecedor</th><th>Protocolo</th><th>Interface</th><th>Ambiente</th><th>Estado</th><th>Resp.</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      ints.forEach(function(it){
+        h+='<tr'+(canEdit?' style="cursor:pointer" onclick="openInt(\''+dealId+'\',\''+it.id+'\')"':'')+'><td style="font-weight:600">'+esc(it.sistema||"—")+'</td>'+
+           '<td style="font-size:12px;color:#7a7268">'+esc(it.fornecedor||"—")+'</td>'+
+           '<td>'+bdg(esc(it.protocolo||"—"),TEAL)+'</td>'+
+           '<td style="font-size:12px">'+esc(it.iface||"—")+'</td>'+
+           '<td style="font-size:11.5px">'+ambLbl(it.ambiente||"teste")+'</td>'+
+           '<td>'+bdg(intEstLbl(it.estado||"especificacao"),INT_EST_COL[it.estado||"especificacao"])+'</td>'+
+           '<td style="font-size:11.5px;color:#7a7268">'+esc(it.responsavel||"—")+'</td>'+
+           (canEdit?'<td style="text-align:right;color:'+TEAL+';font-size:12px">editar ›</td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</div>';
+    // ---- Riscos & bloqueios ----
+    var rks=r.riscos||[];var abertos=rks.filter(function(x){return x.estado==="aberto";});var altos=abertos.filter(function(x){return x.impacto==="alto";}).length;
+    h+='<div class="cd"><div class="ch"><div class="ct2">Riscos &amp; bloqueios</div>'+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openRisk(\''+dealId+'\')">+ Risco</button>':'')+'</div>';
+    if(altos)h+='<div class="alert" style="margin-bottom:12px"><span>⚠️</span><span><b>'+altos+' risco'+(altos>1?'s':'')+' de impacto alto em aberto</b> — a saúde do projeto está a vermelho por causa disto. Mitiga ou fecha para recuperar.</span></div>';
+    if(!rks.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem riscos registados. Um risco de impacto alto em aberto põe a saúde do projeto a vermelho.</div>';
+    else{
+      h+='<div style="overflow-x:auto"><table><thead><tr><th>Descrição</th><th>Impacto</th><th>Prob.</th><th>Mitigação</th><th>Dono</th><th>Estado</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      rks.slice().sort(function(a,b){var o={aberto:0,mitigado:1,fechado:2};if(o[a.estado]!==o[b.estado])return o[a.estado]-o[b.estado];var im={alto:0,medio:1,baixo:2};return (im[a.impacto]||9)-(im[b.impacto]||9);}).forEach(function(x){
+        h+='<tr'+(canEdit?' style="cursor:pointer" onclick="openRisk(\''+dealId+'\',\''+x.id+'\')"':'')+'><td style="font-weight:600;max-width:240px">'+esc(x.descricao||"—")+'</td>'+
+           '<td>'+bdg(rkLbl(RK_IMP,x.impacto),RK_IMP_COL[x.impacto]||SL)+'</td>'+
+           '<td style="font-size:11.5px">'+rkLbl(RK_PROB,x.probabilidade)+'</td>'+
+           '<td style="font-size:11.5px;color:#7a7268;max-width:200px">'+esc(x.mitigacao||"—")+'</td>'+
+           '<td style="font-size:11.5px;color:#7a7268">'+esc(x.dono||"—")+'</td>'+
+           '<td>'+bdg(rkLbl(RK_EST,x.estado),RK_EST_COL[x.estado]||SL)+'</td>'+
+           (canEdit?'<td style="text-align:right;color:'+R+';font-size:12px">editar ›</td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</div>';
     // ---- Horas & custo ----
     var totH=projHoras(r),custo=projCusto(r),valor=d.value||0,margem=valor-custo;
     h+='<div class="cd"><div class="ch"><div class="ct2">Horas &amp; custo</div>'+(canEdit?'<button class="btn bs" style="background:'+BLU+'" onclick="openHoras(\''+dealId+'\')">+ Registar horas</button>':'')+'</div>';
@@ -2542,6 +2600,60 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var r=projRec(dealId);r.horas=(r.horas||[]).filter(function(x){return x.id!==id;});
     if(typeof logAct==="function")logAct("Projectos","Registo de horas eliminado");
     save();ren();
+  };
+  // ---- integrações ----
+  function dlist(id,opts){return '<datalist id="'+id+'">'+opts.map(function(o){return '<option value="'+esc(o)+'">';}).join("")+'</datalist>';}
+  window.openInt=function(dealId,intId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);var it=intId?(r.integracoes||[]).filter(function(x){return x.id===intId;})[0]:null;
+    var body='<div class="r2">'+fld("Sistema",sel("in_s",INT_SIST.map(function(o){return {v:o,t:o};}),it?it.sistema:"HIS"))+fld("Fornecedor",'<input id="in_f" value="'+(it?esc(it.fornecedor||""):"")+'" placeholder="ex.: Cerner, GE, Dedalus">')+'</div>'
+      +'<div class="r2">'+fld("Protocolo",sel("in_p",INT_PROTO.map(function(o){return {v:o,t:o};}),it?it.protocolo:"HL7 v2"))+fld("Interface / mensagem",'<input id="in_i" list="in_ilist" value="'+(it?esc(it.iface||""):"")+'" placeholder="ex.: ADT, ORU, MWL">'+dlist("in_ilist",INT_IFACE))+'</div>'
+      +'<div class="r2">'+fld("Ambiente",sel("in_a",INT_AMB.map(function(o){return {v:o[0],t:o[1]};}),it?it.ambiente:"teste"))+fld("Estado",sel("in_e",INT_EST.map(function(o){return {v:o[0],t:o[1]};}),it?it.estado:"especificacao"))+'</div>'
+      +'<div class="r2">'+fld("Responsável",'<input id="in_r" value="'+(it?esc(it.responsavel||""):"")+'" placeholder="técnico">')+fld("Nota",'<input id="in_n" value="'+(it?esc(it.nota||""):"")+'" placeholder="mapeamentos, endpoints...">')+'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:6px">'+(it?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delInt(\''+dealId+'\',\''+it.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+TEAL+'" onclick="svInt(\''+dealId+'\',\''+(intId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(it?"Interface de integração":"Nova interface",body);
+  };
+  window.svInt=function(dealId,intId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);
+    var data={sistema:document.getElementById("in_s").value,fornecedor:(document.getElementById("in_f").value||"").trim(),protocolo:document.getElementById("in_p").value,iface:(document.getElementById("in_i").value||"").trim(),ambiente:document.getElementById("in_a").value,estado:document.getElementById("in_e").value,responsavel:(document.getElementById("in_r").value||"").trim(),nota:(document.getElementById("in_n").value||"").trim()};
+    var it=intId?(r.integracoes||[]).filter(function(x){return x.id===intId;})[0]:null;
+    if(it)Object.assign(it,data);else{data.id=uid();data.createdAt=todayISO();r.integracoes.push(data);}
+    if(typeof logAct==="function")logAct("Projectos","Integração "+(it?"atualizada":"criada")+" — "+data.sistema+" "+data.protocolo+(data.iface?" "+data.iface:""));
+    save();clM();ren();
+  };
+  window.delInt=function(dealId,intId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);r.integracoes=(r.integracoes||[]).filter(function(x){return x.id!==intId;});
+    if(typeof logAct==="function")logAct("Projectos","Integração eliminada");
+    save();clM();ren();
+  };
+  // ---- riscos ----
+  window.openRisk=function(dealId,rkId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);var x=rkId?(r.riscos||[]).filter(function(z){return z.id===rkId;})[0]:null;
+    var body=fld("Descrição do risco",'<textarea id="rk_d" rows="2" style="resize:vertical">'+(x?esc(x.descricao||""):"")+'</textarea>')
+      +'<div class="r2">'+fld("Impacto",sel("rk_i",RK_IMP.map(function(o){return {v:o[0],t:o[1]};}),x?x.impacto:"medio"))+fld("Probabilidade",sel("rk_p",RK_PROB.map(function(o){return {v:o[0],t:o[1]};}),x?x.probabilidade:"media"))+'</div>'
+      +fld("Mitigação / plano",'<textarea id="rk_m" rows="2" style="resize:vertical">'+(x?esc(x.mitigacao||""):"")+'</textarea>')
+      +'<div class="r2">'+fld("Dono",'<input id="rk_o" value="'+(x?esc(x.dono||""):"")+'" placeholder="responsável">')+fld("Estado",sel("rk_e",RK_EST.map(function(o){return {v:o[0],t:o[1]};}),x?x.estado:"aberto"))+'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:6px">'+(x?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delRisk(\''+dealId+'\',\''+x.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svRisk(\''+dealId+'\',\''+(rkId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(x?"Risco / bloqueio":"Novo risco",body);
+  };
+  window.svRisk=function(dealId,rkId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);var desc=(document.getElementById("rk_d").value||"").trim();
+    if(!desc){toastSafe("Descreve o risco.");return;}
+    var data={descricao:desc,impacto:document.getElementById("rk_i").value,probabilidade:document.getElementById("rk_p").value,mitigacao:(document.getElementById("rk_m").value||"").trim(),dono:(document.getElementById("rk_o").value||"").trim(),estado:document.getElementById("rk_e").value};
+    var x=rkId?(r.riscos||[]).filter(function(z){return z.id===rkId;})[0]:null;
+    if(x)Object.assign(x,data);else{data.id=uid();data.createdAt=todayISO();r.riscos.push(data);}
+    if(typeof logAct==="function")logAct("Projectos","Risco "+(x?"atualizado":"registado")+" — "+desc.slice(0,40));
+    save();clM();ren();
+  };
+  window.delRisk=function(dealId,rkId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);r.riscos=(r.riscos||[]).filter(function(z){return z.id!==rkId;});
+    if(typeof logAct==="function")logAct("Projectos","Risco eliminado");
+    save();clM();ren();
   };
   window.projSaveNote=function(dealId){var r=projRec(dealId);var el=document.getElementById("pjNote");if(el){r.note=el.value;save();toastSafe("Nota guardada.","ok");}};
   window.projAdvance=function(dealId){
