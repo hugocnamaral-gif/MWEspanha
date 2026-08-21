@@ -1961,9 +1961,43 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     applyRoleGating();
     try{if(!Array.isArray(D._log))D._log=[];prevSnap=snapClone();}catch(e){}
   }
+  // ---------- sincronização entre utilizadores (recarrega quando outra pessoa grava) ----------
+  function modalOpen(){var m=document.getElementById("mArea");return !!(m&&m.innerHTML.trim());}
+  function editingInline(){var a=document.activeElement;return a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);}
+  var __lastData=null;
+  async function reloadState(force){
+    if(!sb||!ready)return;
+    if(saveTimer)return;                        // tenho uma gravação minha pendente — não sobreponho
+    if(!force&&(modalOpen()||editingInline()))return; // não interrompo edição a decorrer
+    try{
+      var r=await sb.from("app_state").select("data").eq("id",ROW_ID).single();
+      if(r.error||!r.data)return;
+      var d=r.data.data;if(!d||!Object.keys(d).length)return;
+      var js=JSON.stringify(d);
+      if(js===__lastData)return;                // nada mudou
+      __lastData=js;
+      D=d;
+      try{if(typeof migrate==="function")migrate();}catch(e){}
+      try{if(typeof ren==="function")ren();}catch(e){}
+      try{applyRoleGating();}catch(e){}
+      try{prevSnap=snapClone();}catch(e){}
+    }catch(e){}
+  }
+  var __syncSetup=false;
+  function setupSync(){
+    if(__syncSetup)return;__syncSetup=true;
+    try{__lastData=JSON.stringify(D);}catch(e){}
+    // 1) ao voltar ao separador
+    try{document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")reloadState(false);});}catch(e){}
+    try{window.addEventListener("focus",function(){reloadState(false);});}catch(e){}
+    // 2) sondagem periódica (30s) enquanto o separador está visível
+    try{setInterval(function(){if(document.visibilityState==="visible")reloadState(false);},30000);}catch(e){}
+    // 3) tempo-real (se estiver ativado no Supabase para a tabela app_state)
+    try{sb.channel("app_state_rt").on("postgres_changes",{event:"UPDATE",schema:"public",table:"app_state",filter:"id=eq."+ROW_ID},function(){reloadState(false);}).subscribe();}catch(e){}
+  }
   async function pushToSB(){
     if(currentRole==="viewer")return;
-    try{var r=await sb.from("app_state").update({data:D}).eq("id",ROW_ID);if(r.error)throw r.error;}
+    try{var r=await sb.from("app_state").update({data:D}).eq("id",ROW_ID);if(r.error)throw r.error;try{__lastData=JSON.stringify(D);}catch(e){}}
     catch(e){toastSafe("Erro ao gravar: "+(e.message||e));}
   }
 
@@ -1973,17 +2007,23 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function isReadOnlyNow(){
     if(currentRole==="admin")return false;
     var d=deptOf(typeof cTab!=="undefined"?cTab:"");
-    if(d==="ferias")return (currentRole==="viewer"||currentRole==="comercial"); // acesso geral: toda a gente que grava pode pedir
+    if(d==="ferias"||d==="eu")return (currentRole==="viewer"||currentRole==="comercial"); // acesso geral: toda a gente que grava pode pedir
     if(d==="clientesg")return currentRole==="viewer"; // Clientes: acesso geral de leitura+edição para todos
     if(!d||d==="admin")return true;
     return userDepts()[d]!=="edit";
   }
 
   // substitui o save() local por gravação na nuvem (com atraso para juntar edições)
+  // reverte uma alteração local que não foi autorizada (evita "mudanças fantasma" que só aparecem a quem editou)
+  function revertToSnap(){
+    if(!prevSnap)return;
+    try{var keep={_log:D._log,_redo:D._redo,attachments:D.attachments};var nd=JSON.parse(JSON.stringify(prevSnap));nd._log=keep._log;nd._redo=keep._redo;if(keep.attachments)nd.attachments=keep.attachments;D=nd;}catch(e){}
+  }
   window.save=function(){
     if(!ready)return true;
     if(isReadOnlyNow()){
-      toastSafe(currentRole==="editor"?"Como editor só podes editar na área Comercial. Esta alteração não foi guardada.":"Tens acesso só de leitura — a alteração não foi guardada.");
+      toastSafe(currentRole==="editor"?"Como editor só podes editar na área Comercial. Esta alteração não foi guardada.":"Não tens permissão de edição aqui — a alteração não foi guardada.");
+      try{revertToSnap();if(typeof ren==="function")ren();}catch(e){}
       return false;
     }
     clearTimeout(saveTimer);saveTimer=setTimeout(pushToSB,450);
@@ -2862,8 +2902,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // ===================== FÉRIAS & AUSÊNCIAS (acesso geral) =====================
   var AB_TIPO=[["ferias","Férias"],["ausencia","Ausência"],["dia_comp","Dia compensatório"],["banco_horas","Banco de horas"]];
-  var AB_COL={ferias:GRN,ausencia:GD,dia_comp:PUR,banco_horas:BLU};
-  function AB_LBL(v){var m=AB_TIPO.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  var AB_COL={ferias:GRN,ausencia:GD,dia_comp:PUR,banco_horas:BLU,baixa:GD};
+  function AB_LBL(v){if(v==="baixa")return "Ausência";var m=AB_TIPO.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
   var MESES3=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   var ferMonth=null;
   function ferReqs(){if(!Array.isArray(D.absences))D.absences=[];return D.absences;}
@@ -2994,42 +3034,416 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   };
 
   // ===================== RECURSOS HUMANOS (Operações) =====================
+  // ---- RH · ficha completa (Passo 1) ----
+  var HR_CONTR=[["sem_termo","Sem termo"],["termo_certo","Termo certo"],["termo_incerto","Termo incerto"],["prestacao","Prestação de serviços"],["estagio","Estágio"]];
+  var HRDOC_TIPO=[["contrato","Contrato"],["id","Identificação"],["seg_social","Segurança Social"],["iban","IBAN"],["certificado","Certificado"],["cv","CV"],["outro","Outro"]];
+  var FORM_TIPO=[["formacao","Formação"],["certificacao","Certificação"]];
+  var AVOBJ_EST=[["por_iniciar","Por iniciar"],["em_curso","Em curso"],["atingido","Atingido"],["falhado","Não atingido"]];
+  var AVOBJ_COL={por_iniciar:SL,em_curso:BLU,atingido:GRN,falhado:R};
+  function avObjLbl(v){var m=AVOBJ_EST.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  function contrLbl(v){var m=HR_CONTR.filter(function(x){return x[0]===v;})[0];return m?m[1]:(v||"—");}
+  function hrdocLbl(v){var m=HRDOC_TIPO.filter(function(x){return x[0]===v;})[0];return m?m[1]:(v||"—");}
+  function hrEncargos(){return (D.hrEncargos!=null?Number(D.hrEncargos):23.75);}
+  function hrCustoMes(pp){return (Number(pp&&pp.custoBase)||0)*(1+hrEncargos()/100);}
+  function hrPP(em){if(!D.hrPeople)D.hrPeople={};if(!D.hrPeople[em])D.hrPeople[em]={};return D.hrPeople[em];}
+  function hrContratoAlerta(pp){
+    if(!pp)return null;var today=todayISO(),d30=addDays(today,30);
+    var c=pp.contrato||{};
+    if(c.periodoExpFim&&c.periodoExpFim>=today&&c.periodoExpFim<=d30)return {txt:"Fim período exp. "+fmtD(c.periodoExpFim),color:GD};
+    if(c.periodoExpFim&&c.periodoExpFim<today&&(!pp._peOk))return null;
+    if(c.fim&&c.fim>=today&&c.fim<=d30)return {txt:"Contrato acaba "+fmtD(c.fim),color:R};
+    if(c.fim&&c.fim<today)return {txt:"Contrato terminado",color:R};
+    return null;
+  }
+  function hrFeriasAno(em){var y=String(new Date().getFullYear());return (D.absences||[]).filter(function(r){return r.email===em&&r.tipo==="ferias"&&r.status==="aprovado"&&(r.start||"").slice(0,4)===y;}).reduce(function(a,r){return a+(Number(r.dias)||0);},0);}
+  var hrView=null;
+
   function renderRH(){
+    if(hrView){return renderHRFicha(hrView);}
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!isReadOnlyNow();
     if(!D.hrPeople)D.hrPeople={};
-    var emails={};(D.absences||[]).forEach(function(r){emails[r.email]=1;});Object.keys(D.hrPeople).forEach(function(e){emails[e]=1;});if(myEmail())emails[myEmail()]=1;
+    var emails={};(D.absences||[]).forEach(function(r){emails[r.email]=1;});Object.keys(D.hrPeople).forEach(function(e){emails[e]=1;});(hrRoster||[]).forEach(function(e){emails[e]=1;});if(myEmail())emails[myEmail()]=1;
     var list=Object.keys(emails).sort();
-    var h=pgHead("👤","Recursos Humanos");
-    h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Colaboradores</div><div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Ficha de cada colaborador: função, admissão, dias de férias/ano e saldo do banco de horas (dos pedidos aprovados). Os acessos gerem-se em Administração → Colaboradores &amp; Perfis.</div>';
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Colaborador</th><th>Função</th><th>Admissão</th><th style="text-align:center">Férias/ano</th><th style="text-align:center">Banco horas</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
-    if(!list.length)h+='<tr><td colspan="'+(canEdit?6:5)+'" style="text-align:center;padding:22px;color:#a89d8d">Sem colaboradores registados.</td></tr>';
-    list.forEach(function(em){var pp=D.hrPeople[em]||{};
-      h+='<tr><td style="font-weight:600">'+esc(pp.nome||em.split("@")[0])+'<div style="font-size:10.5px;color:#a89d8d">'+esc(em)+'</div></td>'+
-        '<td style="color:#7a7268">'+esc(pp.funcao||"—")+'</td><td style="font-size:12px">'+(pp.admissao?fmtD(pp.admissao):"—")+'</td>'+
-        '<td style="text-align:center">'+(pp.diasAno||22)+'</td>'+
-        '<td style="text-align:center;font-weight:700;color:'+PUR+'">'+(saldoHoras(em)>=0?"+":"")+saldoHoras(em)+'h</td>'+
-        (canEdit?'<td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="openHRM(\''+encodeURIComponent(em)+'\')">Editar</button></td>':'')+'</tr>';
+    var custoMes=list.reduce(function(a,em){return a+hrCustoMes(D.hrPeople[em]||{});},0);
+    var alertas=[];list.forEach(function(em){var pp=D.hrPeople[em]||{};var ca=hrContratoAlerta(pp);if(ca)alertas.push({em:em,al:ca});
+      (pp.formacoes||[]).forEach(function(fc){if(fc.tipo==="certificacao"&&fc.validade){if(fc.validade<todayISO())alertas.push({em:em,al:{txt:"Cert. expirada: "+esc(fc.nome),color:R}});else if(fc.validade<=addDays(todayISO(),30))alertas.push({em:em,al:{txt:"Cert. a expirar: "+esc(fc.nome),color:GD}});}});
+    });
+    var h=pgHead("👥","Recursos Humanos",canEdit?'<button class="btn" style="background:'+R+'" onclick="openAddColab()">+ Adicionar colaborador</button>':'');
+    h+='<div class="kr">'+kpi("Colaboradores",""+list.length,"ativos",PUR,PUR)+kpi("Custo mensal",fmt(custoMes),"base + encargos",GD,GD)+kpi("Custo anual",fmt(custoMes*12),"estimado",BLU,BLU)+kpi("A rever",""+alertas.length,"contratos/períodos",alertas.length?R:GRN,alertas.length?R:GRN)+'</div>';
+    if(canEdit&&custoMes>0)h+='<div class="cd" style="border-left:3px solid '+BLU+'"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div class="ct2">Custo com pessoal → break-even</div><div style="font-size:12px;color:#a89d8d;margin-top:3px">Envia o custo mensal total ('+fmt(custoMes)+') para o break-even em Operações › Orçamento.</div></div><button class="btn bs" style="background:'+BLU+'" onclick="pushCustoBreakeven('+Math.round(custoMes)+')">Usar no break-even</button></div></div>';
+    if(alertas.length){
+      h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:8px">A rever ('+alertas.length+')</div>';
+      alertas.forEach(function(a){h+='<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #f4f0e8;cursor:pointer" onclick="openHRFicha(\''+encodeURIComponent(a.em)+'\')"><span style="font-weight:600;font-size:12.5px;flex:1">'+esc(ferName(a.em))+'</span>'+bdg(a.al.txt,a.al.color)+'</div>';});
+      h+='</div>';
+    }
+    // despesas por validar (admin)
+    var despPend=(currentRole==="admin")?allDespesasPend():[];
+    if(despPend.length){
+      h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:10px">Despesas por validar ('+despPend.length+')</div><div style="overflow-x:auto"><table><thead><tr><th>Colaborador</th><th>Descrição</th><th>Categoria</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>';
+      despPend.forEach(function(p){var x=p.d;
+        h+='<tr><td style="font-weight:600">'+esc(ferName(p.em))+'</td><td>'+esc(x.descricao||"—")+'</td><td>'+bdg(despCatLbl(x.categoria),SL)+'</td><td style="text-align:right;font-weight:700">'+fmt(x.valor||0)+'</td>'+
+           '<td style="white-space:nowrap;text-align:right"><button class="btn bs" style="background:'+GRN+';margin-right:4px" onclick="decidirDespesa(\''+encodeURIComponent(p.em)+'\',\''+x.id+'\',\'aprovado\')">✓ Aprovar</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="decidirDespesa(\''+encodeURIComponent(p.em)+'\',\''+x.id+'\',\'rejeitado\')">Rejeitar</button></td></tr>';
+      });
+      h+='</tbody></table></div></div>';
+    }
+    h+='<div class="cd"><div class="ch"><div class="ct2">Colaboradores</div><div style="font-size:11px;color:#a89d8d">Clica para abrir a ficha completa.</div></div>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Colaborador</th><th>Função</th><th>Departamento</th><th>Contrato</th><th>Admissão</th><th style="text-align:right">Custo/mês</th><th style="text-align:center">Banco h</th></tr></thead><tbody>';
+    if(!list.length)h+='<tr><td colspan="7" style="text-align:center;padding:22px;color:#a89d8d">Sem colaboradores registados.</td></tr>';
+    list.forEach(function(em){var pp=D.hrPeople[em]||{};var al=hrContratoAlerta(pp);var c=pp.contrato||{};
+      h+='<tr style="cursor:pointer" onclick="openHRFicha(\''+encodeURIComponent(em)+'\')"><td style="font-weight:600">'+esc(pp.nome||em.split("@")[0])+'<div style="font-size:10.5px;color:#a89d8d">'+esc(em)+'</div></td>'+
+        '<td style="color:#7a7268">'+esc(pp.funcao||"—")+'</td>'+
+        '<td style="font-size:12px;color:#7a7268">'+esc(pp.departamento||"—")+'</td>'+
+        '<td style="font-size:11.5px">'+contrLbl(c.tipo)+(al?' '+bdg(al.txt,al.color):'')+'</td>'+
+        '<td style="font-size:12px">'+(pp.admissao?fmtD(pp.admissao):"—")+'</td>'+
+        '<td style="text-align:right;font-weight:600">'+(pp.custoBase?fmt(hrCustoMes(pp)):"—")+'</td>'+
+        '<td style="text-align:center;font-weight:700;color:'+PUR+'">'+(saldoHoras(em)>=0?"+":"")+saldoHoras(em)+'h</td></tr>';
     });
     h+='</tbody></table></div></div>';
     app.innerHTML=h;
   }
+  window.openHRFicha=function(emEnc){hrView=decodeURIComponent(emEnc);renderRH();};
+  window.hrBack=function(){hrView=null;renderRH();};
+
+  function renderHRFicha(em){
+    var app=document.getElementById("app");if(!app)return;
+    var canEdit=!isReadOnlyNow();var pp=D.hrPeople[em]||{};var c=pp.contrato||{};
+    var nome=pp.nome||em.split("@")[0];var ini=(nome.match(/\b\w/g)||[]).slice(0,2).join("").toUpperCase();
+    var al=hrContratoAlerta(pp);
+    var h='<div style="margin-bottom:14px"><button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="hrBack()">‹ Colaboradores</button></div>';
+    h+='<div class="cd"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="width:48px;height:48px;border-radius:50%;background:'+PUR+';color:#fff;display:flex;align-items:center;justify-content:center;font-family:\'Fraunces\',serif;font-weight:700;font-size:18px;flex:0 0 auto">'+esc(ini)+'</div>'+
+       '<div style="flex:1;min-width:0"><div style="font-family:\'Fraunces\',serif;font-size:21px;font-weight:600">'+esc(nome)+'</div><div style="font-size:12.5px;color:#7a7268">'+esc(pp.funcao||"—")+(pp.departamento?' · '+esc(pp.departamento):'')+(pp.admissao?' · desde '+fmtD(pp.admissao):'')+'</div><div style="font-size:11px;color:#a89d8d">'+esc(em)+'</div></div>'+
+       (canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openHRM(\''+encodeURIComponent(em)+'\')">Editar</button>':'')+'</div>'+
+       (al?'<div class="alert" style="margin-top:12px;margin-bottom:0"><span>⚠️</span><span>'+esc(al.txt)+'.</span></div>':'')+'</div>';
+    // dados & contrato
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Contrato &amp; dados</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 18px" class="hr-dl">'+
+       hrKV("Tipo de contrato",contrLbl(c.tipo))+hrKV("Início",c.inicio?fmtD(c.inicio):"—")+hrKV("Fim",c.fim?fmtD(c.fim):"—")+
+       hrKV("Fim período experimental",c.periodoExpFim?fmtD(c.periodoExpFim):"—")+hrKV("Jornada",c.jornadaH?c.jornadaH+"h/sem":"—")+hrKV("Telefone",pp.telefone||"—")+
+       hrKV("Admissão",pp.admissao?fmtD(pp.admissao):"—")+hrKV("Dias de férias/ano",""+(pp.diasAno||22))+hrKV("Departamento",pp.departamento||"—")+
+       '</div></div>';
+    // férias & horas
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Férias &amp; horas</div><div style="display:flex;gap:22px;flex-wrap:wrap">'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Férias '+new Date().getFullYear()+'</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif">'+hrFeriasAno(em)+' / '+(pp.diasAno||22)+' dias</div></div>'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Banco de horas</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif;color:'+PUR+'">'+(saldoHoras(em)>=0?"+":"")+saldoHoras(em)+'h</div></div>'+
+       '<div style="align-self:center"><button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="cTab=\'ferias\';rPnl()">Ver no mapa de férias ›</button></div>'+
+       '</div></div>';
+    // custo interno
+    var base=Number(pp.custoBase)||0;var cm=hrCustoMes(pp);
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Custo interno</div><div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end">'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Base mensal</div><div style="font-size:18px;font-weight:700;font-family:\'Fraunces\',serif">'+fmt(base)+'</div></div>'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Encargos (PT)</div>'+(canEdit?'<input type="number" step="0.01" value="'+hrEncargos()+'" onchange="setEncargos(this.value)" style="width:80px;border:1px solid #e5e0da;border-radius:6px;padding:4px 7px;font-size:13px;font-family:inherit">%':'<div style="font-size:18px;font-weight:700">'+hrEncargos()+'%</div>')+'</div>'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo mensal</div><div style="font-size:18px;font-weight:700;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(cm)+'</div></div>'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo anual</div><div style="font-size:18px;font-weight:700;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(cm*12)+'</div></div>'+
+       '</div><div style="font-size:11px;color:#a89d8d;margin-top:8px">Custo interno estimado (base + encargos), para gestão e break-even. As nóminas oficiais ficam com a gestoria.</div></div>';
+    // documentos
+    var docs=pp.documentos||[];
+    h+='<div class="cd"><div class="ch"><div class="ct2">Documentos ('+docs.length+')</div>'+(canEdit?'<button class="btn bs" style="background:'+GD+'" onclick="openHRDoc(\''+encodeURIComponent(em)+'\')">+ Documento</button>':'')+'</div>';
+    if(!docs.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem documentos. Regista contrato, identificação, certificados e datas de validade.</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Documento</th><th>Tipo</th><th>Data</th><th>Validade</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      docs.slice().forEach(function(dc){var venc=dc.validade&&dc.validade<todayISO();
+        h+='<tr><td style="font-weight:600">'+esc(dc.nome||"—")+'</td><td>'+bdg(hrdocLbl(dc.tipo),SL)+'</td><td style="font-size:12px">'+(dc.data?fmtD(dc.data):"—")+'</td>'+
+           '<td style="font-size:12px;color:'+(venc?R:"#7a7268")+';font-weight:'+(venc?700:400)+'">'+(dc.validade?fmtD(dc.validade)+(venc?" (expirado)":""):"—")+'</td>'+
+           (canEdit?'<td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="openHRDoc(\''+encodeURIComponent(em)+'\',\''+dc.id+'\')">editar</button></td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';}
+    h+='</div>';
+    // formação & certificações
+    var forms=pp.formacoes||[];
+    h+='<div class="cd"><div class="ch"><div class="ct2">Formação &amp; certificações ('+forms.length+')</div>'+(canEdit?'<button class="btn bs" style="background:'+BLU+'" onclick="openForm(\''+encodeURIComponent(em)+'\')">+ Formação</button>':'')+'</div>';
+    if(!forms.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem registos. Formações feitas e certificações com validade (alerta quando expiram).</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Entidade</th><th>Data</th><th>Validade</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      forms.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(fc){var venc=fc.validade&&fc.validade<todayISO();var soon=fc.validade&&fc.validade>=todayISO()&&fc.validade<=addDays(todayISO(),30);
+        h+='<tr><td style="font-weight:600">'+esc(fc.nome||"—")+'</td><td>'+bdg(fc.tipo==="certificacao"?"Certificação":"Formação",fc.tipo==="certificacao"?TEAL:SL)+'</td><td style="font-size:12px;color:#7a7268">'+esc(fc.entidade||"—")+'</td><td style="font-size:12px">'+(fc.data?fmtD(fc.data):"—")+'</td>'+
+           '<td style="font-size:12px;color:'+(venc?R:(soon?GD:"#7a7268"))+';font-weight:'+(venc||soon?700:400)+'">'+(fc.validade?fmtD(fc.validade)+(venc?" (expirado)":(soon?" (expira)":"")):"—")+'</td>'+
+           (canEdit?'<td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="openForm(\''+encodeURIComponent(em)+'\',\''+fc.id+'\')">editar</button></td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';}
+    h+='</div>';
+    // avaliações & objetivos
+    var avs=pp.avaliacoes||[];
+    h+='<div class="cd"><div class="ch"><div class="ct2">Avaliações &amp; objetivos ('+avs.length+')</div>'+(canEdit?'<button class="btn bs" style="background:'+PUR+'" onclick="openAval(\''+encodeURIComponent(em)+'\')">+ Avaliação</button>':'')+'</div>';
+    if(!avs.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem avaliações. Cria um ciclo com objetivos e nota.</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Ciclo</th><th>Data</th><th>Objetivos</th><th>Nota</th><th>Estado</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      avs.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(av){var objs=av.objetivos||[];var ating=objs.filter(function(o){return o.estado==="atingido";}).length;
+        h+='<tr><td style="font-weight:600">'+esc(av.ciclo||"—")+'</td><td style="font-size:12px">'+(av.data?fmtD(av.data):"—")+'</td><td style="font-size:12px;color:#7a7268">'+(objs.length?ating+"/"+objs.length+" atingidos":"—")+'</td><td style="font-weight:700">'+(av.nota?esc(av.nota)+"/5":"—")+'</td><td>'+bdg(av.estado==="concluida"?"Concluída":"Rascunho",av.estado==="concluida"?GRN:SL)+'</td>'+
+           (canEdit?'<td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="openAval(\''+encodeURIComponent(em)+'\',\''+av.id+'\')">abrir</button></td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';}
+    h+='</div>';
+    // baixas médicas (acesso restrito — admin)
+    if(currentRole==="admin"){
+      var baixas=myBaixas(em);
+      h+='<div class="cd" style="border-left:3px solid '+R+'"><div class="ch"><div class="ct2">🩺 Baixas médicas ('+baixas.length+') · restrito</div><button class="btn bs" style="background:'+R+'" onclick="openBaixa(\''+encodeURIComponent(em)+'\')">+ Registar baixa</button></div>';
+      if(!baixas.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem baixas registadas. No mapa de ausências, uma baixa aparece apenas como “ausência”, sem revelar o motivo.</div>';
+      else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Tipo</th><th>Início</th><th>Fim</th><th style="text-align:center">Dias úteis</th><th>Documento</th><th></th></tr></thead><tbody>';
+        baixas.slice().sort(function(a,b){return (b.start||"").localeCompare(a.start||"");}).forEach(function(b){
+          h+='<tr><td style="font-weight:600">'+baixaTipoLbl(b.baixaTipo)+'</td><td style="font-size:12px">'+(b.start?fmtD(b.start):"—")+'</td><td style="font-size:12px">'+(b.end?fmtD(b.end):"—")+'</td><td style="text-align:center">'+(b.dias||0)+'</td><td style="font-size:11.5px;color:#7a7268">'+esc(b.doc||"—")+'</td><td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="openBaixa(\''+encodeURIComponent(em)+'\',\''+b.id+'\')">editar</button></td></tr>';
+        });
+        h+='</tbody></table></div>';}
+      h+='</div>';
+    }
+    app.innerHTML=h;
+  }
+  function hrKV(k,v){return '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">'+esc(k)+'</div><div style="font-size:13px;font-weight:600;margin-top:2px">'+esc(v)+'</div></div>';}
+  window.setEncargos=function(v){if(isReadOnlyNow())return;D.hrEncargos=Number(v)||0;save();ren();};
   window.openHRM=function(emEnc){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
-    var em=decodeURIComponent(emEnc);if(!D.hrPeople)D.hrPeople={};var pp=D.hrPeople[em]||{};
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);var c=pp.contrato||{};
     var body=fld("Colaborador",'<input value="'+esc(em)+'" disabled>')
-      +fld("Nome",'<input id="hr1" value="'+esc(pp.nome||"")+'">')
-      +'<div class="r2">'+fld("Função",'<input id="hr2" value="'+esc(pp.funcao||"")+'">')+fld("Admissão",'<input type="date" id="hr3" value="'+(pp.admissao||"")+'">')+'</div>'
-      +fld("Dias de férias por ano",'<input type="number" id="hr4" value="'+(pp.diasAno||22)+'">')
+      +'<div class="r2">'+fld("Nome",'<input id="hr1" value="'+esc(pp.nome||"")+'">')+fld("Função",'<input id="hr2" value="'+esc(pp.funcao||"")+'">')+'</div>'
+      +'<div class="r2">'+fld("Departamento",'<input id="hrDep" value="'+esc(pp.departamento||"")+'">')+fld("Telefone",'<input id="hrTel" value="'+esc(pp.telefone||"")+'">')+'</div>'
+      +'<div class="r2">'+fld("Admissão",'<input type="date" id="hr3" value="'+(pp.admissao||"")+'">')+fld("Dias de férias/ano",'<input type="number" id="hr4" value="'+(pp.diasAno||22)+'">')+'</div>'
+      +'<div style="border-top:1px solid #f4f0e8;margin:8px 0 10px;padding-top:8px;font-size:10.5px;font-weight:700;color:#8a8072;text-transform:uppercase;letter-spacing:.3px">Contrato</div>'
+      +'<div class="r2">'+fld("Tipo",sel("hrCt",HR_CONTR.map(function(o){return {v:o[0],t:o[1]};}),c.tipo||"sem_termo"))+fld("Jornada (h/semana)",'<input type="number" id="hrJor" value="'+(c.jornadaH||"")+'">')+'</div>'
+      +'<div class="r2">'+fld("Início",'<input type="date" id="hrCi" value="'+(c.inicio||"")+'">')+fld("Fim (se aplicável)",'<input type="date" id="hrCf" value="'+(c.fim||"")+'">')+'</div>'
+      +'<div class="r2">'+fld("Fim período experimental",'<input type="date" id="hrPe" value="'+(c.periodoExpFim||"")+'">')+fld("Custo base mensal €",'<input type="number" id="hrCb" value="'+(pp.custoBase||"")+'">')+'</div>'
       +'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svHR(\''+encodeURIComponent(em)+'\')">Guardar</button>';
-    document.getElementById("mArea").innerHTML=mWrap("Ficha de colaborador",body);
+    document.getElementById("mArea").innerHTML=mWrap("Editar colaborador",body);
   };
   window.svHR=function(emEnc){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
-    var em=decodeURIComponent(emEnc);if(!D.hrPeople)D.hrPeople={};
-    D.hrPeople[em]={nome:(document.getElementById("hr1").value||"").trim(),funcao:(document.getElementById("hr2").value||"").trim(),admissao:document.getElementById("hr3").value,diasAno:Number(document.getElementById("hr4").value)||22};
-    if(typeof logAct==="function")logAct("RH","Ficha atualizada — "+(D.hrPeople[em].nome||em));
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);
+    pp.nome=(document.getElementById("hr1").value||"").trim();
+    pp.funcao=(document.getElementById("hr2").value||"").trim();
+    pp.departamento=(document.getElementById("hrDep").value||"").trim();
+    pp.telefone=(document.getElementById("hrTel").value||"").trim();
+    pp.admissao=document.getElementById("hr3").value;
+    pp.diasAno=Number(document.getElementById("hr4").value)||22;
+    pp.custoBase=Number(document.getElementById("hrCb").value)||0;
+    pp.contrato={tipo:document.getElementById("hrCt").value,jornadaH:Number(document.getElementById("hrJor").value)||0,inicio:document.getElementById("hrCi").value,fim:document.getElementById("hrCf").value,periodoExpFim:document.getElementById("hrPe").value};
+    if(typeof logAct==="function")logAct("RH","Ficha atualizada — "+(pp.nome||em));
     save();clM();ren();
+  };
+  window.openHRDoc=function(emEnc,docId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);if(!Array.isArray(pp.documentos))pp.documentos=[];
+    var dc=docId?pp.documentos.filter(function(x){return x.id===docId;})[0]:null;
+    var body=fld("Nome do documento",'<input id="hd_n" value="'+(dc?esc(dc.nome||""):"")+'" placeholder="ex.: Contrato de trabalho">')
+      +'<div class="r2">'+fld("Tipo",sel("hd_t",HRDOC_TIPO.map(function(o){return {v:o[0],t:o[1]};}),dc?dc.tipo:"contrato"))+fld("Data",'<input type="date" id="hd_d" value="'+(dc?(dc.data||""):todayISO())+'">')+'</div>'
+      +fld("Validade (se aplicável)",'<input type="date" id="hd_v" value="'+(dc?(dc.validade||""):"")+'">')
+      +'<div style="font-size:11px;color:#a89d8d;margin-bottom:10px">O anexo do ficheiro ao documento chega num passo seguinte; por agora regista os dados e a validade.</div>'
+      +'<div style="display:flex;gap:8px">'+(dc?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delHRDoc(\''+encodeURIComponent(em)+'\',\''+dc.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svHRDoc(\''+encodeURIComponent(em)+'\',\''+(docId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(dc?"Documento":"Novo documento",body);
+  };
+  window.svHRDoc=function(emEnc,docId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);if(!Array.isArray(pp.documentos))pp.documentos=[];
+    var nome=(document.getElementById("hd_n").value||"").trim();if(!nome){toastSafe("Indica o nome do documento.");return;}
+    var data={nome:nome,tipo:document.getElementById("hd_t").value,data:document.getElementById("hd_d").value,validade:document.getElementById("hd_v").value};
+    var dc=docId?pp.documentos.filter(function(x){return x.id===docId;})[0]:null;
+    if(dc)Object.assign(dc,data);else{data.id=uid();pp.documentos.push(data);}
+    if(typeof logAct==="function")logAct("RH","Documento "+(dc?"atualizado":"adicionado")+" — "+(pp.nome||em)+": "+nome.slice(0,30));
+    save();clM();ren();
+  };
+  window.delHRDoc=function(emEnc,docId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);pp.documentos=(pp.documentos||[]).filter(function(x){return x.id!==docId;});
+    if(typeof logAct==="function")logAct("RH","Documento eliminado");
+    save();clM();ren();
+  };
+  // ---- formação & certificações ----
+  window.openForm=function(emEnc,fId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);if(!Array.isArray(pp.formacoes))pp.formacoes=[];
+    var fc=fId?pp.formacoes.filter(function(x){return x.id===fId;})[0]:null;
+    var body=fld("Nome",'<input id="fo_n" value="'+(fc?esc(fc.nome||""):"")+'" placeholder="ex.: Certificação DOCbase / RGPD">')
+      +'<div class="r2">'+fld("Tipo",sel("fo_t",FORM_TIPO.map(function(o){return {v:o[0],t:o[1]};}),fc?fc.tipo:"formacao"))+fld("Entidade",'<input id="fo_e" value="'+(fc?esc(fc.entidade||""):"")+'" placeholder="ex.: fabricante">')+'</div>'
+      +'<div class="r2">'+fld("Data",'<input type="date" id="fo_d" value="'+(fc?(fc.data||""):todayISO())+'">')+fld("Validade (se aplicável)",'<input type="date" id="fo_v" value="'+(fc?(fc.validade||""):"")+'">')+'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:6px">'+(fc?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delForm(\''+encodeURIComponent(em)+'\',\''+fc.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svForm(\''+encodeURIComponent(em)+'\',\''+(fId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(fc?"Formação / certificação":"Nova formação",body);
+  };
+  window.svForm=function(emEnc,fId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);if(!Array.isArray(pp.formacoes))pp.formacoes=[];
+    var nome=(document.getElementById("fo_n").value||"").trim();if(!nome){toastSafe("Indica o nome.");return;}
+    var data={nome:nome,tipo:document.getElementById("fo_t").value,entidade:(document.getElementById("fo_e").value||"").trim(),data:document.getElementById("fo_d").value,validade:document.getElementById("fo_v").value};
+    var fc=fId?pp.formacoes.filter(function(x){return x.id===fId;})[0]:null;
+    if(fc)Object.assign(fc,data);else{data.id=uid();pp.formacoes.push(data);}
+    if(typeof logAct==="function")logAct("RH","Formação "+(fc?"atualizada":"adicionada")+" — "+(pp.nome||em)+": "+nome.slice(0,30));
+    save();clM();ren();
+  };
+  window.delForm=function(emEnc,fId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);pp.formacoes=(pp.formacoes||[]).filter(function(x){return x.id!==fId;});
+    if(typeof logAct==="function")logAct("RH","Formação eliminada");save();clM();ren();
+  };
+  // ---- avaliações & objetivos ----
+  window.openAval=function(emEnc,avId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);if(!Array.isArray(pp.avaliacoes))pp.avaliacoes=[];
+    var av=avId?pp.avaliacoes.filter(function(x){return x.id===avId;})[0]:null;
+    var body='<div class="r2">'+fld("Ciclo",'<input id="av_c" value="'+(av?esc(av.ciclo||""):"")+'" placeholder="ex.: 2026 · 1.º semestre">')+fld("Data",'<input type="date" id="av_d" value="'+(av?(av.data||""):todayISO())+'">')+'</div>'
+      +'<div class="r2">'+fld("Nota (0–5)",'<input type="number" min="0" max="5" step="0.5" id="av_n" value="'+(av?(av.nota||""):"")+'">')+fld("Estado",sel("av_e",[{v:"rascunho",t:"Rascunho"},{v:"concluida",t:"Concluída"}],av?av.estado:"rascunho"))+'</div>'
+      +fld("Comentário",'<textarea id="av_cm" rows="2" style="resize:vertical">'+(av?esc(av.comentario||""):"")+'</textarea>');
+    if(av){
+      body+='<div style="border-top:1px solid #f4f0e8;padding-top:10px;margin-top:4px"><div class="ct2" style="margin-bottom:8px">Objetivos ('+((av.objetivos||[]).length)+')</div>';
+      (av.objetivos||[]).forEach(function(o){
+        body+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span style="flex:1;font-size:12.5px">'+esc(o.texto||"")+'</span>'+
+          '<select onchange="avalObjEstado(\''+encodeURIComponent(em)+'\',\''+av.id+'\',\''+o.id+'\',this.value)" style="'+selStyle()+'">'+AVOBJ_EST.map(function(op){return '<option value="'+op[0]+'"'+(o.estado===op[0]?" selected":"")+'>'+op[1]+'</option>';}).join("")+'</select>'+
+          '<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="avalDelObj(\''+encodeURIComponent(em)+'\',\''+av.id+'\',\''+o.id+'\')">×</button></div>';
+      });
+      body+='<div style="display:flex;gap:6px;margin-top:4px"><input id="av_obj" placeholder="novo objetivo..." style="flex:1;border:1px solid #e5e0da;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit"><button class="btn bs" style="background:'+BLU+'" onclick="avalAddObj(\''+encodeURIComponent(em)+'\',\''+av.id+'\')">+ Objetivo</button></div></div>';
+    } else body+='<div style="font-size:11px;color:#a89d8d;margin-bottom:8px">Guarda a avaliação para adicionar objetivos.</div>';
+    body+='<div style="display:flex;gap:8px;margin-top:12px">'+(av?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delAval(\''+encodeURIComponent(em)+'\',\''+av.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Fechar</button><button class="btn" style="background:'+R+'" onclick="svAval(\''+encodeURIComponent(em)+'\',\''+(avId||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(av?"Avaliação":"Nova avaliação",body);
+  };
+  function avalGet(em,avId){var pp=hrPP(em);return (pp.avaliacoes||[]).filter(function(x){return x.id===avId;})[0];}
+  window.svAval=function(emEnc,avId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);if(!Array.isArray(pp.avaliacoes))pp.avaliacoes=[];
+    var ciclo=(document.getElementById("av_c").value||"").trim();if(!ciclo){toastSafe("Indica o ciclo.");return;}
+    var data={ciclo:ciclo,data:document.getElementById("av_d").value,nota:(document.getElementById("av_n").value||"").trim(),estado:document.getElementById("av_e").value,comentario:(document.getElementById("av_cm").value||"").trim()};
+    var av=avId?avalGet(em,avId):null;
+    if(av)Object.assign(av,data);else{data.id=uid();data.objetivos=[];pp.avaliacoes.push(data);avId=data.id;}
+    if(typeof logAct==="function")logAct("RH","Avaliação "+(av?"atualizada":"criada")+" — "+(pp.nome||em)+": "+ciclo.slice(0,30));
+    save();openAval(encodeURIComponent(em),avId);
+  };
+  window.avalAddObj=function(emEnc,avId){
+    if(isReadOnlyNow())return;var em=decodeURIComponent(emEnc);var av=avalGet(em,avId);if(!av)return;
+    var el=document.getElementById("av_obj");var t=(el&&el.value||"").trim();if(!t)return;
+    if(!Array.isArray(av.objetivos))av.objetivos=[];av.objetivos.push({id:uid(),texto:t,estado:"por_iniciar"});
+    save();openAval(emEnc,avId);
+  };
+  window.avalObjEstado=function(emEnc,avId,oId,estado){
+    if(isReadOnlyNow())return;var em=decodeURIComponent(emEnc);var av=avalGet(em,avId);if(!av)return;
+    var o=(av.objetivos||[]).filter(function(x){return x.id===oId;})[0];if(o){o.estado=estado;save();ren();}
+  };
+  window.avalDelObj=function(emEnc,avId,oId){
+    if(isReadOnlyNow())return;var em=decodeURIComponent(emEnc);var av=avalGet(em,avId);if(!av)return;
+    av.objetivos=(av.objetivos||[]).filter(function(x){return x.id!==oId;});save();openAval(emEnc,avId);
+  };
+  window.delAval=function(emEnc,avId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var pp=hrPP(em);pp.avaliacoes=(pp.avaliacoes||[]).filter(function(x){return x.id!==avId;});
+    if(typeof logAct==="function")logAct("RH","Avaliação eliminada");save();clM();ren();
+  };
+  // ---- adicionar colaborador ----
+  window.openAddColab=function(){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var body=fld("Email do colaborador",'<input id="ac_e" type="email" placeholder="nome@mobilwave.es">')
+      +fld("Nome",'<input id="ac_n" placeholder="Nome do colaborador">')
+      +'<div style="font-size:11.5px;color:#a89d8d;margin:2px 0 10px">Cria a ficha de RH. Para dar <b>acesso à app</b> (login), cria também o utilizador em Supabase → Authentication e atribui-lhe departamentos em Administração › Colaboradores &amp; Perfis.</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="svAddColab()">Criar ficha</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Adicionar colaborador",body);
+  };
+  window.svAddColab=function(){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=(document.getElementById("ac_e").value||"").trim().toLowerCase();var nome=(document.getElementById("ac_n").value||"").trim();
+    if(!em||em.indexOf("@")<0){toastSafe("Indica um email válido.");return;}
+    var pp=hrPP(em);if(nome)pp.nome=nome;if(pp.diasAno==null)pp.diasAno=22;
+    if(typeof logAct==="function")logAct("RH","Colaborador adicionado — "+(nome||em));
+    save();clM();hrView=em;ren();
+  };
+  window.pushCustoBreakeven=function(v){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var doIt=function(){D.timeCostMonth=Number(v)||0;if(typeof logAct==="function")logAct("RH","Custo com pessoal enviado para o break-even — "+fmt(v)+"/mês");save();ren();toastSafe("Custo com pessoal ("+fmt(v)+"/mês) aplicado no break-even.","ok");};
+    if(typeof confirmM==="function")confirmM("Definir o custo do break-even (Operações › Orçamento) como <b>"+fmt(v)+"/mês</b>? Substitui o valor atual.",doIt,{yesLabel:"Aplicar",danger:false});else doIt();
+  };
+  // ---- baixas médicas (Passo 4 · acesso restrito: admin/RH) ----
+  var BAIXA_TIPO=[["doenca","Doença"],["acidente","Acidente de trabalho"],["parental","Parental"],["outro","Outro"]];
+  function baixaTipoLbl(v){var m=BAIXA_TIPO.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  function myBaixas(em){return (D.absences||[]).filter(function(r){return r.email===em&&r.tipo==="baixa";});}
+  window.openBaixa=function(emEnc,id){
+    if(currentRole!=="admin"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);var b=id?(D.absences||[]).filter(function(x){return x.id===id;})[0]:null;
+    var body=fld("Colaborador",'<input value="'+esc(ferName(em))+'" disabled>')
+      +'<div class="r2">'+fld("Tipo",sel("bx_t",BAIXA_TIPO.map(function(o){return {v:o[0],t:o[1]};}),b?b.baixaTipo:"doenca"))+fld("Documento (nº / ref.)",'<input id="bx_doc" value="'+(b?esc(b.doc||""):"")+'">')+'</div>'
+      +'<div class="r2">'+fld("Início",'<input type="date" id="bx_s" value="'+(b?(b.start||""):todayISO())+'">')+fld("Fim",'<input type="date" id="bx_e" value="'+(b?(b.end||""):todayISO())+'">')+'</div>'
+      +fld("Nota (opcional)",'<input id="bx_n" value="'+(b?esc(b.note||""):"")+'">')
+      +'<div style="font-size:11px;color:#a89d8d;margin:2px 0 10px">Acesso restrito. No mapa de ausências aparece apenas como “ausência”, sem revelar o motivo.</div>'
+      +'<div style="display:flex;gap:8px">'+(b?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delBaixa(\''+b.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svBaixa(\''+encodeURIComponent(em)+'\',\''+(id||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap("Baixa médica",body);
+  };
+  window.svBaixa=function(emEnc,id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var em=decodeURIComponent(emEnc);if(!Array.isArray(D.absences))D.absences=[];
+    var s=document.getElementById("bx_s").value,e=document.getElementById("bx_e").value||s;
+    if(!s){toastSafe("Indica a data de início.");return;}if(e<s){toastSafe("O fim é anterior ao início.");return;}
+    var data={email:em,tipo:"baixa",baixaTipo:document.getElementById("bx_t").value,doc:(document.getElementById("bx_doc").value||"").trim(),start:s,end:e,dias:bizDays(s,e),note:(document.getElementById("bx_n").value||"").trim(),status:"aprovado"};
+    var b=id?(D.absences||[]).filter(function(x){return x.id===id;})[0]:null;
+    if(b)Object.assign(b,data);else{data.id=uid();data.createdAt=todayISO();D.absences.push(data);}
+    if(typeof logAct==="function")logAct("RH","Baixa médica registada — "+ferName(em));
+    save();clM();ren();
+  };
+  window.delBaixa=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    D.absences=(D.absences||[]).filter(function(x){return x.id!==id;});
+    if(typeof logAct==="function")logAct("RH","Baixa médica eliminada");save();clM();ren();
+  };
+
+  // ===================== A MINHA ÁREA + DESPESAS (Passo 2 do RH) =====================
+  var DESP_CAT=[["deslocacao","Deslocação"],["alojamento","Alojamento"],["refeicao","Refeição"],["material","Material"],["formacao","Formação"],["outro","Outro"]];
+  var DESP_EST=[["pendente","Pendente"],["aprovado","Aprovado"],["rejeitado","Rejeitado"],["pago","Pago"]];
+  var DESP_EST_COL={pendente:GD,aprovado:GRN,rejeitado:R,pago:BLU};
+  function despCatLbl(v){var m=DESP_CAT.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  function despEstLbl(v){var m=DESP_EST.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
+  function myDespesas(){var pp=(D.hrPeople||{})[myEmail()]||{};return pp.despesas||[];}
+  function allDespesasPend(){var out=[];Object.keys(D.hrPeople||{}).forEach(function(em){(D.hrPeople[em].despesas||[]).forEach(function(x){if(x.estado==="pendente")out.push({em:em,d:x});});});return out;}
+
+  function renderMinhaArea(){
+    var app=document.getElementById("app");if(!app)return;
+    var me=myEmail();var pp=(D.hrPeople||{})[me]||{};var canReq=!isReadOnlyNow();
+    var nome=pp.nome||(me||"").split("@")[0];var ini=(nome.match(/\b\w/g)||[]).slice(0,2).join("").toUpperCase();
+    var y=new Date().getFullYear();
+    var proxFer=(D.absences||[]).filter(function(r){return r.email===me&&r.tipo==="ferias"&&r.status==="aprovado"&&(r.end||r.start)>=todayISO();}).sort(function(a,b){return (a.start||"").localeCompare(b.start||"");})[0];
+    var h=pgHead("🙋","A minha área");
+    h+='<div class="cd"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="width:46px;height:46px;border-radius:50%;background:'+PUR+';color:#fff;display:flex;align-items:center;justify-content:center;font-family:\'Fraunces\',serif;font-weight:700;font-size:17px;flex:0 0 auto">'+esc(ini)+'</div><div><div style="font-family:\'Fraunces\',serif;font-size:19px;font-weight:600">'+esc(nome)+'</div><div style="font-size:12px;color:#7a7268">'+esc(pp.funcao||"—")+(pp.departamento?' · '+esc(pp.departamento):'')+'</div></div></div></div>';
+    // saldos
+    h+='<div class="kr">'+kpi("Férias "+y,hrFeriasAno(me)+" / "+(pp.diasAno||22),"dias gozados",GRN,GRN)+kpi("Banco de horas",(saldoHoras(me)>=0?"+":"")+saldoHoras(me)+"h","saldo",PUR,PUR)+kpi("Próximas férias",proxFer?fmtD(proxFer.start):"—",proxFer?"aprovadas":"nada agendado",BLU,BLU)+kpi("Despesas por reembolsar",fmt(myDespesas().filter(function(x){return x.estado==="aprovado";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0)),"aprovadas",GD,GD)+'</div>';
+    // ações
+    if(canReq)h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Pedir</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" style="background:'+GRN+'" onclick="openPedidoM()">🌴 Pedir férias / ausência</button><button class="btn" style="background:'+GD+'" onclick="openDespesa()">💶 Nova despesa</button></div></div>';
+    // as minhas despesas
+    var mine=myDespesas();
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">As minhas despesas ('+mine.length+')</div>';
+    if(!mine.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem despesas. Usa “Nova despesa” para pedir um reembolso.</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th style="text-align:right">Valor</th><th>Estado</th>'+(canReq?'<th></th>':'')+'</tr></thead><tbody>';
+      mine.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(x){
+        h+='<tr><td style="font-weight:600">'+esc(x.descricao||"—")+'</td><td>'+bdg(despCatLbl(x.categoria),SL)+'</td><td style="font-size:12px">'+(x.data?fmtD(x.data):"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(x.valor||0)+'</td><td>'+bdg(despEstLbl(x.estado),DESP_EST_COL[x.estado]||SL)+'</td>'+
+           (canReq?'<td style="text-align:right">'+(x.estado==="pendente"?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="cancelDespesa(\''+x.id+'\')">Cancelar</button>':'')+'</td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';}
+    h+='</div>';
+    // os meus documentos (leitura)
+    var docs=pp.documentos||[];
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Os meus documentos ('+docs.length+')</div>';
+    if(!docs.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem documentos partilhados pelo RH.</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Documento</th><th>Tipo</th><th>Data</th><th>Validade</th></tr></thead><tbody>';
+      docs.forEach(function(dc){var venc=dc.validade&&dc.validade<todayISO();h+='<tr><td style="font-weight:600">'+esc(dc.nome||"—")+'</td><td>'+bdg(hrdocLbl(dc.tipo),SL)+'</td><td style="font-size:12px">'+(dc.data?fmtD(dc.data):"—")+'</td><td style="font-size:12px;color:'+(venc?R:"#7a7268")+'">'+(dc.validade?fmtD(dc.validade)+(venc?" (expirado)":""):"—")+'</td></tr>';});
+      h+='</tbody></table></div>';}
+    h+='</div>';
+    app.innerHTML=h;
+  }
+  window.openDespesa=function(){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var body=fld("Descrição",'<input id="dp_d" placeholder="ex.: Portagens visita IMED Valencia">')
+      +'<div class="r2">'+fld("Categoria",sel("dp_c",DESP_CAT.map(function(o){return {v:o[0],t:o[1]};}),"deslocacao"))+fld("Valor €",'<input type="number" step="0.01" id="dp_v" value="0">')+'</div>'
+      +'<div class="r2">'+fld("Data",'<input type="date" id="dp_dt" value="'+todayISO()+'">')+fld("Nota (opcional)",'<input id="dp_n" placeholder="detalhe">')+'</div>'
+      +'<div style="font-size:11.5px;color:#a89d8d;margin:2px 0 10px">A despesa fica <b>pendente</b> até o administrador validar.</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="svDespesa()">Enviar despesa</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Nova despesa",body);
+  };
+  window.svDespesa=function(){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var desc=(document.getElementById("dp_d").value||"").trim();var val=Number(document.getElementById("dp_v").value)||0;
+    if(!desc){toastSafe("Indica a descrição.");return;}if(val<=0){toastSafe("Indica o valor.");return;}
+    var pp=hrPP(myEmail());if(!Array.isArray(pp.despesas))pp.despesas=[];
+    pp.despesas.push({id:uid(),descricao:desc,categoria:document.getElementById("dp_c").value,valor:val,data:document.getElementById("dp_dt").value||todayISO(),nota:(document.getElementById("dp_n").value||"").trim(),estado:"pendente",createdAt:todayISO()});
+    if(typeof logAct==="function")logAct("RH","Despesa submetida — "+desc.slice(0,30)+" ("+fmt(val)+")");
+    save();clM();ren();toastSafe("Despesa enviada — fica pendente de validação.","ok");
+  };
+  window.cancelDespesa=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var pp=hrPP(myEmail());pp.despesas=(pp.despesas||[]).filter(function(x){return x.id!==id;});
+    if(typeof logAct==="function")logAct("RH","Despesa cancelada");
+    save();ren();
+  };
+  window.decidirDespesa=function(emEnc,id,estado){
+    if(currentRole!=="admin"){toastSafe("Só o administrador valida.");return;}
+    var em=decodeURIComponent(emEnc);var pp=(D.hrPeople||{})[em];if(!pp)return;
+    var x=(pp.despesas||[]).filter(function(z){return z.id===id;})[0];if(!x)return;
+    x.estado=estado;x.decidedBy=myEmail();x.decidedAt=todayISO();
+    if(typeof logAct==="function")logAct("RH","Despesa "+estado+" — "+(pp.nome||em)+": "+(x.descricao||"").slice(0,30));
+    save();ren();
   };
 
   // ===================== SUPORTE · PEDIDOS / TICKETS =====================
@@ -3048,6 +3462,23 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     return {txt:"faltam "+d+"d",color:d<=2?GD:GRN,vencido:false};
   }
   var tkState={estado:"",prio:"",search:""};
+  // Passo 1 do Suporte: canal, associação a cliente por email, e fio de conversa
+  function tkMatchClient(email){
+    email=(email||"").trim().toLowerCase();if(!email)return "";
+    var c=(D.contacts||[]).filter(function(x){return (x.email||"").trim().toLowerCase()===email;})[0];
+    if(c)return c.clientId;
+    var dom=email.split("@")[1];
+    if(dom){var c2=(D.contacts||[]).filter(function(x){return ((x.email||"").split("@")[1]||"").toLowerCase()===dom;})[0];if(c2)return c2.clientId;}
+    return "";
+  }
+  function tkTriar(t){return t.estado==="aberto"&&!(t.assignee||"").trim();}
+  function tkConversa(t){
+    var items=[];
+    (t.mensagens||[]).forEach(function(m){items.push({tipo:m.direcao==="enviada"?"enviada":"recebida",quando:m.data||m.createdAt||"",quem:m.direcao==="enviada"?(m.de||"soporte@mobilwave.es"):(m.de||t.fromNome||t.fromEmail||"cliente"),corpo:m.corpo||""});});
+    (t.intervencoes||[]).forEach(function(iv){items.push({tipo:"nota",quando:iv.date||"",quem:iv.author||"",corpo:iv.note||""});});
+    items.sort(function(a,b){return (a.quando||"").localeCompare(b.quando||"");});
+    return items;
+  }
   function renderSuporte(){
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!isReadOnlyNow();
@@ -3058,8 +3489,21 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var vencidos=all.filter(function(t){return tkSla(t).vencido;}).length;
     var mes=new Date().toISOString().slice(0,7);
     var resolvMes=all.filter(function(t){return t.resolvedAt&&t.resolvedAt.slice(0,7)===mes;}).length;
+    var triar=all.filter(tkTriar);
     var h=pgHead("🎧","Suporte — Pedidos",canEdit?'<button class="btn" style="background:'+R+'" onclick="openTicketM()">+ Novo pedido</button>':'');
-    h+='<div class="kr">'+kpi("Abertos",""+abertos,"por resolver",R,R)+kpi("Prioritários",""+urg,"urgentes/altos",GD,G)+kpi("SLA vencido",""+vencidos,"fora do prazo",vencidos?R:GRN,vencidos?R:GRN)+kpi("Resolvidos (mês)",""+resolvMes,"",GRN,GRN)+'</div>';
+    h+='<div class="kr">'+kpi("Por triar",""+triar.length,"sem responsável",triar.length?GD:GRN,triar.length?GD:GRN)+kpi("Abertos",""+abertos,"por resolver",R,R)+kpi("SLA vencido",""+vencidos,"fora do prazo",vencidos?R:GRN,vencidos?R:GRN)+kpi("Resolvidos (mês)",""+resolvMes,"",GRN,GRN)+'</div>';
+    // caixa de entrada — pedidos por triar (sem responsável)
+    if(triar.length){
+      h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:8px">📥 Caixa de entrada — por triar ('+triar.length+')</div>';
+      triar.slice().sort(function(a,b){return (b.createdAt||"").localeCompare(a.createdAt||"");}).forEach(function(t){
+        h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #f0e6cf;background:#fdfaf2;border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="openTicketM(\''+t.id+'\')">'+
+           '<span style="font-size:14px">'+(t.canal==="email"?"📧":"📝")+'</span>'+
+           '<div style="min-width:0;flex:1"><div style="font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.titulo||"—")+'</div><div style="font-size:10.5px;color:#a89d8d">'+esc(t.clientId?cn(t.clientId):(t.fromEmail||"por associar"))+' · '+fmtD(t.createdAt||"")+'</div></div>'+
+           bdg(tkLbl(TK_PRIO,t.prioridade),TK_PRIO_COL[t.prioridade]||SL)+
+           (canEdit?'<button class="btn bs" style="background:'+BLU+'" onclick="event.stopPropagation();tkAssumir(\''+t.id+'\')">Assumir</button>':'')+'</div>';
+      });
+      h+='</div>';
+    }
     h+='<div class="cd"><div class="ch"><div class="ct2">Pedidos ('+all.length+')</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
     h+='<select id="tkEstado" style="'+selStyle()+'"><option value="">Todos os estados</option>'+TK_ESTADO.map(function(o){return '<option value="'+o[0]+'"'+(tkState.estado===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
     h+='<select id="tkPrio" style="'+selStyle()+'"><option value="">Todas prioridades</option>'+TK_PRIO.map(function(o){return '<option value="'+o[0]+'"'+(tkState.prio===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
@@ -3074,8 +3518,9 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!list.length)h+='<tr><td colspan="7" style="text-align:center;padding:24px;color:#a89d8d">Sem pedidos.'+(canEdit?' Cria o primeiro com “+ Novo pedido”.':'')+'</td></tr>';
     list.forEach(function(t){
       var sla=tkSla(t);var ni=(t.intervencoes||[]).length;
-      h+='<tr style="cursor:pointer" onclick="openTicketM(\''+t.id+'\')"><td style="font-weight:600">'+esc(cn(t.clientId))+'</td>'+
-        '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.titulo||"—")+(ni?' <span style="font-size:10px;color:#a89d8d">· '+ni+' interv.</span>':'')+'</td>'+
+      var nm=(t.mensagens||[]).length;
+      h+='<tr style="cursor:pointer" onclick="openTicketM(\''+t.id+'\')"><td style="font-weight:600">'+(t.canal==="email"?'<span title="veio por email">📧</span> ':'')+(t.clientId?esc(cn(t.clientId)):'<span style="color:#c48e1a">por associar</span>')+'</td>'+
+        '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.titulo||"—")+(nm?' <span style="font-size:10px;color:#a89d8d">· '+nm+' msg</span>':(ni?' <span style="font-size:10px;color:#a89d8d">· '+ni+' interv.</span>':''))+'</td>'+
         '<td>'+bdg(tkLbl(TK_PRIO,t.prioridade),TK_PRIO_COL[t.prioridade]||SL)+'</td>'+
         '<td>'+bdg(tkLbl(TK_ESTADO,t.estado),TK_ESTADO_COL[t.estado]||SL)+'</td>'+
         '<td>'+bdg(sla.txt,sla.color)+'</td>'+
@@ -3092,8 +3537,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!Array.isArray(D.tickets))D.tickets=[];
     var canEdit=!isReadOnlyNow();
     var t=id?D.tickets.filter(function(x){return x.id===id;})[0]:null;
-    var cs=(D.clients||[]).map(function(c){return {v:c.id,t:c.name};});
-    var cid=t?t.clientId:(cs[0]?cs[0].v:"");
+    var cs=[{v:"",t:"— por associar —"}].concat((D.clients||[]).map(function(c){return {v:c.id,t:c.name};}));
+    var cid=t?(t.clientId||""):"";
     var cl=(D.clients||[]).filter(function(c){return c.id===cid;})[0]||{};
     var dis=canEdit?"":"disabled";
     var body=fld("Cliente",sel("tk1",cs,cid))
@@ -3101,14 +3546,32 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       +fld("Descrição",'<textarea id="tk3" '+dis+' rows="3" style="resize:vertical">'+(t?esc(t.descricao||""):"")+'</textarea>')
       +'<div class="r2">'+fld("Prioridade",sel("tk4",TK_PRIO.map(function(o){return {v:o[0],t:o[1]};}),t?t.prioridade:"media"))+fld("Estado",sel("tk5",TK_ESTADO.map(function(o){return {v:o[0],t:o[1]};}),t?t.estado:"aberto"))+'</div>'
       +'<div class="r2">'+fld("Responsável",'<input id="tk6" '+dis+' value="'+(t?esc(t.assignee||""):"")+'" placeholder="técnico">')+fld("Data-limite (SLA)",'<input type="date" id="tk7" '+dis+' value="'+(t?(t.dueDate||""):"")+'">')+'</div>';
+    // origem por email (novos pedidos) — prepara o email→ticket do Passo 2
+    if(!t&&canEdit){
+      body+='<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#5a5347;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="tkEmailChk" style="accent-color:#AB2331" onchange="var e=document.getElementById(\'tkEmailBox\');e.style.display=this.checked?\'\':\'none\'"> Este pedido veio por email</label>'
+        +'<div id="tkEmailBox" style="display:none;border:1px solid #ece6dc;border-radius:9px;padding:10px 12px;background:#faf8f4;margin-bottom:12px">'
+        +'<div class="r2">'+fld("Email do remetente",'<input id="tkFrom" placeholder="cliente@hospital.es" oninput="tkTryAssoc()">')+fld("Nome (opcional)",'<input id="tkFromName" placeholder="Dr. Silva">')+'</div>'
+        +'<div id="tkAssoc" style="font-size:11px;color:#a89d8d">A descrição acima entra como a primeira mensagem recebida.</div></div>';
+    }
+    if(t&&t.canal==="email"){
+      body+='<div style="border:1px solid #ece6dc;border-radius:9px;padding:8px 12px;background:#faf8f4;margin-bottom:12px;font-size:11.5px;color:#7a7268">📧 Veio por email de <b>'+esc(t.fromNome||t.fromEmail||"—")+'</b>'+(t.fromEmail?' &lt;'+esc(t.fromEmail)+'&gt;':'')+'</div>';
+    }
     var inst=(cl.install||[]);
     if(inst.length)body+='<div style="border:1px solid #ece6dc;border-radius:9px;padding:10px 12px;background:#faf8f4;margin-bottom:12px"><div style="font-size:10.5px;font-weight:700;color:#8a8072;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Parque instalado — '+esc(cl.name)+'</div><div style="display:flex;flex-wrap:wrap;gap:5px">'+inst.map(function(it){return bdg(esc(it.label)+": "+esc(it.value||"—"),SL);}).join("")+'</div></div>';
     if(t){
-      body+='<div style="border-top:1px solid #f4f0e8;padding-top:10px;margin-top:4px"><div class="ct2" style="margin-bottom:8px">Histórico de intervenções ('+((t.intervencoes||[]).length)+')</div>';
-      (t.intervencoes||[]).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).forEach(function(iv){
-        body+='<div style="padding:8px 10px;background:#faf8f4;border-radius:8px;margin-bottom:6px"><div style="font-size:10.5px;color:#a89d8d">'+esc(iv.date)+(iv.author?" · "+esc(iv.author):"")+'</div><div style="font-size:12.5px;color:#3a352e;white-space:pre-wrap">'+esc(iv.note||"")+'</div></div>';
+      var conv=tkConversa(t);
+      body+='<div style="border-top:1px solid #f4f0e8;padding-top:10px;margin-top:4px"><div class="ct2" style="margin-bottom:8px">Conversa &amp; notas ('+conv.length+')</div>';
+      if(!conv.length)body+='<div style="font-size:12px;color:#a89d8d;margin-bottom:8px">Sem mensagens ainda.</div>';
+      conv.forEach(function(m){
+        var cfg=m.tipo==="recebida"?{bg:"#eef4f8",bd:BLU,lbl:"Recebido"}:(m.tipo==="enviada"?{bg:"#eef7f0",bd:GRN,lbl:"Enviado"}:{bg:"rgba(184,133,26,.08)",bd:GD,lbl:"Nota interna"});
+        body+='<div style="padding:8px 10px;background:'+cfg.bg+';border-left:3px solid '+cfg.bd+';border-radius:6px;margin-bottom:6px"><div style="font-size:10px;color:#8a8072;text-transform:uppercase;letter-spacing:.03em;font-weight:700">'+cfg.lbl+' · '+esc(m.quem||"")+(m.quando?" · "+esc(m.quando):"")+'</div><div style="font-size:12.5px;color:#3a352e;white-space:pre-wrap;margin-top:2px">'+esc(m.corpo||"")+'</div></div>';
       });
-      if(canEdit)body+='<div style="display:flex;gap:6px;margin-top:6px"><input id="tkIv" placeholder="registar intervenção..." style="flex:1;border:1px solid #e5e0da;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit"><button class="btn bs" style="background:'+BLU+'" onclick="addIntervencao(\''+t.id+'\')">+ Registar</button></div>';
+      if(canEdit){
+        body+='<div style="margin-top:10px"><div style="font-size:10.5px;font-weight:700;color:#8a8072;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Responder ao cliente</div>'
+          +'<textarea id="tkReplyBody" rows="2" placeholder="escrever resposta ao cliente..." style="width:100%;border:1px solid #e5e0da;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px"><span style="font-size:10.5px;color:#a89d8d">O envio real por soporte@ chega no Passo 3 — por agora fica registado na conversa.</span><button class="btn bs" style="background:'+GRN+'" onclick="tkReply(\''+t.id+'\')">Registar resposta</button></div></div>';
+        body+='<div style="display:flex;gap:6px;margin-top:10px"><input id="tkIv" placeholder="nota interna (não vai para o cliente)..." style="flex:1;border:1px solid #e5e0da;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit"><button class="btn bs" style="background:'+GD+'" onclick="addIntervencao(\''+t.id+'\')">+ Nota</button></div>';
+      }
       body+='</div>';
     }
     if(canEdit){
@@ -3121,15 +3584,53 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   window.svTicket=function(id){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var cid=document.getElementById("tk1").value, titulo=(document.getElementById("tk2").value||"").trim();
-    if(!cid||!titulo){toastSafe("Indica cliente e assunto.");return;}
+    var descricao=(document.getElementById("tk3").value||"").trim();
+    if(!titulo){toastSafe("Indica o assunto.");return;}
     var prio=document.getElementById("tk4").value, estado=document.getElementById("tk5").value, due=document.getElementById("tk7").value;
     if(!Array.isArray(D.tickets))D.tickets=[];
     var t=id?D.tickets.filter(function(x){return x.id===id;})[0]:null;
     if(!due){var base=t?(t.createdAt||new Date().toISOString().slice(0,10)):new Date().toISOString().slice(0,10);var dd=new Date(base);dd.setDate(dd.getDate()+(TK_SLA_DAYS[prio]||5));due=dd.toISOString().slice(0,10);}
-    var data={clientId:cid,titulo:titulo,descricao:(document.getElementById("tk3").value||"").trim(),prioridade:prio,estado:estado,assignee:(document.getElementById("tk6").value||"").trim(),dueDate:due};
-    if(t){if(estado==="resolvido"&&!t.resolvedAt)data.resolvedAt=new Date().toISOString().slice(0,10);Object.assign(t,data);if(typeof logAct==="function")logAct("Suporte","Pedido atualizado — "+cn(cid)+": "+titulo.slice(0,40));}
-    else{data.id=uid();data.createdAt=new Date().toISOString().slice(0,10);data.intervencoes=[];if(estado==="resolvido")data.resolvedAt=data.createdAt;D.tickets.push(data);if(typeof logAct==="function")logAct("Suporte","Novo pedido — "+cn(cid)+": "+titulo.slice(0,40));}
+    var data={clientId:cid,titulo:titulo,descricao:descricao,prioridade:prio,estado:estado,assignee:(document.getElementById("tk6").value||"").trim(),dueDate:due};
+    if(t){if(estado==="resolvido"&&!t.resolvedAt)data.resolvedAt=new Date().toISOString().slice(0,10);Object.assign(t,data);if(typeof logAct==="function")logAct("Suporte","Pedido atualizado — "+(cn(cid)||"por associar")+": "+titulo.slice(0,40));}
+    else{
+      var emailChk=document.getElementById("tkEmailChk")&&document.getElementById("tkEmailChk").checked;
+      data.canal=emailChk?"email":"manual";
+      data.id=uid();data.createdAt=new Date().toISOString().slice(0,10);data.intervencoes=[];data.mensagens=[];
+      if(emailChk){
+        data.fromEmail=(document.getElementById("tkFrom").value||"").trim();
+        data.fromNome=(document.getElementById("tkFromName").value||"").trim();
+        if(!data.clientId&&data.fromEmail){var mid=tkMatchClient(data.fromEmail);if(mid)data.clientId=mid;}
+        if(descricao)data.mensagens.push({id:uid(),direcao:"recebida",de:data.fromEmail||data.fromNome||"cliente",data:data.createdAt,corpo:descricao});
+      }
+      if(estado==="resolvido")data.resolvedAt=data.createdAt;
+      D.tickets.push(data);if(typeof logAct==="function")logAct("Suporte","Novo pedido"+(emailChk?" (email)":"")+" — "+(cn(data.clientId)||data.fromEmail||"por associar")+": "+titulo.slice(0,40));
+    }
     save();clM();ren();
+  };
+  window.tkTryAssoc=function(){
+    var from=(document.getElementById("tkFrom")||{}).value||"";var hint=document.getElementById("tkAssoc");var selEl=document.getElementById("tk1");if(!hint)return;
+    if(!from.trim()){hint.textContent="A descrição acima entra como a primeira mensagem recebida.";return;}
+    var mid=tkMatchClient(from);
+    if(mid){if(selEl)selEl.value=mid;hint.innerHTML='✓ Associado a <b>'+esc(cn(mid))+'</b> (pelo contacto).';}
+    else{if(selEl)selEl.value="";hint.textContent="Sem correspondência nos contactos — fica “por associar”.";}
+  };
+  window.tkReply=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var t=(D.tickets||[]).filter(function(x){return x.id===id;})[0];if(!t)return;
+    var el=document.getElementById("tkReplyBody");var body=(el&&el.value||"").trim();if(!body){toastSafe("Escreve a resposta.");return;}
+    if(!Array.isArray(t.mensagens))t.mensagens=[];
+    t.mensagens.push({id:uid(),direcao:"enviada",de:"soporte@mobilwave.es",para:t.fromEmail||"",data:new Date().toISOString().slice(0,10),corpo:body});
+    if(t.estado==="aberto"||t.estado==="em_curso")t.estado="a_aguardar";
+    if(typeof logAct==="function")logAct("Suporte","Resposta ao cliente — "+(cn(t.clientId)||t.fromEmail||"")+": "+body.slice(0,40));
+    save();openTicketM(id);toastSafe("Resposta registada.","ok");
+  };
+  window.tkAssumir=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var t=(D.tickets||[]).filter(function(x){return x.id===id;})[0];if(!t)return;
+    t.assignee=(typeof ferName==="function"?ferName(currentEmail):"")||currentEmail||"eu";
+    if(t.estado==="aberto")t.estado="em_curso";
+    if(typeof logAct==="function")logAct("Suporte","Pedido assumido — "+(cn(t.clientId)||t.fromEmail||""));
+    save();ren();toastSafe("Assumido por ti.","ok");
   };
   window.addIntervencao=function(id){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
@@ -3176,12 +3677,14 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var _r=rPnl;
     rPnl=function(){
       try{if(typeof cTab!=="undefined"&&cTab!=="projetos"&&typeof projView!=="undefined")projView=null;}catch(e){}
+      try{if(typeof cTab!=="undefined"&&cTab!=="rh"&&typeof hrView!=="undefined")hrView=null;}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="logs"){try{renderLogs();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="colaboradores"){try{renderColaboradores();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="projetos"){try{renderProjetos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="suporte"){try{renderSuporte();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="ferias"){try{renderFerias();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="rh"){try{renderRH();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="minhaarea"){try{renderMinhaArea();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       try{if(typeof cTab!=="undefined"){if(cTab==="estrategia"||cTab==="correcoes"){accordionizeCards(true);addExpandAll();}}}catch(e){}
       try{updateBell();}catch(e){}
@@ -3259,11 +3762,21 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     hideLogin();
     showUserBadge();
     await loadFromSB();
+    try{setupSync();}catch(e){}
+    try{loadRoster();}catch(e){}
     try{updateBell();}catch(e){}
+  }
+  // lista de utilizadores com login (para o RH mostrar quem existe)
+  var hrRoster=[];var __rosterLoaded=false;
+  async function loadRoster(){
+    if(!sb||__rosterLoaded)return;__rosterLoaded=true;
+    try{var r=await sb.from("profiles").select("email");if(r&&r.data){hrRoster=r.data.map(function(p){return (p.email||"").toLowerCase();}).filter(Boolean);if(typeof cTab!=="undefined"&&cTab==="rh"&&typeof ren==="function")ren();}}catch(e){}
   }
 
   // ===================== ACESSO POR DEPARTAMENTO (Fase 1) =====================
   var DEPT_GROUPS=[
+    {group:"A minha área",i:"🙋",dept:"eu",always:true,items:[
+      {id:"minhaarea",l:"A minha área"}]},
     {group:"Direção",i:"🧭",dept:"direcao",items:[
       {id:"dashboard",l:"Dashboard executivo"}]},
     {group:"Férias & Ausências",i:"🌴",dept:"ferias",always:true,items:[
@@ -3308,7 +3821,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
   // reconstrói o menu por departamentos (substitui o NAV antigo)
   if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,always:g.always,items:g.items});});}
-  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","rh"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
+  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","rh","minhaarea"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
 
   // menu: admin vê tudo; membro vê os seus departamentos + os grupos de acesso geral (Férias)
   if(typeof rTabs==="function"){
