@@ -1388,11 +1388,34 @@ var HIST=[
 {yr:2025,tot:16858,nv:14094,at:2764,nc:-3830,obj:10000,ncli:6,note:"IMED. Rambla Nova. Andorra pneumo (duplicado removido)"}
 ];
 
+// Anos do histórico: anos com faturas são calculados dinamicamente (faturação, split NV/AT);
+// anos antigos sem dados na app ficam com o registo histórico curado (HIST).
+function histYears(){
+  var by={};
+  (D.invoices||[]).forEach(function(i){
+    var y=+String(i.date||"").slice(0,4); if(!y)return;
+    if(!by[y])by[y]={tot:0,nv:0,at:0,cli:{}};
+    var dl=(D.deals||[]).find(function(x){return x.id===i.dealId});
+    var isAT=dl&&dl.type==="AT";
+    by[y].tot+=i.amount||0; if(isAT)by[y].at+=i.amount||0; else by[y].nv+=i.amount||0;
+    if(dl)by[y].cli[dl.clientId]=1;
+  });
+  var out={};
+  (HIST||[]).forEach(function(h){out[h.yr]=Object.assign({},h);});
+  var curY=(typeof activeYear==="function"?activeYear():2026);
+  Object.keys(by).forEach(function(ys){
+    var y=+ys, b=by[y], base=out[y]||{yr:y,nc:0,obj:0};
+    out[y]={yr:y,tot:Math.round(b.tot),nv:Math.round(b.nv),at:Math.round(b.at),
+      nc:base.nc||0, obj:(y>=2026?D.budget:(base.obj||0)), ncli:Object.keys(b.cli).length,
+      note:(y>=curY?"LIVE — dados da app":"LIVE — faturado"), partial:(y>=curY)};
+  });
+  return Object.keys(out).map(function(y){return out[y];}).sort(function(a,b){return a.yr-b.yr;});
+}
 function rHist(S){
-  var d26={yr:2026,tot:Math.round(S.inv),nv:Math.round(S.inv-(D.invoices.filter(function(i){return inYear(i.date)}).reduce(function(s,iv){var dl=D.deals.find(function(x){return x.id===iv.dealId});return dl&&dl.type==="AT"?s+iv.amount:s},0))),at:Math.round(D.invoices.filter(function(i){return inYear(i.date)}).reduce(function(s,iv){var dl=D.deals.find(function(x){return x.id===iv.dealId});return dl&&dl.type==="AT"?s+iv.amount:s},0)),nc:0,obj:D.budget,ncli:new Set(D.invoices.filter(function(i){return inYear(i.date)}).map(function(i){var dl=D.deals.find(function(x){return x.id===i.dealId});return dl?dl.clientId:""}).filter(Boolean)).size,note:"LIVE — dados da app",partial:true};
-  var allY=HIST.concat([d26]);
+  var allY=histYears();
+  var d26=allY.filter(function(x){return x.yr>=2026;})[0]||{yr:2026,tot:Math.round(S.inv),obj:D.budget||1};
   var maxT=Math.max.apply(null,allY.map(function(d){return d.tot}));
-  var acum=HIST.reduce(function(s,d){return s+d.tot},0);
+  var acum=allY.filter(function(d){return d.yr>=2015&&d.yr<=2025;}).reduce(function(s,d){return s+d.tot},0);
   var h=pgHead("📜","Histórico 2015–2026");
   h+='<div class="kr">'+kpi("Acum. 15–25","€"+Math.round(acum/1000)+"K","",GD,G)+kpi("Melhor","2021 — €73K","",BLU,BLU)+kpi("2026 YTD",fmt(d26.tot),Math.round(d26.tot/d26.obj*100)+"% obj.",d26.tot>=d26.obj?GRN:R,d26.tot>=d26.obj?GRN:R)+'</div>';
   h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">FATURAÇÃO ANUAL</div><div style="height:260px"><canvas id="cHist"></canvas></div></div>';
@@ -1414,9 +1437,7 @@ function rHist(S){
 
 function initHC(){
   if(hcDone)return;var el=document.getElementById("cHist");if(!el)return;
-  var S=st();var d26={yr:2026,nv:Math.round(S.inv),at:0,obj:D.budget};
-  D.invoices.forEach(function(i){if(beforeYear(i.date))return;var dl=D.deals.find(function(x){return x.id===i.dealId});if(dl&&dl.type==="AT"){d26.at+=Math.round(i.amount);d26.nv-=Math.round(i.amount)}});
-  var allY=HIST.concat([d26]);
+  var allY=histYears();
   try{
     new Chart(el,{type:"bar",data:{labels:allY.map(function(d){return d.yr+(d.partial?"*":"")}),datasets:[
       {label:"NV",data:allY.map(function(d){return d.nv}),backgroundColor:"#184080",stack:"a"},
@@ -1839,7 +1860,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var SB_URL="https://djneppkigntlhdmkgwfu.supabase.co";
   var SB_KEY="sb_publishable_DxChLb8LNo0IAI6jb10DIQ_6MZx_p4z";
   var ROW_ID=1;
-  var sb=null, ready=false, currentRole=null, currentEmail="";
+  var sb=null, ready=false, currentRole=null, currentEmail="", currentDepts=null;
   var saveTimer=null;
 
   function toastSafe(m,t){if(typeof toast==="function")toast(m,{type:t||"error"});else console.warn(m);}
@@ -1888,8 +1909,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function showUserBadge(){
     if(document.getElementById("sbUserBadge"))return;
     var hdr=document.querySelector(".hdr-in > div:last-child");
-    var label={admin:"Administrador",editor:"Editor",viewer:"Visualizador"}[currentRole]||currentRole;
-    var col={admin:"#AB2331",editor:"#2d7ab6",viewer:"#7a7268"}[currentRole]||"#7a7268";
+    var label={admin:"Administrador",editor:"Editor",viewer:"Visualizador",comercial:"Comercial · só leitura"}[currentRole]||currentRole;
+    var col={admin:"#AB2331",editor:"#2d7ab6",viewer:"#7a7268",comercial:"#1a9960"}[currentRole]||"#7a7268";
     var b=document.createElement("div");
     b.id="sbUserBadge";
     b.style.cssText="display:flex;align-items:center;gap:8px;margin-left:8px";
@@ -1901,13 +1922,19 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // ---------- papel do utilizador ----------
   async function loadRole(uid){
+    currentRole="viewer";currentDepts=null;
     try{
-      var r=await sb.from("profiles").select("role,email").eq("id",uid).single();
-      currentRole=(r.data&&r.data.role)||"viewer";
-      currentEmail=(r.data&&r.data.email)||currentEmail;
-    }catch(e){currentRole="viewer";}
+      // tenta com a coluna departments; se ainda não existir, faz fallback ao papel simples
+      var r=await sb.from("profiles").select("role,email,departments").eq("id",uid).single();
+      if(r.error){
+        var r2=await sb.from("profiles").select("role,email").eq("id",uid).single();
+        if(!r2.error&&r2.data){currentRole=r2.data.role||"viewer";currentEmail=r2.data.email||currentEmail;}
+      }else if(r.data){
+        currentRole=r.data.role||"viewer";currentEmail=r.data.email||currentEmail;currentDepts=r.data.departments||null;
+      }
+    }catch(e){}
     window.__mwRole=currentRole;
-    document.body.classList.toggle("role-viewer",currentRole==="viewer");
+    document.body.classList.toggle("role-viewer",currentRole!=="admin"&&currentRole!=="editor");
   }
 
   // ---------- carregar / gravar dados no Supabase ----------
@@ -1936,16 +1963,19 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var COMERCIAL=["clientes","pipeline","prospeccao","ganhas","concluidas","perdidas","mapa","followup"];
   function isComercialTab(t){return COMERCIAL.indexOf(t)>=0;}
   function isReadOnlyNow(){
-    if(currentRole==="viewer")return true;
-    if(currentRole==="editor"&&!isComercialTab(typeof cTab!=="undefined"?cTab:""))return true;
-    return false;
+    if(currentRole==="admin")return false;
+    var d=deptOf(typeof cTab!=="undefined"?cTab:"");
+    if(!d||d==="admin")return true;
+    return userDepts()[d]!=="edit";
   }
 
   // substitui o save() local por gravação na nuvem (com atraso para juntar edições)
   window.save=function(){
     if(!ready)return true;
-    if(currentRole==="viewer"){toastSafe("Só tens acesso de leitura — a alteração não foi guardada.");return false;}
-    if(currentRole==="editor"&&!isComercialTab(typeof cTab!=="undefined"?cTab:"")){toastSafe("Como editor só podes editar na área Comercial. Esta alteração não foi guardada.");return false;}
+    if(isReadOnlyNow()){
+      toastSafe(currentRole==="editor"?"Como editor só podes editar na área Comercial. Esta alteração não foi guardada.":"Tens acesso só de leitura — a alteração não foi guardada.");
+      return false;
+    }
     clearTimeout(saveTimer);saveTimer=setTimeout(pushToSB,450);
     try{prevSnap=snapClone();}catch(e){}
     return true;
@@ -1961,6 +1991,10 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(currentRole!=="admin"){
       document.querySelectorAll("[onclick]").forEach(function(el){if(GLOBALOPS.test(el.getAttribute("onclick")||"")){var lb=el.closest("label");(lb||el).style.display="none";}});
       document.querySelectorAll("[onchange]").forEach(function(el){if(/impData/.test(el.getAttribute("onchange")||"")){var lb=el.closest("label");if(lb)lb.style.display="none";}});
+    }
+    // exportar/relatar (dados de todas as áreas) só para admin
+    if(currentRole!=="admin"){
+      document.querySelectorAll("[onclick]").forEach(function(el){if(/expData|expCSV|genReport/.test(el.getAttribute("onclick")||"")){var lb=el.closest("label");(lb||el).style.display="none";}});
     }
     if(!readOnly)return;
     // botões de escrita -> esconder
@@ -2145,10 +2179,61 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
 
   // aplica o gating depois de cada render; encaminha a aba Logs; acordeão onde faz sentido
+  // ===================== ADMINISTRAÇÃO · COLABORADORES & PERFIS =====================
+  var COLAB_DEPTS=[["operacoes","Operações"],["comercial","Comercial"],["projectos","Projectos"]];
+  function selStyle(){return 'border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#fff;color:#3a352e';}
+  async function renderColaboradores(){
+    var app=document.getElementById("app");if(!app)return;
+    if(currentRole!=="admin"){app.innerHTML=pgHead("👥","Colaboradores & Perfis")+'<div class="cd"><div style="color:#a89d8d;font-size:13px">Só o administrador pode gerir perfis.</div></div>';return;}
+    app.innerHTML=pgHead("👥","Colaboradores & Perfis")+'<div class="cd"><div style="color:#a89d8d;font-size:13px">A carregar colaboradores…</div></div>';
+    var res={};try{res=await sb.from("profiles").select("id,email,role,departments").order("email");}catch(e){}
+    var profs=(res.data||[]);
+    var h=pgHead("👥","Colaboradores & Perfis");
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Quem acede a quê</div>';
+    h+='<div style="font-size:12px;color:#a89d8d;margin-bottom:12px">Para cada pessoa, define os departamentos que vê e se é <b>Leitura</b> ou <b>Edição</b>. Um <b>Administrador</b> vê e edita tudo, e gere isto. As alterações gravam automaticamente.</div>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Colaborador</th><th>Papel</th>'+COLAB_DEPTS.map(function(d){return '<th style="text-align:center">'+d[1]+'</th>';}).join("")+'</tr></thead><tbody>';
+    if(!profs.length)h+='<tr><td colspan="'+(2+COLAB_DEPTS.length)+'" style="text-align:center;padding:22px;color:#a89d8d">Sem colaboradores. Cria-os em Supabase → Authentication → Add user.</td></tr>';
+    profs.forEach(function(p){
+      var isA=p.role==="admin";var dep=p.departments||{};
+      var me=p.email===currentEmail;
+      h+='<tr><td><b>'+esc(p.email)+'</b>'+(me?' <span style="font-size:10px;color:#a89d8d">(tu)</span>':'')+'</td>';
+      h+='<td><select class="colab-role" data-u="'+p.id+'"'+(me?' disabled title="Não podes mudar o teu próprio papel"':'')+' style="'+selStyle()+'"><option value="member"'+(!isA?" selected":"")+'>Colaborador</option><option value="admin"'+(isA?" selected":"")+'>Administrador</option></select></td>';
+      COLAB_DEPTS.forEach(function(d){
+        if(isA){h+='<td style="text-align:center"><span style="color:#1a9960;font-weight:700;font-size:12px">tudo</span></td>';}
+        else{var cur=dep[d[0]]||"";h+='<td style="text-align:center"><select class="colab-lvl" data-u="'+p.id+'" data-d="'+d[0]+'" style="'+selStyle()+'"><option value="">—</option><option value="read"'+(cur==="read"?" selected":"")+'>Leitura</option><option value="edit"'+(cur==="edit"?" selected":"")+'>Edição</option></select></td>';}
+      });
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+    h+='<div style="font-size:11px;color:#a89d8d;margin-top:12px">Departamentos <b>Suporte</b> e <b>RH</b> aparecem aqui quando esses módulos forem criados (Fases 3 e 4). Novos utilizadores: Supabase → Authentication → Add user — aparecem aqui a seguir, sem acesso, até lhes atribuíres departamentos.</div></div>';
+    app.innerHTML=h;
+    app.querySelectorAll(".colab-lvl").forEach(function(s){s.onchange=function(){saveColabDept(s.dataset.u,s.dataset.d,s.value);};});
+    app.querySelectorAll(".colab-role").forEach(function(s){s.onchange=function(){saveColabRole(s.dataset.u,s.value);};});
+  }
+  async function saveColabDept(uid,dept,level){
+    try{
+      var res=await sb.from("profiles").select("departments").eq("id",uid).single();
+      var dep=(res.data&&res.data.departments)||{};
+      if(level)dep[dept]=level;else delete dep[dept];
+      var up=await sb.from("profiles").update({departments:dep}).eq("id",uid);
+      if(up.error)toastSafe("Erro a gravar: "+up.error.message);
+      if(typeof logAct==="function")logAct("Perfis","Acesso atualizado — "+dept+": "+(level||"sem acesso"));
+    }catch(e){toastSafe("Erro a gravar o perfil.");}
+  }
+  async function saveColabRole(uid,role){
+    try{
+      var up=await sb.from("profiles").update({role:role==="admin"?"admin":"member"}).eq("id",uid);
+      if(up.error){toastSafe("Erro: "+up.error.message);return;}
+      if(typeof logAct==="function")logAct("Perfis","Papel alterado para "+(role==="admin"?"Administrador":"Colaborador"));
+      renderColaboradores();
+    }catch(e){toastSafe("Erro a gravar o papel.");}
+  }
+
   if(typeof rPnl==="function"){
     var _r=rPnl;
     rPnl=function(){
       if(typeof cTab!=="undefined"&&cTab==="logs"){try{renderLogs();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="colaboradores"){try{renderColaboradores();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       try{if(typeof cTab!=="undefined"){if(cTab==="estrategia"||cTab==="correcoes"){accordionizeCards(true);addExpandAll();}}}catch(e){}
       try{updateBell();}catch(e){}
@@ -2222,10 +2307,63 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   async function afterLogin(user){
     currentEmail=user.email||"";
     await loadRole(user.id);
+    try{if(currentRole!=="admin"&&!canSeeTab(typeof cTab!=="undefined"?cTab:""))cTab=firstAllowedTab();}catch(e){}
     hideLogin();
     showUserBadge();
     await loadFromSB();
     try{updateBell();}catch(e){}
+  }
+
+  // ===================== ACESSO POR DEPARTAMENTO (Fase 1) =====================
+  var DEPT_GROUPS=[
+    {group:"Operações",i:"💶",dept:"operacoes",items:[
+      {id:"pl",l:"P&L"},{id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"financeiro",sub:"cobrancas",l:"Cobranças"},{id:"financeiro",sub:"movimentos",l:"Movimentos"},
+      {id:"arr",l:"ARR"},{id:"orc2027",l:"Orçamento 2027"},{id:"historico",l:"Histórico"},{id:"estrategia",l:"Estratégia & Insights"}]},
+    {group:"Comercial",i:"🏥",dept:"comercial",items:[
+      {id:"pipeline",l:"Pipeline"},{id:"prospeccao",l:"Prospeção"},{id:"followup",l:"Follow-up"},{id:"clientes",l:"Vendas"},
+      {id:"ganhas",l:"Ganhas"},{id:"perdidas",l:"Perdidas"},{id:"mapa",l:"Mapa"},{id:"clientesTotais",l:"Clientes Totais"},{id:"contactos",l:"Contactos"}]},
+    {group:"Projectos",i:"🛠️",dept:"projectos",items:[
+      {id:"concluidas",l:"Concluídas & Relatórios"}]},
+    {group:"Administração",i:"⚙️",dept:"admin",items:[
+      {id:"dashboard",l:"Dashboard executivo"},{id:"colaboradores",l:"Colaboradores & Perfis"},{id:"logs",l:"Auditoria"},{id:"actividades",l:"Atividades"},{id:"correcoes",l:"Definições"}]}
+  ];
+  var TAB2DEPT={};DEPT_GROUPS.forEach(function(g){g.items.forEach(function(it){TAB2DEPT[it.id]=g.dept;});});
+  function deptOf(id){return TAB2DEPT[id]||null;}
+  function groupDept(gname){for(var i=0;i<DEPT_GROUPS.length;i++)if(DEPT_GROUPS[i].group===gname)return DEPT_GROUPS[i].dept;return null;}
+  var DEFAULT_LEVEL={editor:{operacoes:"read",comercial:"edit",projectos:"read"},comercial:{comercial:"read"},viewer:{operacoes:"read",comercial:"read",projectos:"read"}};
+  function userDepts(){
+    if(currentRole==="admin")return {operacoes:"edit",comercial:"edit",projectos:"edit"};
+    if(currentDepts&&typeof currentDepts==="object"&&Object.keys(currentDepts).length)return currentDepts;
+    return DEFAULT_LEVEL[currentRole]||{};
+  }
+  function canSeeTab(id){
+    if(currentRole==="admin")return true;
+    var d=deptOf(id);if(!d||d==="admin")return false;
+    return !!userDepts()[d];
+  }
+  function firstAllowedTab(){
+    if(currentRole==="admin")return "dashboard";
+    var ud=userDepts();
+    for(var i=0;i<DEPT_GROUPS.length;i++){var g=DEPT_GROUPS[i];if(g.dept!=="admin"&&ud[g.dept])return g.items[0].id;}
+    return "pipeline";
+  }
+  // reconstrói o menu por departamentos (substitui o NAV antigo)
+  if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,items:g.items});});}
+  if(typeof TABS!=="undefined"){["followup","logs","colaboradores"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
+
+  // menu: admin vê tudo (incl. Administração); membro vê só os seus departamentos
+  if(typeof rTabs==="function"){
+    var _rTabsD=rTabs;
+    rTabs=function(){
+      if(currentRole==="admin")return _rTabsD();
+      var ud=userDepts(),saved=NAV;
+      NAV=saved.filter(function(n){var d=groupDept(n.group);return d&&d!=="admin"&&ud[d];});
+      try{_rTabsD();}finally{NAV=saved;}
+    };
+  }
+  if(typeof sTab==="function"){
+    var _sTabD=sTab;
+    window.sTab=function(id,sub){if(!canSeeTab(id))return;return _sTabD(id,sub);};
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
