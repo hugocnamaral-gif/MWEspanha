@@ -130,7 +130,7 @@ var SPECS=["Gastro","Pneumo","Filestream","Integração"];
 var REGS=["Andaluzia","Canárias","Valencia","Catalunha","Madrid","Andorra","Galiza"];
 var MO=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-var INIT={dataVersion:28,budget:25000,timeCostMonth:0,lastBackup:"2026-08-13",autoBackupDays:7,budget2027:{renew:90,priceInc:3,newBiz:0,upsell:0},
+var INIT={dataVersion:29,budget:25000,timeCostMonth:0,lastBackup:"2026-08-13",autoBackupDays:7,budget2027:{renew:90,priceInc:3,newBiz:0,upsell:0},
 clients:[
 {id:"c1",name:"H.NS Meritxell",region:"Andorra",channel:"Servei Andorrà",lat:42.506,lng:1.522},
 {id:"c2",name:"C.D. Singilis",region:"Andaluzia",channel:"STEndoscopia",lat:37.389,lng:-4.767},
@@ -177,7 +177,6 @@ deals:[
 {id:"d7",clientId:"c9",product:"Almeria - AT / Mudança v7 (5x gastro+2x pneumo+Diraya)",specialty:"Gastro",type:"AT",stage:"proposta",value:40780,arr:27120,date:"2026-03-09"},
 {id:"d8",clientId:"c6",product:"DOCbase Pneumo",specialty:"Pneumo",type:"NV",stage:"proposta",value:6591,arr:4941,date:"2026-03-03"},
 {id:"d9",clientId:"c11",product:"Integração PAC clínica San José",specialty:"Integração",type:"NV",stage:"perdido",value:6392,arr:3672,date:"2026-03-04",nextAction:"",nextDate:"",lostReason:"Não especificada",lostDate:"2026-08-04"},
-{id:"d10",clientId:"c1",product:"DOCbase neumo+HIS",specialty:"Pneumo",type:"NV",stage:"projeto",value:4360.3,arr:2670.36,date:"2025-04-16"},
 {id:"d12",clientId:"c13",product:"DOCbase Gastro",specialty:"Gastro",type:"NV",stage:"lead",value:0,arr:0,date:"2026-05-01",nextAction:"",nextDate:""},
 {id:"d14",clientId:"c14",product:"DOCbase Gastro",specialty:"Gastro",type:"NV",stage:"lead",value:0,arr:0,date:"2026-06-01"},
 {id:"d15",clientId:"c15",product:"DOCbase Gastro",specialty:"Gastro",type:"NV",stage:"lead",value:0,arr:0,date:"2026-06-01",nextAction:"",nextDate:""},
@@ -541,12 +540,12 @@ function migrate(){var changed=false;
   INIT.clientSpecs.forEach(function(s){if(!D.clientSpecs.find(function(x){return x.id===s.id})){D.clientSpecs.push(JSON.parse(JSON.stringify(s)));changed=true}});
   INIT.expenses.forEach(function(e){if(!D.expenses.find(function(x){return x.id===e.id})){D.expenses.push(JSON.parse(JSON.stringify(e)));changed=true}});
   if((D.dataVersion||1)<2){
-    ["d6","d7","d8","d9","d10","d12","d13","d15"].forEach(function(id){var dl=D.deals.find(function(x){return x.id===id});var src=INIT.deals.find(function(x){return x.id===id});if(dl&&src)Object.assign(dl,JSON.parse(JSON.stringify(src)))});
+    ["d6","d7","d8","d9","d12","d13","d15"].forEach(function(id){var dl=D.deals.find(function(x){return x.id===id});var src=INIT.deals.find(function(x){return x.id===id});if(dl&&src)Object.assign(dl,JSON.parse(JSON.stringify(src)))});
     D.expenses=JSON.parse(JSON.stringify(INIT.expenses));
     changed=true;
   }
   if((D.dataVersion||1)<3){
-    ["d6","d7","d8","d9","d10","d13","d33"].forEach(function(id){var dl=D.deals.find(function(x){return x.id===id});var src=INIT.deals.find(function(x){return x.id===id});if(dl&&src)Object.assign(dl,JSON.parse(JSON.stringify(src)))});
+    ["d6","d7","d8","d9","d13","d33"].forEach(function(id){var dl=D.deals.find(function(x){return x.id===id});var src=INIT.deals.find(function(x){return x.id===id});if(dl&&src)Object.assign(dl,JSON.parse(JSON.stringify(src)))});
     D.invoices=D.invoices.filter(function(iv){return iv.dealId!=="d33"&&iv.dealId!=="d22"});
     changed=true;
   }
@@ -580,7 +579,26 @@ function migrate(){var changed=false;
     if(!D.activities.find(function(a){return a.id==="a00"}))D.activities.unshift(JSON.parse(JSON.stringify(INIT.activities.find(function(a){return a.id==="a00"}))));
     changed=true;
   }
+  if((D.dataVersion||1)<29){
+    // Purga definitiva do projeto-fantasma da Meritxell (deal d10 "DOCbase neumo+HIS", stage projeto)
+    // que estava fixo na semente INIT e reaparecia sempre que um dispositivo carregava a app sem dados.
+    (function(){
+      var before=(D.deals||[]).length;
+      D.deals=(D.deals||[]).filter(function(d){
+        if(d.id==="d10")return false;
+        if(d.clientId==="c1"&&d.stage==="projeto"&&/neumo\s*\+?\s*HIS/i.test(d.product||""))return false;
+        return true;
+      });
+      // remover registos de projeto verdadeiramente órfãos (o deal já não existe)
+      // — mantém o histórico dos projetos concluídos (deal passou a "concluido").
+      var existIds={};(D.deals||[]).forEach(function(d){existIds[d.id]=1;});
+      if(Array.isArray(D.projectos))D.projectos=D.projectos.filter(function(p){return p.dealId==="d10"?false:existIds[p.dealId];});
+      if(Array.isArray(D.invoices))D.invoices=D.invoices.filter(function(iv){return iv.dealId!=="d10";});
+      if(before!==(D.deals||[]).length)changed=true;
+    })();
+  }
   if((D.dataVersion||1)<INIT.dataVersion){D.dataVersion=INIT.dataVersion;changed=true}
+  try{window.__migrateChanged=changed;}catch(e){}
   if(changed)save();
 }
 function save(){try{localStorage.setItem("esp26v3",JSON.stringify(D));return true}catch(e){if(typeof toast==="function")toast("⚠️ Não foi possível guardar — o armazenamento do navegador está cheio (provavelmente por causa de anexos grandes). Os dados em memória continuam, mas NÃO foram gravados. Remove alguns anexos ou exporta um backup já.",{type:"error"});return false}}
@@ -1957,6 +1975,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     }catch(e){toastSafe("Erro a carregar dados: "+(e.message||e));}
     try{if(typeof migrate==="function")migrate();}catch(e){}
     ready=true;
+    // se a migração limpou dados (ex.: projeto-fantasma da Meritxell), grava já a versão limpa no servidor
+    try{if(window.__migrateChanged&&currentRole!=="viewer"){window.__migrateChanged=false;pushToSB();}}catch(e){}
     if(typeof ren==="function")ren();
     applyRoleGating();
     try{if(!Array.isArray(D._log))D._log=[];prevSnap=snapClone();}catch(e){}
