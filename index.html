@@ -608,69 +608,169 @@ function save(){try{localStorage.setItem("esp26v3",JSON.stringify(D));return tru
 function rstData(){confirmM("Repor dados iniciais?\n\nISTO APAGA todos os teus dados e volta ao estado de fábrica. Exporta um backup primeiro se tiveres dúvidas.",function(){D=JSON.parse(JSON.stringify(INIT));save();ren()},{yesLabel:"Repor tudo"})}
 function genReport(){
   var S=st();
-  var now=new Date();var dstr=now.toLocaleDateString("pt-PT",{day:"numeric",month:"long",year:"numeric"});
+  var now=new Date();
+  var dstr=now.toLocaleDateString("pt-PT",{day:"numeric",month:"long",year:"numeric"});
+  var yr=now.getFullYear();
+  var MOl=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  var empresa=(D.fiscal&&D.fiscal.empresa&&D.fiscal.empresa.nome)||(document.title||"Empresa");
   var ganhas=D.deals.filter(function(d){return isWon(d)&&inYear(d.date)});
   var gTot=ganhas.reduce(function(a,d){return a+d.value},0);
   var openD=D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)}).sort(function(a,b){return b.value-a.value});
-  var perd=D.deals.filter(function(d){return d.stage==="perdido"});
+  var perd=D.deals.filter(function(d){return d.stage==="perdido"&&inYear(d.date)});
+  var perdT=perd.reduce(function(a,d){return a+d.value},0);
   var arrW=D.deals.filter(function(d){return isWon(d)}).reduce(function(a,d){return a+(d.arr||0)},0);
   var adj=ganhas.filter(function(d){return!D.invoices.find(function(i){return i.dealId===d.id})});
   var adjT=adj.reduce(function(a,d){return a+d.value},0);
+  var term=Number(D.paymentTermDays)||30;
   var risky=D.invoices.filter(function(i){return!i.collected&&Math.floor((now-new Date(i.date))/86400000)>=180});
   var riskyT=risky.reduce(function(a,i){return a+i.amount},0);
   var WT={projeto:0.75,proposta:0.4,lead:0.1};
   var wProj=0,wProp=0,wLead=0;openD.forEach(function(d){if(d.stage==="projeto")wProj+=d.value*WT.projeto;else if(d.stage==="proposta")wProp+=d.value*WT.proposta;else wLead+=d.value*WT.lead});
   var forecast=S.inv+adjT+wProj+wProp+wLead;
+  // séries mensais
+  var fatM=[0,0,0,0,0,0,0,0,0,0,0,0];D.invoices.forEach(function(i){if(i.date&&(+i.date.slice(0,4))===yr){fatM[(+i.date.slice(5,7))-1]+=Number(i.amount)||0;}});
+  var cfM=S.cfd.map(function(x){return Math.round(x.v);});
+  // pipeline por fase (aberto)
+  var pipe={lead:0,proposta:0,projeto:0};openD.forEach(function(d){if(pipe[d.stage]!=null)pipe[d.stage]+=d.value;else pipe.lead+=d.value;});
+  // aging
+  var aging=[0,0,0,0,0];D.invoices.filter(function(i){return!i.collected;}).forEach(function(i){var od=Math.floor((now-new Date(i.date))/86400000)-term;var b=od<=0?0:od<=30?1:od<=60?2:od<=90?3:4;aging[b]+=Number(i.amount)||0;});
+  // por especialidade / canal
+  var bs=S.bs||{},bc=S.bc||{};
+  // top clientes por faturação
+  var byC={};D.invoices.forEach(function(i){var d=D.deals.find(function(x){return x.id===i.dealId;});if(d){var n=cn(d.clientId);byC[n]=(byC[n]||0)+(Number(i.amount)||0);}});
+  var topC=Object.keys(byC).map(function(k){return {n:k,v:byC[k]};}).sort(function(a,b){return b.v-a.v;}).slice(0,8);
 
-  function kv(label,val,color){return '<tr><td style="padding:5px 0;color:#555">'+label+'</td><td style="padding:5px 0;text-align:right;font-weight:700'+(color?';color:'+color:'')+'">'+val+'</td></tr>'}
-  function sec(title){return '<h2 style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#AB2331;border-bottom:2px solid #AB2331;padding-bottom:4px;margin:22px 0 10px">'+title+'</h2>'}
+  var DATA={
+    fatM:fatM,cfM:cfM,mo:MOl,
+    espLbl:Object.keys(bs),espVal:Object.keys(bs).map(function(k){return Math.round(bs[k]);}),
+    canLbl:Object.keys(bc),canVal:Object.keys(bc).map(function(k){return Math.round(bc[k]);}),
+    pipeLbl:["Lead","Proposta","Projeto"],pipeVal:[Math.round(pipe.lead),Math.round(pipe.proposta),Math.round(pipe.projeto)],
+    agingLbl:["A vencer","1–30","31–60","61–90","+90"],agingVal:aging.map(function(v){return Math.round(v);}),
+    topLbl:topC.map(function(x){return x.n;}),topVal:topC.map(function(x){return Math.round(x.v);})
+  };
+  function eur(n){return (Math.round(Number(n)||0)).toLocaleString("pt-PT")+" €";}
+  function mc(label,val,sub,cls,subcls){return '<div class="metric-card '+(cls||"")+'"><div class="metric-label">'+label+'</div><div class="metric-value">'+val+'</div>'+(sub?'<div class="metric-sub '+(subcls||"neu")+'">'+sub+'</div>':'')+'</div>';}
+  function rowsTable(head,rows){var h='<table class="tbl"><thead><tr>'+head.map(function(x){return '<th'+(x.r?' class="r"':'')+'>'+x.t+'</th>';}).join("")+'</tr></thead><tbody>';rows.forEach(function(r){h+='<tr>'+r.map(function(c){return '<td'+(c.r?' class="r"':'')+(c.b?' style="font-weight:600"':'')+'>'+c.t+'</td>';}).join("")+'</tr>';});return h+'</tbody></table>';}
 
   var w=window.open("","_blank");
-  if(!w){toast("O browser bloqueou a janela do relatório. Permite pop-ups para este site e tenta de novo.",{type:"error"});return}
-  var h='<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Relatorio Mobilwave Espanha</title>';
-  h+='<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1713;max-width:760px;margin:0 auto;padding:32px 28px;line-height:1.5}';
-  h+='h1{font-size:22px;margin:0}table{width:100%;border-collapse:collapse;font-size:13px}';
-  h+='.sub{color:#888;font-size:12px;margin-top:2px}.card{background:#faf8f4;border:1px solid #ece6dc;border-radius:8px;padding:14px 16px;margin-bottom:8px}';
-  h+='@media print{body{padding:0}.noprint{display:none}}';
-  h+='.btn{background:#AB2331;color:#fff;border:none;border-radius:6px;padding:9px 18px;font-size:13px;cursor:pointer;font-family:inherit}</style></head><body>';
-  h+='<div class="noprint" style="text-align:right;margin-bottom:16px"><button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button></div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #AB2331;padding-bottom:12px">';
-  h+='<div><h1>Mobilwave Espanha</h1><div class="sub">MobilWave Healthcare Solutions · Relatorio de gestao</div></div>';
-  h+='<div style="text-align:right;font-size:12px;color:#888">'+dstr+'</div></div>';
+  if(!w){toast("O browser bloqueou a janela do relatório. Permite pop-ups e tenta de novo.",{type:"error"});return;}
+  var H='<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
+  H+='<title>'+empresa+' · Report · '+dstr+'</title>';
+  H+='<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">';
+  H+='<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"><\/script>';
+  H+='<style>'
+    +':root{--bg:#f4f3f0;--surface:#fff;--surface2:#f0eeea;--border:#e0ddd8;--text:#1a1917;--text-muted:#7a7871;--text-hint:#b0ada6;--blue:#00669E;--blue-light:#e6f3fa;--green:#1a6b45;--green-light:#e6f4ec;--red:#b83535;--red-light:#fdeaea;--amber:#9a5f10;--amber-light:#fdf3e3;--radius-sm:6px;--radius-md:10px;--radius-lg:14px}'
+    +'*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:14px}'
+    +'body{font-family:"DM Sans",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}'
+    +'.sidebar{width:210px;min-height:100vh;background:var(--surface);border-right:2px solid var(--blue);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100}'
+    +'.sidebar-logo{padding:22px 20px 16px;border-bottom:1px solid var(--border)}.logo-mark{font-size:15px;font-weight:600;letter-spacing:-.3px}.logo-sub{font-size:11px;color:var(--text-muted);margin-top:2px;font-family:"DM Mono",monospace}'
+    +'.sidebar-month{padding:12px 20px;background:var(--blue-light);border-bottom:1px solid var(--border);font-size:12px;font-weight:500;color:var(--blue)}'
+    +'.nav-section{padding:14px 12px 6px}.nav-title{font-size:10px;font-weight:600;color:var(--text-hint);text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin-bottom:6px}'
+    +'.nav-item{padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-muted);font-size:13px;transition:.15s;margin-bottom:1px}.nav-item:hover{background:var(--surface2);color:var(--text)}.nav-item.active{background:var(--blue-light);color:var(--blue);font-weight:500}'
+    +'.sidebar-foot{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text-hint);font-family:"DM Mono",monospace}'
+    +'.main{margin-left:210px;flex:1}'
+    +'.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:15px 30px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}'
+    +'.topbar-title{font-size:16px;font-weight:600;color:var(--blue)}.topbar-sub{font-size:12px;color:var(--text-muted);margin-top:1px}'
+    +'.topbar-badge{background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;font-family:"DM Mono",monospace}'
+    +'.content{padding:26px 30px}.page{display:none}.page.active{display:block}'
+    +'.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:22px}'
+    +'.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:15px 17px;border-top:3px solid var(--border)}'
+    +'.metric-card.b{border-top-color:var(--blue)}.metric-card.g{border-top-color:var(--green)}.metric-card.r{border-top-color:var(--red)}.metric-card.a{border-top-color:var(--amber)}'
+    +'.metric-label{font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}'
+    +'.metric-value{font-size:21px;font-weight:600;letter-spacing:-.5px;font-family:"DM Mono",monospace;line-height:1.1}'
+    +'.metric-sub{font-size:11px;margin-top:6px}.metric-sub.pos{color:var(--green)}.metric-sub.neg{color:var(--red)}.metric-sub.neu{color:var(--text-muted)}'
+    +'.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px}'
+    +'.card-title{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}'
+    +'.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:820px){.grid2{grid-template-columns:1fr}.sidebar{display:none}.main{margin-left:0}}'
+    +'.tbl{width:100%;border-collapse:collapse;font-size:13px}.tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-hint);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}.tbl td{padding:7px 8px;border-bottom:1px solid var(--surface2)}.tbl .r{text-align:right;font-family:"DM Mono",monospace}'
+    +'.chart-box{position:relative;height:240px}'
+    +'.print-btn{background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);padding:7px 15px;font-size:12px;cursor:pointer;font-family:inherit}'
+    +'@media print{.sidebar,.print-btn{display:none}.main{margin-left:0}.page{display:block!important;page-break-after:always}.topbar{position:static}}'
+    +'<\/style></head><body>';
+  H+='<aside class="sidebar"><div class="sidebar-logo"><div class="logo-mark">'+empresa+'</div><div class="logo-sub">Report de gestão</div></div>';
+  H+='<div class="sidebar-month">● '+dstr+'</div>';
+  H+='<div class="nav-section"><div class="nav-title">Análise</div>'
+    +'<div class="nav-item active" onclick="showPage(\'resumo\',this)">Resumo executivo</div>'
+    +'<div class="nav-item" onclick="showPage(\'faturacao\',this)">Faturação</div>'
+    +'<div class="nav-item" onclick="showPage(\'comercial\',this)">Comercial</div>'
+    +'<div class="nav-item" onclick="showPage(\'cobrancas\',this)">Cobranças</div>'
+    +'<div class="nav-item" onclick="showPage(\'clientes\',this)">Clientes</div></div>';
+  H+='<div class="sidebar-foot">Gerado '+dstr+'<br>dados internos</div></aside>';
+  H+='<div class="main"><div class="topbar"><div><div class="topbar-title" id="ptitle">Resumo executivo</div><div class="topbar-sub">'+empresa+' · exercício '+yr+'</div></div><button class="print-btn" onclick="window.print()">Imprimir / PDF</button></div><div class="content">';
 
-  h+=sec("Resumo financeiro 2026");
-  h+='<table>';
-  h+=kv("Facturado",fmt(S.inv));
-  h+=kv("Recebido este ano (caixa)",fmt(S.col)+" ("+S.cR+"% do cobrável)","#2a8a4a");
-  h+=kv("Por cobrar (total)",fmt(S.pend),S.pend>0?"#AB2331":null);
-  h+=kv("&nbsp;&nbsp;dos quais >180 dias (risco)",fmt(riskyT),riskyT>0?"#AB2331":null);
-  h+=kv("Adjudicado por facturar",fmt(adjT),adjT>0?"#c99a2e":null);
-  h+=kv("Custos",fmt(S.exp));
-  h+=kv("Cashflow",fmt(S.cf2),S.cf2<0?"#AB2331":"#2a8a4a");
-  h+='</table>';
+  // Resumo
+  H+='<div id="page-resumo" class="page active">';
+  H+='<div class="metric-grid">'
+    +mc("Faturado "+yr,eur(S.inv),S.pB+"% do objetivo","b","neu")
+    +mc("Recebido (caixa)",eur(S.col),S.cR+"% do cobrável","g","pos")
+    +mc("Por cobrar",eur(S.pend),riskyT>0?(eur(riskyT)+" em risco >180d"):"em dia","r",riskyT>0?"neg":"neu")
+    +mc("Cashflow",eur(S.cf2),S.cf2<0?"negativo":"positivo","a",S.cf2<0?"neg":"pos")
+    +'</div>';
+  H+='<div class="grid2"><div class="card"><div class="card-title">Faturação mensal · '+yr+'</div><div class="chart-box"><canvas id="cFat"></canvas></div></div>'
+    +'<div class="card"><div class="card-title">Cashflow mensal</div><div class="chart-box"><canvas id="cCf"></canvas></div></div></div>';
+  H+='<div class="card"><div class="card-title">Indicadores comerciais</div>'
+    +rowsTable([{t:"Indicador"},{t:"Valor",r:1}],[
+      [{t:"Vendas ganhas "+yr},{t:ganhas.length+" · "+eur(gTot),r:1,b:1}],
+      [{t:"Pipeline aberto"},{t:openD.length+" · "+eur(S.pipe),r:1}],
+      [{t:"Adjudicado por faturar"},{t:eur(adjT),r:1}],
+      [{t:"ARR garantido (recorrente/ano)"},{t:eur(arrW),r:1}],
+      [{t:"Previsão ponderada de fecho"},{t:eur(forecast),r:1,b:1}]
+    ])+'</div>';
+  H+='</div>';
 
-  h+=sec("Comercial");
-  h+='<table>';
-  h+=kv("Vendas ganhas 2026",ganhas.length+" · "+fmt(gTot),"#2a8a4a");
-  h+=kv("Pipeline aberto",openD.length+" · "+fmt(S.pipe));
-  h+=kv("Propostas perdidas",perd.length+" · "+fmt(perd.reduce(function(a,d){return a+d.value},0)));
-  h+=kv("ARR garantido (recorrente/ano)",fmt(arrW),"#7a4fb0");
-  h+=kv("Previsao ponderada de fecho",fmt(forecast)+" ("+pc(forecast,D.budget)+"% do objectivo)");
-  h+='</table>';
+  // Faturação
+  H+='<div id="page-faturacao" class="page"><div class="grid2">'
+    +'<div class="card"><div class="card-title">Faturação por especialidade</div><div class="chart-box"><canvas id="cEsp"></canvas></div></div>'
+    +'<div class="card"><div class="card-title">Faturação por canal</div><div class="chart-box"><canvas id="cCan"></canvas></div></div></div>';
+  var invRows=D.invoices.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).slice(0,20).map(function(i){var d=D.deals.find(function(x){return x.id===i.dealId;});return [{t:i.date||"—"},{t:d?cn(d.clientId):"—",b:1},{t:d?(d.product||""):""},{t:eur(i.amount),r:1},{t:i.collected?"Pago":"Pendente"}];});
+  H+='<div class="card"><div class="card-title">Últimas faturas</div>'+rowsTable([{t:"Data"},{t:"Cliente"},{t:"Descrição"},{t:"Valor",r:1},{t:"Estado"}],invRows)+'</div></div>';
 
-  if(openD.length){h+=sec("Principais oportunidades em aberto");h+='<table>';
-    openD.slice(0,6).forEach(function(d){h+='<tr><td style="padding:4px 0">'+cn(d.clientId)+' <span style="color:#999">· '+SL2[d.stage]+'</span></td><td style="padding:4px 0;text-align:right;font-weight:600">'+fmt(d.value)+'</td></tr>'});
-    h+='</table>';}
+  // Comercial
+  H+='<div id="page-comercial" class="page"><div class="metric-grid">'
+    +mc("Ganhas "+yr,ganhas.length+"",eur(gTot),"g","pos")
+    +mc("Pipeline aberto",openD.length+"",eur(S.pipe),"b","neu")
+    +mc("Perdidas "+yr,perd.length+"",eur(perdT),"r","neg")
+    +mc("Taxa de ganho",(ganhas.length+perd.length>0?Math.round(ganhas.length/(ganhas.length+perd.length)*100):0)+"%","ganhas / decididas","a","neu")
+    +'</div>';
+  H+='<div class="card"><div class="card-title">Pipeline por fase</div><div class="chart-box"><canvas id="cPipe"></canvas></div></div>';
+  var oppRows=openD.slice(0,10).map(function(d){return [{t:cn(d.clientId),b:1},{t:d.product||""},{t:(d.stage||"")},{t:eur(d.value),r:1}];});
+  H+='<div class="card"><div class="card-title">Principais oportunidades em aberto</div>'+rowsTable([{t:"Cliente"},{t:"Produto"},{t:"Fase"},{t:"Valor",r:1}],oppRows)+'</div></div>';
 
-  if(risky.length){h+=sec("Cobrancas em risco (>180 dias)");h+='<table>';
-    risky.forEach(function(i){var d=D.deals.find(function(x){return x.id===i.dealId});var days=Math.floor((now-new Date(i.date))/86400000);
-      h+='<tr><td style="padding:4px 0">'+(d?cn(d.clientId):"—")+' <span style="color:#999">· '+days+' dias</span></td><td style="padding:4px 0;text-align:right;font-weight:600;color:#AB2331">'+fmt(i.amount)+'</td></tr>'});
-    h+='</table>';}
+  // Cobranças
+  H+='<div id="page-cobrancas" class="page"><div class="metric-grid">'
+    +mc("Por cobrar",eur(S.pend),"","r","neg")
+    +mc("Em risco >180d",eur(riskyT),risky.length+" faturas","a",riskyT>0?"neg":"neu")
+    +mc("Recebido "+yr,eur(S.col),S.cR+"% do cobrável","g","pos")
+    +'</div>';
+  H+='<div class="card"><div class="card-title">Antiguidade de saldos (aging)</div><div class="chart-box"><canvas id="cAging"></canvas></div></div>';
+  if(risky.length){var rkRows=risky.slice().sort(function(a,b){return new Date(a.date)-new Date(b.date);}).map(function(i){var d=D.deals.find(function(x){return x.id===i.dealId;});var days=Math.floor((now-new Date(i.date))/86400000);return [{t:d?cn(d.clientId):"—",b:1},{t:days+" dias"},{t:eur(i.amount),r:1}];});
+    H+='<div class="card"><div class="card-title">Cobranças em risco (>180 dias)</div>'+rowsTable([{t:"Cliente"},{t:"Atraso"},{t:"Valor",r:1}],rkRows)+'</div>';}
+  H+='</div>';
 
-  h+='<div style="margin-top:28px;padding-top:12px;border-top:1px solid #ece6dc;font-size:10px;color:#aaa;text-align:center">Gerado automaticamente a partir da app Mobilwave Espanha · '+dstr+' · dados internos MobilWave</div>';
-  h+='</body></html>';
-  w.document.write(h);w.document.close();
+  // Clientes
+  H+='<div id="page-clientes" class="page"><div class="card"><div class="card-title">Top clientes por faturação</div><div class="chart-box"><canvas id="cTop"></canvas></div></div>';
+  var tcRows=topC.map(function(x){return [{t:x.n,b:1},{t:eur(x.v),r:1}];});
+  H+='<div class="card"><div class="card-title">Faturação por cliente</div>'+rowsTable([{t:"Cliente"},{t:"Faturado",r:1}],tcRows)+'</div></div>';
+
+  H+='</div></div>';
+  H+='<script>var D='+JSON.stringify(DATA)+';';
+  H+='function showPage(id,el){document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active")});document.getElementById("page-"+id).classList.add("active");document.querySelectorAll(".nav-item").forEach(function(n){n.classList.remove("active")});if(el)el.classList.add("active");var t={resumo:"Resumo executivo",faturacao:"Faturação",comercial:"Comercial",cobrancas:"Cobranças",clientes:"Clientes"};document.getElementById("ptitle").textContent=t[id]||id;}';
+  H+='var BL="#00669E",GR="#3aab6e",RE="#e05252",AM="#e8920a",TE="#6BC2CC",SL="#4F6180",gridc="#eceae6";';
+  H+='var PAL=[BL,GR,AM,TE,SL,RE,"#8a6bb0","#c0873a"];';
+  H+='Chart.defaults.font.family="DM Sans";Chart.defaults.font.size=11;Chart.defaults.color="#7a7871";';
+  H+='function mk(id,cfg){var c=document.getElementById(id);if(c)new Chart(c,cfg);}';
+  H+='var noL={plugins:{legend:{display:false}},scales:{y:{grid:{color:gridc},ticks:{callback:function(v){return (v/1000)+"k"}}},x:{grid:{display:false}}},maintainAspectRatio:false};';
+  H+='mk("cFat",{type:"bar",data:{labels:D.mo,datasets:[{data:D.fatM,backgroundColor:BL,borderRadius:4}]},options:noL});';
+  H+='mk("cCf",{type:"line",data:{labels:D.mo,datasets:[{data:D.cfM,borderColor:GR,backgroundColor:"rgba(58,171,110,.12)",fill:true,tension:.35,pointRadius:2}]},options:noL});';
+  H+='mk("cEsp",{type:"doughnut",data:{labels:D.espLbl,datasets:[{data:D.espVal,backgroundColor:PAL}]},options:{plugins:{legend:{position:"right"}},maintainAspectRatio:false}});';
+  H+='mk("cCan",{type:"bar",data:{labels:D.canLbl,datasets:[{data:D.canVal,backgroundColor:TE,borderRadius:4}]},options:noL});';
+  H+='mk("cPipe",{type:"bar",data:{labels:D.pipeLbl,datasets:[{data:D.pipeVal,backgroundColor:[TE,AM,BL],borderRadius:4}]},options:noL});';
+  H+='mk("cAging",{type:"bar",data:{labels:D.agingLbl,datasets:[{data:D.agingVal,backgroundColor:[SL,AM,AM,RE,RE],borderRadius:4}]},options:noL});';
+  H+='mk("cTop",{type:"bar",data:{labels:D.topLbl,datasets:[{data:D.topVal,backgroundColor:BL,borderRadius:4}]},options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{grid:{color:gridc},ticks:{callback:function(v){return (v/1000)+"k"}}},y:{grid:{display:false}}},maintainAspectRatio:false}});';
+  H+='<\/script></body></html>';
+  w.document.write(H);w.document.close();
 }
+
 function expData(){var b=new Blob([JSON.stringify(D,null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="espanha2026_backup_"+new Date().toISOString().slice(0,10)+".json";a.click();D.lastBackup=new Date().toISOString().slice(0,10);save();ren()}
 function impData(ev){var f=ev.target.files[0];if(!f)return;var r=new FileReader();
   r.onload=function(e){try{var o=JSON.parse(e.target.result);
@@ -3023,6 +3123,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       +'<div class="r2">'+fld("Tipo",sel("pj3",PROJ_TIPO.map(function(o){return {v:o[0],t:o[1]};}),"implementacao"))+fld("Especialidade",sel("pj4",specs,specs[0]))+'</div>'
       +'<div class="r2">'+fld("Gestor",'<input id="pj7" placeholder="responsável">')+fld("Template de fases",sel("pj8",tpls,"implementacao"))+'</div>'
       +'<div class="r2">'+fld("Valor €",'<input type="number" id="pj5" value="0">')+fld("Fim previsto",'<input type="date" id="pj6b" value="">')+'</div>'
+      +fld("Associar faturas já emitidas (opcional)",'<select id="pj_inv" multiple size="4" style="width:100%">'+(function(){var chrono=(D.invoices||[]).slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});var sm={};chrono.forEach(function(i,ix){sm[i.id]=String(ix+1).padStart(4,"0");});return (D.invoices||[]).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).map(function(i){var d=(D.deals||[]).filter(function(x){return x.id===i.dealId;})[0];return '<option value="'+i.id+'">FT '+sm[i.id]+' · '+esc(d?cn(d.clientId):(i.clienteNome||"—"))+' · '+fmt(i.amount)+(i.collected?" (pago)":"")+'</option>';}).join("");})()+'</select>')
+      +fld("Criar fatura automática do valor?",'<select id="pj_autoinv"><option value="1">Sim</option><option value="0">Não (vou associar existentes)</option></select>')
       +'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svProj()">Criar projeto</button>';
     document.getElementById("mArea").innerHTML=mWrap("Novo projeto",body);
   };
@@ -3038,8 +3140,11 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!Array.isArray(D.projectos))D.projectos=[];
     var np={id:uid(),dealId:did,tipo:tipo,template:tpl,nome:prod,gestor:gestor,inicio:date,fimPrev:fimPrev,status:"a_iniciar",note:"",createdAt:date,fases:buildPhases(tpl)};
     D.projectos.push(np);
-    if(val>0){D.invoices.push({id:uid(),dealId:did,amount:val,date:date,collected:false,collDate:""});}
-    if(typeof logAct==="function")logAct("Projectos","Projeto criado manualmente — "+cn(cid)+" · "+prod.slice(0,40));
+    var autoInv=!(document.getElementById("pj_autoinv")&&document.getElementById("pj_autoinv").value==="0");
+    var selInv=[];var msel=document.getElementById("pj_inv");if(msel){for(var oi=0;oi<msel.options.length;oi++){if(msel.options[oi].selected)selInv.push(msel.options[oi].value);}}
+    selInv.forEach(function(iid){var iv=(D.invoices||[]).filter(function(x){return x.id===iid;})[0];if(iv)iv.dealId=did;});
+    if(autoInv&&val>0){D.invoices.push({id:uid(),dealId:did,amount:val,date:date,collected:false,collDate:""});}
+    if(typeof logAct==="function")logAct("Projectos","Projeto criado manualmente — "+cn(cid)+" · "+prod.slice(0,40)+(selInv.length?(" · "+selInv.length+" fatura(s) associada(s)"):""));
     save();clM();projView=did;ren();
   };
 
@@ -3538,7 +3643,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     else{h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';alerts.forEach(function(al){h+='<button class="btn bs" style="background:#fff;color:'+al.c+';border:1px solid '+rgba(al.c,.35)+'" onclick="cTab=\''+al.tab+'\';rPnl()">'+esc(al.t)+' ›</button>';});h+='</div>';}
     h+='<div style="display:flex;align-items:center;gap:18px;margin-top:14px;flex-wrap:wrap"><div><div style="font-size:10.5px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Faturação · últimos 6 meses</div><div style="font-size:19px;font-weight:800;margin-top:2px">'+fmt(cur)+' <span style="font-size:12px;font-weight:700;color:'+(delta>=0?GRN:R)+'">'+(delta>=0?"▲":"▼")+' '+Math.abs(delta)+'% vs mês anterior</span></div></div>'+sparkSVG(vals,BLU,150,36)+'</div>';
     h+='</div>';
-    app.innerHTML=h+app.innerHTML;
+    app.innerHTML=app.innerHTML+h;
   }
   // ---- Faturas recorrentes (anuidades / manutenção) ----
   var REC_PER=[["anual","Anual"],["semestral","Semestral"],["trimestral","Trimestral"],["mensal","Mensal"]];
@@ -4963,6 +5068,46 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     app.innerHTML=h;
   }
 
+  
+  // ===================== FATURAÇÃO: histórico de todas as faturas =====================
+  function injectFatHistorico(){
+    var app=document.getElementById("app");if(!app)return;
+    var invs=(D.invoices||[]);
+    var chrono=invs.slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
+    var seqMap={};chrono.forEach(function(i,idx){seqMap[i.id]=String(idx+1).padStart(4,"0");});
+    var tot=invs.reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+    var h='<div class="cd"><div class="ct2" style="margin-bottom:6px">Histórico de faturas (todas)</div>';
+    if(!invs.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem faturas no histórico.</div>';
+    else{h+='<div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">'+invs.length+' faturas de sempre · total '+fmt(tot)+'. Clica numa linha para abrir o cliente.</div><div style="overflow-x:auto"><table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Estado</th></tr></thead><tbody>';
+      invs.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).forEach(function(i){var d=(D.deals||[]).filter(function(x){return x.id===i.dealId;})[0];var cli=d?cn(d.clientId):(i.clienteNome||"—");
+        var est=i.collected?bdg("Pago",GRN):bdg("Pendente",GD);
+        h+='<tr'+(d?' style="cursor:pointer" onclick="openClient(\''+d.clientId+'\')"':'')+'><td style="font-family:monospace;font-size:11.5px;font-weight:700">FT '+esc(seqMap[i.id]||"—")+'</td><td style="font-size:12px">'+esc(i.date?(fmtD?fmtD(i.date):i.date):"—")+'</td><td style="font-weight:600">'+esc(cli)+'</td><td style="font-size:12px;color:#7a7268">'+esc(d?(d.product||""):"")+'</td><td style="text-align:right;font-weight:700">'+fmt(i.amount)+'</td><td>'+est+'</td></tr>';});
+      h+='</tbody></table></div>';}
+    h+='</div>';app.innerHTML=app.innerHTML+h;
+  }
+
+  // ===================== PROPOSTAS: associar as do pipeline =====================
+  function propStageLbl(s){return s==="proposta"?"Proposta":s==="projeto"?"Em projeto":(s==="ganho"||s==="concluido")?"Ganha":s==="perdido"?"Perdida":(s||"—");}
+  function propStageCol(s){return (s==="ganho"||s==="concluido")?GRN:s==="perdido"?R:s==="projeto"?BLU:GD;}
+  function injectPropostasPipeline(){
+    var app=document.getElementById("app");if(!app)return;
+    var stages=["proposta","projeto","ganho","concluido","perdido"];
+    var deals=(D.deals||[]).filter(function(d){return stages.indexOf(d.stage)>=0;});
+    if(!deals.length)return;
+    var canEdit=(currentRole==="admin"||canSeeTab("comercial")||canSeeTab("propostas"))&&!isReadOnlyNow();
+    var h='<div class="cd"><div class="ct2" style="margin-bottom:6px">Propostas no pipeline ('+deals.length+')</div><div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">Negócios já no pipeline — propostas, em projeto, ganhas, concluídas e perdidas. Cria uma proposta em PDF a partir de qualquer um.</div><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Produto / Serviço</th><th style="text-align:right">Valor</th><th>Estado</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+    deals.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).forEach(function(d){
+      h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="font-size:12px;color:#7a7268">'+esc(d.product||"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td>'+bdg(propStageLbl(d.stage),propStageCol(d.stage))+'</td>'+(canEdit?'<td style="white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="propostaFromDeal(\''+d.id+'\')">Criar proposta</button></td>':'')+'</tr>';});
+    h+='</tbody></table></div></div>';app.innerHTML=app.innerHTML+h;
+  }
+  window.propostaFromDeal=function(dealId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var d=(D.deals||[]).filter(function(x){return x.id===dealId;})[0];if(!d)return;
+    if(typeof openProposta!=="function"){toastSafe("Módulo de propostas indisponível.");return;}
+    openProposta("");
+    try{if(typeof _propDraft!=="undefined"&&_propDraft){_propDraft.clientId=d.clientId;_propDraft.dealId=d.id;_propDraft.linhas=[{desc:d.product||"Serviço",qtd:1,preco:Number(d.value)||0}];_propDraft.estado=(d.stage==="ganho"||d.stage==="concluido")?"aceite":(d.stage==="perdido"?"recusada":"enviada");if(typeof propRenderModal==="function")propRenderModal();}}catch(e){}
+  };
+
   // ===================== RECURSOS HUMANOS (Operações) =====================
   // ---- RH · ficha completa (Passo 1) ----
   var HR_CONTR=[["sem_termo","Sem termo"],["termo_certo","Termo certo"],["termo_incerto","Termo incerto"],["prestacao","Prestação de serviços"],["estagio","Estágio"]];
@@ -5987,13 +6132,13 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&cTab==="ferias"){try{renderFerias();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="agenda"){try{renderAgenda();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="rh"){try{renderRH();}catch(e){}try{applyRoleGating();}catch(e){}return;}
-      if(typeof cTab!=="undefined"&&cTab==="faturacao"){try{renderFaturacao();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="faturacao"){try{renderFaturacao();}catch(e){}try{injectFatHistorico();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="rgpd"){try{renderRGPD();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="seguranca"){try{renderSeguranca();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="horas"){try{renderHoras();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="dunning"){try{renderDunning();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="contratos"){try{renderContratos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
-      if(typeof cTab!=="undefined"&&cTab==="propostas"){try{renderPropostas();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="propostas"){try{renderPropostas();}catch(e){}try{injectPropostasPipeline();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="minhaarea"){try{renderMinhaArea();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="pesquisa"){try{renderPesquisa();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="reembolsos"){try{renderReembolsos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
@@ -6103,7 +6248,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       {id:"agenda",l:"Agenda / Calendário"}]},
     {group:"Operações",i:"💶",dept:"operacoes",items:[{id:"faturacao",l:"Faturação legal"},{id:"dunning",l:"Cobrança de vencidos"},{id:"contratos",l:"Contratos & licenças"},
       {id:"pl",l:"P&L"},{id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"financeiro",sub:"cobrancas",l:"Cobranças"},{id:"financeiro",sub:"movimentos",l:"Movimentos"},
-      {id:"arr",l:"ARR"},{id:"tesouraria",l:"Tesouraria"},{id:"rentabilidade",l:"Rentabilidade"},{id:"orc2027",l:"Orçamento 2027"},{id:"historico",l:"Histórico"},{id:"estrategia",l:"Estratégia & Insights"},{id:"rh",l:"Recursos Humanos"},{id:"reembolsos",l:"Despesas & reembolsos"}]},
+      {id:"arr",l:"ARR"},{id:"tesouraria",l:"Tesouraria"},{id:"rentabilidade",l:"Rentabilidade"},{id:"orc2027",l:"Orçamento 2027"},{id:"historico",l:"Histórico"},{id:"estrategia",l:"Estratégia & Insights"}]},
+    {group:"Recursos Humanos",i:"👥",dept:"operacoes",items:[{id:"rh",l:"Recursos Humanos"},{id:"reembolsos",l:"Despesas"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Clientes Totais"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Mapa & carteira"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
