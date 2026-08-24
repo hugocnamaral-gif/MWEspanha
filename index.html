@@ -214,7 +214,7 @@ function dTodayStr(){return new Date().toISOString().slice(0,10)}
 function isOverdue(d){return d.nextDate&&d.nextDate<dTodayStr()&&!isClosed(d)}
 function daysLate(d){return d.nextDate?Math.floor((new Date(dTodayStr())-new Date(d.nextDate))/86400000):0}
 function billStatus(dealId){var iv=D.invoices.find(function(x){return x.dealId===dealId});if(!iv)return{k:"adj",label:"Adjudicado",sub:"pendente facturação",color:GD};if(!iv.collected)return{k:"fac",label:"Facturado",sub:"pendente pagamento",color:SL};return{k:"pago",label:"Pago",sub:"",color:GRN}}
-function ivRow(iv){var d=D.deals.find(function(x){return x.id===iv.dealId});var old=beforeYear(iv.date);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f8f7f5"><div><div style="font-size:12px;font-weight:500">'+(d?cn(d.clientId):"—")+(old?' <span style="font-size:9px;color:'+R+';font-weight:700;background:#fdf2f3;border-radius:8px;padding:1px 6px;margin-left:4px">anterior a 2026</span>':'')+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(iv.date)+(iv.collected&&iv.collDate?' · <span style="color:'+GRN+';font-weight:600">cobrada '+fmtD(iv.collDate)+'</span>':'')+(d?" · "+d.specialty:"")+'</div></div><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:13px">'+fmt(iv.amount)+'</span><button class="btn bs" style="background:'+(iv.collected?GRN:R)+'" onclick="tgCl(\''+iv.id+'\')">'+(iv.collected?"✓ Pago":"Pendente")+'</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="editIv(\''+iv.id+'\')" title="Editar">✎</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="delIv(\''+iv.id+'\')" title="Apagar">✕</button></div></div>'}
+function ivRow(iv){var d=D.deals.find(function(x){return x.id===iv.dealId});var old=beforeYear(iv.date);var isNC=iv.isNC||(Number(iv.amount)<0);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f8f7f5"><div><div style="font-size:12px;font-weight:500">'+(d?cn(d.clientId):(iv.clienteNome||"—"))+(isNC?' <span style="font-size:9px;color:#fff;font-weight:700;background:'+PUR+';border-radius:8px;padding:1px 6px;margin-left:4px">NC</span>':'')+(old?' <span style="font-size:9px;color:'+R+';font-weight:700;background:#fdf2f3;border-radius:8px;padding:1px 6px;margin-left:4px">anterior a 2026</span>':'')+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(iv.date)+(iv.collected&&iv.collDate?' · <span style="color:'+GRN+';font-weight:600">cobrada '+fmtD(iv.collDate)+'</span>':'')+(d?" · "+d.specialty:"")+'</div></div><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:13px'+(isNC?';color:'+PUR:'')+'">'+fmt(iv.amount)+'</span><button class="btn bs" style="background:'+(iv.collected?GRN:R)+'" onclick="tgCl(\''+iv.id+'\')">'+(iv.collected?"✓ Pago":"Pendente")+'</button>'+(!isNC?'<button class="btn bs" style="background:'+PUR+'" onclick="movNC(\''+iv.id+'\')" title="Criar nota de crédito">NC</button>':'')+'<button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="editIv(\''+iv.id+'\')" title="Editar">✎</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="delIv(\''+iv.id+'\')" title="Apagar">✕</button></div></div>'}
 function load(){try{var s=localStorage.getItem("esp26v3");if(s){D=JSON.parse(s)}else{D=JSON.parse(JSON.stringify(INIT))}}catch(e){D=JSON.parse(JSON.stringify(INIT))}migrate()}
 function migrate(){var changed=false;
   if(!D.clientSpecs)D.clientSpecs=[];
@@ -290,6 +290,7 @@ function migrate(){var changed=false;
       if(before!==(D.deals||[]).length)changed=true;
     })();
   }
+  if(!D._voidNCfmt7){var _ncx=(D.faturas||[]).filter(function(f){return f.id==="fmt7ib7zwyhenr";})[0];if(_ncx&&_ncx.estado==="emitida"){_ncx.estado="anulada";_ncx.anuladaData="2026-08-24";_ncx.anuladaPor="correção";changed=true;}D._voidNCfmt7=true;changed=true;}
   if((D.dataVersion||1)<INIT.dataVersion){D.dataVersion=INIT.dataVersion;changed=true}
   try{window.__migrateChanged=changed;}catch(e){}
   if(changed)save();
@@ -3593,8 +3594,9 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!isReadOnlyNow()&&(currentRole==="admin"||canSeeTab("faturacao"));
     var y=new Date().getFullYear();
-    var docs=fatList().filter(function(x){return x.estado==="emitida";});
-    var ano=docs.filter(function(x){return (x.data||"").slice(0,4)===String(y);});
+    var docs=fatList().filter(function(x){return x.estado==="emitida"||x.estado==="anulada";});
+    var emit=docs.filter(function(x){return x.estado==="emitida";});
+    var ano=emit.filter(function(x){return (x.data||"").slice(0,4)===String(y);});
     var base=ano.reduce(function(a,x){return a+(Number(x.baseTotal)||0);},0);
     var ivaT=ano.reduce(function(a,x){return a+(Number(x.ivaTotal)||0);},0);
     var totT=ano.reduce(function(a,x){return a+(Number(x.total)||0);},0);
@@ -3622,11 +3624,27 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Documento</th><th>Data</th><th>Cliente</th><th>País</th><th style="text-align:right">Base</th><th style="text-align:right">IVA</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>';
       docs.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"")||(b.seq||0)-(a.seq||0);}).forEach(function(x){
         var st=x.estado==="anulada"?bdg("Anulada",R):(fatIsNC(x.tipo)?bdg("Nota de crédito",PUR):bdg("Emitida",GRN));
-        h+='<tr><td style="font-weight:700;font-family:monospace">'+esc(x.numero)+(x.atcud?'<div style="font-size:10px;color:#a89d8d;font-weight:400">ATCUD '+esc(x.atcud)+'</div>':"")+'</td><td>'+esc(fmtD?fmtD(x.data):x.data)+'</td><td>'+esc(x.clienteNome||"—")+'</td><td>'+bdg(x.pais,SL)+'</td><td style="text-align:right">'+fmt(x.baseTotal)+'</td><td style="text-align:right">'+fmt(x.ivaTotal)+'</td><td style="text-align:right;font-weight:700">'+fmt(x.total)+'</td><td>'+st+'</td><td style="white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="printFatura(\''+x.id+'\')">Imprimir</button>'+((canEdit&&x.estado==="emitida"&&!fatIsNC(x.tipo))?' <button class="btn bs" style="background:'+GD+'" onclick="notaCredito(\''+x.id+'\')">Nota de crédito</button>':"")+'</td></tr>';
+        var _anul=x.estado==="anulada";
+        h+='<tr'+(_anul?' style="opacity:.62"':'')+'><td style="font-weight:700;font-family:monospace'+(_anul?';text-decoration:line-through':'')+'">'+esc(x.numero)+(x.atcud?'<div style="font-size:10px;color:#a89d8d;font-weight:400">ATCUD '+esc(x.atcud)+'</div>':"")+'</td><td>'+esc(fmtD?fmtD(x.data):x.data)+'</td><td>'+esc(x.clienteNome||"—")+'</td><td>'+bdg(x.pais,SL)+'</td><td style="text-align:right">'+fmt(x.baseTotal)+'</td><td style="text-align:right">'+fmt(x.ivaTotal)+'</td><td style="text-align:right;font-weight:700">'+fmt(x.total)+'</td><td>'+st+(_anul&&x.anuladaData?'<div style="font-size:10px;color:#a89d8d">'+esc(fmtD?fmtD(x.anuladaData):x.anuladaData)+'</div>':'')+'</td><td style="white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="printFatura(\''+x.id+'\')">Imprimir</button>'+((canEdit&&x.estado==="emitida"&&!fatIsNC(x.tipo))?' <button class="btn bs" style="background:'+GD+'" onclick="notaCredito(\''+x.id+'\')">Nota de crédito</button>':"")+((canEdit&&x.estado==="emitida")?' <button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+'" onclick="anularFatura(\''+x.id+'\')">Anular</button>':"")+'</td></tr>';
       });
       h+='</tbody></table></div>';}
     h+='</div>';
 
+    // movimentos de faturação (gestão) refletidos aqui — emitir documento legal a pedido
+    var movs=(D.invoices||[]);
+    if(movs.length){
+      var legalDe=function(invId){return fatList().filter(function(f){return f.fromInvId===invId&&f.estado==="emitida";})[0];};
+      var porEmitir=movs.filter(function(m){return !legalDe(m.id);}).length;
+      h+='<div class="cd" style="border-left:3px solid '+BLU+'"><div class="ct2" style="margin-bottom:6px">Movimentos de faturação (gestão) — '+movs.length+'</div><div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">Faturas registadas nos Movimentos (Financeiro), refletidas aqui. '+porEmitir+' ainda sem documento fiscal — emite o documento legal a partir de cada uma quando quiseres.</div><div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cliente</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Estado</th><th>Documento fiscal</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      movs.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).forEach(function(m){
+        var dl=(D.deals||[]).filter(function(x){return x.id===m.dealId;})[0];var cli=dl?cn(dl.clientId):(m.clienteNome||"—");
+        var doc=legalDe(m.id);var _nc=m.isNC||Number(m.amount)<0;
+        var docCell=doc?('<span style="font-family:monospace;font-weight:700;font-size:11.5px">'+esc(doc.numero)+'</span>'):'<span style="color:#c9c1b4">—</span>';
+        var act=canEdit?('<td style="white-space:nowrap">'+(doc?('<button class="btn bs" style="background:'+SL+'" onclick="printFatura(\''+doc.id+'\')">Imprimir</button>'):('<button class="btn bs" style="background:'+GD+'" onclick="emitirDeMovimento(\''+m.id+'\')">Emitir '+(_nc?"NC":"documento")+'</button>'))+'</td>'):'';
+        h+='<tr><td style="font-size:12px">'+esc(fmtD?fmtD(m.date):m.date)+'</td><td style="font-weight:600">'+esc(cli)+(_nc?' <span style="font-size:9px;color:#fff;font-weight:700;background:'+PUR+';border-radius:8px;padding:1px 6px">NC</span>':'')+'</td><td style="font-size:12px;color:#7a7268">'+esc((dl&&dl.product)||m.descricao||"")+'</td><td style="text-align:right;font-weight:700'+(_nc?';color:'+PUR:'')+'">'+fmt(m.amount)+'</td><td>'+(m.collected?bdg("Pago",GRN):bdg("Pendente",GD))+'</td><td>'+docCell+'</td>'+act+'</tr>';
+      });
+      h+='</tbody></table></div></div>';
+    }
     // rascunhos
     var rasc=fatList().filter(function(x){return x.estado!=="emitida"&&x.estado!=="anulada";});
     if(rasc.length){h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:8px">Rascunhos</div><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>País</th><th style="text-align:right">Total (prev.)</th><th></th></tr></thead><tbody>';
@@ -3716,6 +3734,37 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     _fatDraft=null;clM();ren();toastSafe("Documento "+res.numero+" emitido.","ok");
     printFatura(res.id);
   };
+  window.emitirDeMovimento=function(invId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var iv=(D.invoices||[]).filter(function(x){return x.id===invId;})[0];if(!iv){toastSafe("Movimento não encontrado.");return;}
+    if(typeof openFaturaM!=="function"){toastSafe("Módulo de faturação indisponível.");return;}
+    openFaturaM("");
+    try{if(_fatDraft){
+      var d=(D.deals||[]).filter(function(x){return x.id===iv.dealId;})[0];
+      var cli=d?(D.clients||[]).filter(function(c){return c.id===d.clientId;})[0]:null;
+      if(cli){_fatDraft.clienteId=cli.id;_fatDraft.clienteNome=cli.name||cli.nome||"";if(cli.nif)_fatDraft.clienteNIF=cli.nif;if(cli.morada)_fatDraft.clienteMorada=cli.morada;}
+      else if(iv.clienteNome){_fatDraft.clienteNome=iv.clienteNome;}
+      _fatDraft.data=iv.date||todayISO();
+      var _neg=Number(iv.amount)<0;
+      if(_neg){var _nct=fatTipos(_fatDraft.pais).filter(function(t){return t[0]==="NC"||t[0]==="REC";})[0];if(_nct)_fatDraft.tipo=_nct[0];}
+      _fatDraft.linhas=[{desc:(d&&d.product)||iv.descricao||"Serviços",qtd:1,preco:Math.abs(Number(iv.amount)||0),taxaIVA:fatIvaRates(_fatDraft.pais)[0][0]}];
+      _fatDraft.fromInvId=iv.id;
+      fatRenderModal();
+    }}catch(e){}
+  };
+  window.movNC=function(invId){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var iv=(D.invoices||[]).filter(function(x){return x.id===invId;})[0];if(!iv)return;
+    if(iv.isNC||Number(iv.amount)<0){toastSafe("Este movimento já é uma nota de crédito.");return;}
+    var d=D.deals.find(function(x){return x.id===iv.dealId;});
+    var doIt=function(){
+    var nc={id:uid(),dealId:iv.dealId||"",amount:-Math.abs(Number(iv.amount)||0),date:new Date().toISOString().slice(0,10),collected:false,collDate:"",isNC:true,ncOf:iv.id,clienteNome:iv.clienteNome||(d?cn(d.clientId):""),descricao:"Nota de crédito"+(iv.num?" de "+iv.num:"")};
+    (D.invoices||(D.invoices=[])).push(nc);
+    if(typeof logAct==="function")logAct("Cobrança","Nota de crédito (movimento) — "+(d?cn(d.clientId):"")+" "+fmt(nc.amount));
+    save();if(typeof clM==="function")clM();ren();toastSafe("Nota de crédito criada nos movimentos.","ok");
+  };
+    if(typeof confirmM==="function")confirmM("Criar uma <b>nota de crédito</b> ("+fmt(-Math.abs(iv.amount))+") para este movimento?<br><br>Fica registada nos Movimentos e reflete-se no cashflow. Para o <b>documento fiscal</b>, emite a NC na Faturação legal.",doIt,{yesLabel:"Criar NC"});else doIt();
+};
 
   // ---------- Nota de crédito ----------
   window.notaCredito=function(id){
@@ -3727,6 +3776,17 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var res=emitFatura(nc);if(res){save();ren();toastSafe("Nota de crédito "+res.numero+" emitida.","ok");printFatura(res.id);}
     };
     if(typeof confirmM==="function")confirmM("Emitir nota de crédito para <b>"+esc(orig.numero)+"</b>? Anula os valores do documento original.",doIt,{yesLabel:"Emitir NC"});else doIt();
+  };
+  window.anularFatura=function(id){
+    if(isReadOnlyNow()||!(currentRole==="admin"||canSeeTab("faturacao"))){toastSafe("Sem permissão.");return;}
+    var x=fatList().filter(function(f){return f.id===id;})[0];if(!x||x.estado!=="emitida")return;
+    var doIt=function(){
+      x.estado="anulada";x.anuladaData=todayISO();x.anuladaPor=(typeof myEmail==="function"?myEmail():"");
+      if(typeof logAct==="function")logAct("Factura","Documento anulado — "+(x.numero||x.id)+(x.clienteNome?" ("+x.clienteNome+")":""));
+      save();if(typeof clM==="function")clM();ren();toastSafe("Documento anulado.","ok");
+    };
+    if(typeof confirmM==="function")confirmM("Anular o documento <b>"+esc(x.numero||"")+"</b> ("+esc(x.clienteNome||"")+" · "+fmt(x.total)+")?<br><br>O número fica reservado e o documento mantém-se no registo como <b>Anulado</b> (não é apagado, por conformidade legal). Reversível na Auditoria.",doIt,{yesLabel:"Anular",danger:true});
+    else if(confirm("Anular "+(x.numero||"")+"?"))doIt();
   };
 
   // ---------- Impressão / PDF conforme ----------
