@@ -1,0 +1,63 @@
+<title>Email de Suporte e Cobrança</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Inter:wght@400;450;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{--bg:#e9edf1;--panel:#f4f6f9;--card:#fff;--ink:#111820;--ink2:#2a333e;--mut:#5c6773;--faint:#8b95a1;--line:#dde3ea;--line2:#eef1f5;--accent:#0d6e77;--accent-soft:#0d6e771a;--crit:#c1352e;--done:#1e7a4d;--shadow:0 1px 2px rgba(16,24,32,.04),0 8px 24px rgba(16,24,32,.06);}
+  :root:not([data-theme="light"]){@media (prefers-color-scheme:dark){--bg:#0d1116;--panel:#141a21;--card:#171e26;--ink:#eef2f6;--ink2:#c9d2dc;--mut:#93a0ad;--faint:#6b7885;--line:#28313b;--line2:#1e262f;--accent:#3fb4bf;--accent-soft:#3fb4bf1f;--crit:#f0736b;--done:#57c98a;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);}}
+  :root[data-theme="dark"]{--bg:#0d1116;--panel:#141a21;--card:#171e26;--ink:#eef2f6;--ink2:#c9d2dc;--mut:#93a0ad;--faint:#6b7885;--line:#28313b;--line2:#1e262f;--accent:#3fb4bf;--accent-soft:#3fb4bf1f;--crit:#f0736b;--done:#57c98a;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;font-weight:450;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:44px 24px 90px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:500;margin:0 0 14px}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(30px,5vw,44px);line-height:1.04;letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
+  .lede{font-size:17px;color:var(--ink2);max-width:64ch;margin:0}.lede b{color:var(--ink)}
+  h2{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:20px;margin:38px 0 10px}
+  p{margin:0 0 14px;max-width:70ch}
+  code{font-family:"IBM Plex Mono",monospace;font-size:12.5px;background:var(--line2);padding:2px 6px;border-radius:5px}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.6;color:var(--ink2)}
+  .callout{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:15px 18px;margin:16px 0;font-size:14.5px;color:var(--ink2)}.callout b{color:var(--ink)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+  .fn{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .fn h3{font-family:"Bricolage Grotesque",sans-serif;font-size:15px;margin:0 0 4px}
+  .fn .file{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent)}
+  .fn p{font-size:13.5px;color:var(--ink2);margin:8px 0 0}
+  .foot{margin-top:38px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+  .toggle{position:fixed;top:16px;right:16px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--mut);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
+  @media(max-width:640px){.two{grid-template-columns:1fr}}
+</style>
+<button class="toggle" id="themeBtn">◐ tema</button>
+<div class="wrap">
+  <p class="eyebrow">Suporte & Cobrança · email bidirecional</p>
+  <h1>Ligar o email de suporte e de cobrança</h1>
+  <p class="lede">O programa já <b>compõe e regista</b> as respostas de suporte e os lembretes de cobrança. Para que <b>saiam mesmo por email</b> (e para que emails de clientes entrem como pedidos), faltam duas funções no Supabase. Sem elas, tudo continua a funcionar — apenas ficas a copiar/enviar manualmente.</p>
+
+  <div class="two">
+    <div class="fn"><div class="file">send-email.ts</div><h3>Enviar emails</h3><p>Usada pela <b>Cobrança de vencidos</b> (lembretes) e pelo <b>Suporte</b> (resposta ao cliente a partir do ticket). Envia via Resend a partir do teu domínio.</p></div>
+    <div class="fn"><div class="file">inbound-email.ts</div><h3>Receber emails</h3><p>Webhook que transforma emails recebidos em <b>pedidos de suporte</b>: associa ao ticket certo (pelo código <code>[tkXXXX]</code> no assunto ou pelo email do cliente) ou cria um novo.</p></div>
+  </div>
+
+  <h2>Publicar o envio (send-email)</h2>
+  <pre>supabase functions new send-email
+# cola o conteúdo de send-email.ts em supabase/functions/send-email/index.ts
+supabase secrets set RESEND_API_KEY=re_xxxxx
+supabase secrets set MAIL_FROM="Suporte &lt;suporte@oteudominio.pt&gt;"
+supabase functions deploy send-email</pre>
+  <p>Precisas de uma conta <a href="https://resend.com">Resend</a> com o teu <b>domínio verificado</b>. A partir daí, o botão "Enviar email" na cobrança e o "Registar resposta" no suporte passam a enviar de verdade.</p>
+
+  <h2>Publicar a receção (inbound-email)</h2>
+  <pre>supabase functions new inbound-email
+# cola o conteúdo de inbound-email.ts em supabase/functions/inbound-email/index.ts
+supabase functions deploy inbound-email --no-verify-jwt
+supabase secrets set INBOUND_TOKEN=um-segredo-forte</pre>
+  <p>No teu fornecedor de email de entrada (Resend Inbound, ou um reencaminhamento por webhook), aponta a receção para:</p>
+  <pre>https://&lt;project&gt;.functions.supabase.co/inbound-email?token=um-segredo-forte</pre>
+  <p>A função lê o estado da app, acrescenta a mensagem ao ticket (ou cria um novo) e volta a gravar. O <code>?token=</code> impede chamadas não autorizadas.</p>
+
+  <div class="callout"><b>Como a associação funciona.</b> Quando respondes a um cliente, o assunto leva o código do ticket <code>[tkXXXX]</code>. Se o cliente responder mantendo esse assunto, o inbound liga a resposta ao mesmo pedido. Sem código, tenta pelo email do remetente com um pedido em aberto; se não houver, cria um novo pedido marcado 📧.</p></div>
+
+  <div class="callout" style="border-left-color:var(--crit)"><b>Segurança.</b> As chaves (<code>RESEND_API_KEY</code>, <code>SERVICE_ROLE</code>, <code>INBOUND_TOKEN</code>) vivem só nos <i>secrets</i> do Supabase — nunca no <code>index.html</code>.</div>
+
+  <div class="foot">Ficheiros enviados em conjunto: <code>send-email.ts</code> e <code>inbound-email.ts</code> (cada um traz os passos no cabeçalho). Também precisas da <code>create-collaborator.ts</code>, já entregue, para criar acessos.</div>
+</div>
+<script>(function(){var t=document.getElementById('themeBtn'),r=document.documentElement;t.addEventListener('click',function(){var c=r.getAttribute('data-theme');var d=c?c==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.setAttribute('data-theme',d?'light':'dark');});})();</script>
