@@ -597,7 +597,7 @@ function st(){
 
 var NAV=[
 {id:"dashboard",i:"📊",l:"Dashboard"},
-{group:"Financeiro",i:"💶",items:[{id:"pl",l:"P&L"},{id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"financeiro",sub:"cobrancas",l:"Cobranças"},{id:"financeiro",sub:"movimentos",l:"Movimentos"}]},
+{group:"Financeiro",i:"💶",items:[{id:"pl",l:"P&L"},{id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"financeiro",sub:"cobrancas",l:"Cobranças"},{id:"financeiro",sub:"faturas",l:"Movimentos"}]},
 {group:"Comercial",i:"🏥",items:[{id:"clientes",l:"Vendas"},{id:"pipeline",l:"Pipeline"},{id:"prospeccao",l:"Prospeção"},{id:"ganhas",l:"Ganhas"},{id:"concluidas",l:"Concluídas"},{id:"perdidas",l:"Perdidas"},{id:"mapa",l:"Mapa"}]},
 {group:"Clientes",i:"🏢",items:[{id:"clientesTotais",l:"Clientes Totais"},{id:"contactos",l:"Contactos"}]},
 {group:"Estratégia & Planeamento",i:"🧭",items:[{id:"estrategia",l:"Estratégia & Insights"},{id:"arr",l:"ARR"},{id:"orc2027",l:"Orçamento 2027"},{id:"historico",l:"Histórico"}]},
@@ -629,22 +629,22 @@ if(cTab==="dashboard"){
 
   var todos=[];
   D.invoices.filter(function(i){return!i.collected}).forEach(function(i){var dd=Math.floor((new Date()-new Date(i.date))/86400000);var dl=D.deals.find(function(x){return x.id===i.dealId});
-    if(dd>=180)todos.push({p:1,ic:"🔴",t:"Cobrança em risco ("+dd+" dias)",s:(dl?cn(dl.clientId):"—")+" — "+fmt(i.amount)+" · considerar provisão para incobrável",go:"financeiro",sub:"movimentos"});
-    else if(dd>=90)todos.push({p:2,ic:"🟠",t:"Cobrança vencida ("+dd+" dias)",s:(dl?cn(dl.clientId):"—")+" — "+fmt(i.amount),go:"financeiro",sub:"movimentos"})});
+    if(dd>=180)todos.push({p:1,ic:"🔴",t:"Cobrança em risco ("+dd+" dias)",s:(dl?cn(dl.clientId):"—")+" — "+fmt(i.amount)+" · considerar provisão para incobrável",go:"financeiro",sub:"faturas"});
+    else if(dd>=90)todos.push({p:2,ic:"🟠",t:"Cobrança vencida ("+dd+" dias)",s:(dl?cn(dl.clientId):"—")+" — "+fmt(i.amount),go:"financeiro",sub:"faturas"})});
   D.deals.filter(isOverdue).forEach(function(d){todos.push({p:2,ic:"⏰",t:"Follow-up em atraso ("+daysLate(d)+" dias)",s:cn(d.clientId)+" — "+(d.nextAction||"sem acção definida")+" · "+fmt(d.value),go:"pipeline"})});
   D.deals.filter(function(d){return(d.stage==="proposta")&&inYear(d.date)&&!d.nextDate}).forEach(function(d){todos.push({p:3,ic:"📌",t:"Proposta sem próxima acção definida",s:cn(d.clientId)+" — "+fmt(d.value),go:"pipeline"})});
-  D.deals.filter(function(d){return isWon(d)&&inYear(d.date)&&!D.invoices.find(function(i){return i.dealId===d.id})}).forEach(function(d){todos.push({p:2,ic:"🧾",t:"Adjudicado por facturar",s:cn(d.clientId)+" — "+fmt(d.value),go:"financeiro",sub:"movimentos"})});
+  D.deals.filter(function(d){return isWon(d)&&inYear(d.date)&&!D.invoices.find(function(i){return i.dealId===d.id})}).forEach(function(d){todos.push({p:2,ic:"🧾",t:"Adjudicado por facturar",s:cn(d.clientId)+" — "+fmt(d.value),go:"financeiro",sub:"faturas"})});
   var dsb=daysSinceBackup();
   if(dsb===null)todos.push({p:2,ic:"💾",t:"Nunca fizeste backup dos dados",s:"Os dados vivem só neste browser — exporta para não perderes tudo",go:""});
   else if(dsb>=14)todos.push({p:2,ic:"💾",t:"Último backup há "+dsb+" dias",s:"Exporta uma cópia de segurança",go:""});
   var integ=integrityCheck();
   if(integ.length)todos.push({p:1,ic:"⚠️",t:"Inconsistência nos dados ("+integ.length+")",s:integ.slice(0,2).join(" · "),go:""});
   (D.upsells||[]).filter(function(u){return u.estado==="aberto";}).forEach(function(u){todos.push({p:2,ic:"💡",t:"Upselling por decidir"+(u.comercial?" · "+u.comercial:""),s:(u.clientId?cn(u.clientId):"—")+" — "+(u.descricao||"")+(u.valorEst?" · "+fmt(u.valorEst):""),go:u.origem==="ticket"?"suporte":"projetos"})});
+  if(D.budget>0&&S.inv<D.budget){var _pbv=Math.round(parseFloat(S.pB)||0);todos.push({p:3,ic:"🎯",t:"Execução orçamental em "+_pbv+"%",s:fmt(S.inv)+" de "+fmt(D.budget)+" · faltam "+fmt(D.budget-S.inv),go:"financeiro",sub:"orcamento"})}
   todos.sort(function(a,b){return a.p-b.p});
-  h+='<div class="g2"><div class="cd"><div class="ct2" style="margin-bottom:14px">EXECUÇÃO ORÇAMENTAL</div><div style="display:flex;align-items:center;gap:16px"><div style="position:relative;width:80px;height:80px;flex-shrink:0"><svg width="80" height="80" style="transform:rotate(-90deg)"><circle cx="40" cy="40" r="34" fill="none" stroke="#e5e0da" stroke-width="5"/><circle cx="40" cy="40" r="34" fill="none" stroke="'+R+'" stroke-width="5" stroke-dasharray="'+dash+" "+(circ-dash)+'" stroke-linecap="round"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:'+R+'">'+Math.round(parseFloat(S.pB))+'%</div></div><div><div style="font-size:18px;font-weight:700">'+fmt(S.inv)+' <span style="font-size:13px;color:#7a7268">/ '+fmt(D.budget)+'</span></div><div style="font-size:12px;color:#7a7268">Faltam '+fmt(D.budget-S.inv)+'</div></div></div></div>';
   h+='<div class="cd"><div class="ct2" style="margin-bottom:14px">PIPELINE POR ETAPA (2026)</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">';
   STAGES.forEach(function(s){var ds=D.deals.filter(function(d){return d.stage===s&&inYear(d.date)});var tot=ds.reduce(function(a,d){return a+d.value},0);h+='<div style="text-align:center;padding:10px;background:#f8f7f5;border-radius:8px">'+bdg(SL2[s],SC[s])+'<div style="font-size:22px;font-weight:700;margin-top:6px;color:'+SC[s]+'">'+ds.length+'</div><div style="font-size:10px;color:#7a7268">'+fmt(tot)+'</div></div>'});
-  h+='</div></div></div>';
+  h+='</div></div>';
   h+='<div class="g2"><div class="cd"><div class="ct2" style="margin-bottom:8px">CASHFLOW MENSAL</div><div class="wfc">';
   var mx=1;S.cfd.slice(0,7).forEach(function(d){if(Math.abs(d.v)>mx)mx=Math.abs(d.v)});
   S.cfd.slice(0,7).forEach(function(d){var ht=Math.max(Math.abs(d.v)/mx*120,3);var col=d.v>=0?GRN:R;h+='<div><div style="font-size:10px;font-weight:600;margin-bottom:3px;text-align:center;color:'+col+'">'+(d.v>=0?"+":"")+fmt(d.v)+'</div><div style="width:100%;border-radius:4px 4px 0 0;min-height:3px;height:'+ht+'px;background:'+col+'"></div><div style="font-size:10px;color:#7a7268;margin-top:4px;text-align:center">'+d.m+'</div></div>'});
@@ -718,6 +718,7 @@ h+='</div></div>';
   allA.forEach(function(d){h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+d.product.slice(0,40)+'</td><td>'+bdg(SL2[d.stage],SC[d.stage])+'</td><td style="text-align:right">'+fmt(d.value)+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+fmt(d.arr)+'</td><td style="text-align:right;color:#7a7268">'+fmt(d.arr/12)+'</td></tr>'});
   h+='</table></div></div>';
 } else if(cTab==="orc2027"){
+  var NY=(new Date().getFullYear())+1;
   var B=D.budget2027||{renew:90,newBiz:0,upsell:0,priceInc:0};
   var wonD3=D.deals.filter(function(d){return isWon(d)});
   var arrBase=wonD3.reduce(function(a,d){return a+(d.arr||0)},0);
@@ -729,25 +730,25 @@ h+='</div></div>';
   var carry=(arrBase+arrExp)*(B.renew/100);
   var withPrice=carry*(1+B.priceInc/100);
   var total27=withPrice+Number(B.newBiz||0)+Number(B.upsell||0);
-  h=pgHead("🎯","Orçamento 2027 — construção bottom-up",'<button class="btn bs" style="background:#7a7268" onclick="window.print()">🖨️ Imprimir</button>');
+  h=pgHead("🎯","Orçamento previsto "+NY+" — construção bottom-up",'<button class="btn bs" style="background:#7a7268" onclick="window.print()">🖨️ Imprimir</button>');
   h+='<div class="ins"><div style="font-weight:600;margin-bottom:6px">Como se constrói um orçamento credível</div><div style="font-size:12.5px;color:#7a7268;line-height:1.7">Um orçamento não se adivinha — constrói-se por camadas, de baixo para cima:<br><b>1. Base recorrente</b> — o ARR que já tens, ajustado pela taxa de renovação esperada (nunca 100%: há sempre quem saia).<br><b>2. Pipeline que transita</b> — o ARR das propostas abertas, ponderado pela probabilidade de fechar.<br><b>3. Aumento de preço</b> — indexação anual que consegues aplicar à base instalada.<br><b>4. Novo negócio</b> — o que tens de vender de raiz. É a única parcela verdadeiramente incerta, e deve ser justificada por capacidade real (visitas/mês × taxa de conversão × ticket médio), não por desejo.<br><b>5. Upsell</b> — especialidades adicionais em clientes existentes. Normalmente a via mais barata de crescer.</div></div>';
   h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">PRESSUPOSTOS — ajusta e vê o impacto</div><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:end">';
   h+='<div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Taxa de renovação (%)</label><input type="number" id="b27renew" value="'+B.renew+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:110px"></div>';
   h+='<div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Aumento de preço (%)</label><input type="number" id="b27price" value="'+B.priceInc+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:110px"></div>';
-  h+='<div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Novo negócio 2027 (€)</label><input type="number" id="b27new" value="'+B.newBiz+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:130px"></div>';
+  h+='<div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Novo negócio '+NY+' (€)</label><input type="number" id="b27new" value="'+B.newBiz+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:130px"></div>';
   h+='<div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Upsell base instalada (€)</label><input type="number" id="b27up" value="'+B.upsell+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:130px"></div>';
   h+='<button class="btn bs" style="background:'+R+'" onclick="save2027()">Recalcular</button></div></div>';
-  h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">ORÇAMENTO 2027 — CONSTRUÇÃO</div><table><tr><th>Camada</th><th>Origem</th><th style="text-align:right">Valor</th></tr>';
+  h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">ORÇAMENTO '+NY+' — CONSTRUÇÃO</div><table><tr><th>Camada</th><th>Origem</th><th style="text-align:right">Valor</th></tr>';
   h+='<tr><td style="font-weight:600">1. ARR garantido</td><td style="color:#7a7268;font-size:11px">vendas já ganhas</td><td style="text-align:right">'+fmt(arrBase)+'</td></tr>';
   h+='<tr><td style="font-weight:600">2. ARR do pipeline (ponderado)</td><td style="color:#7a7268;font-size:11px">'+fmt(arrPipe3)+' em aberto × probabilidade por etapa</td><td style="text-align:right">'+fmt(arrExp)+'</td></tr>';
   h+='<tr><td style="font-weight:600">3. Menos churn ('+(100-B.renew)+'%)</td><td style="color:#7a7268;font-size:11px">taxa de renovação '+B.renew+'%</td><td style="text-align:right;color:'+R+'">-'+fmt((arrBase+arrExp)-carry)+'</td></tr>';
   h+='<tr><td style="font-weight:600">4. Aumento de preço</td><td style="color:#7a7268;font-size:11px">+'+B.priceInc+'% sobre a base renovada</td><td style="text-align:right;color:'+GRN+'">+'+fmt(withPrice-carry)+'</td></tr>';
   h+='<tr><td style="font-weight:600">5. Novo negócio</td><td style="color:#7a7268;font-size:11px">a vender de raiz</td><td style="text-align:right">'+fmt(B.newBiz)+'</td></tr>';
   h+='<tr><td style="font-weight:600">6. Upsell</td><td style="color:#7a7268;font-size:11px">especialidades em clientes actuais</td><td style="text-align:right">'+fmt(B.upsell)+'</td></tr>';
-  h+='<tr style="border-top:2px solid #ece6dc"><td style="font-weight:700;font-size:14px">ORÇAMENTO 2027</td><td></td><td style="text-align:right;font-weight:700;font-size:16px;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(total27)+'</td></tr>';
+  h+='<tr style="border-top:2px solid #ece6dc"><td style="font-weight:700;font-size:14px">ORÇAMENTO '+NY+'</td><td></td><td style="text-align:right;font-weight:700;font-size:16px;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(total27)+'</td></tr>';
   h+='</table></div>';
   var recPct=total27>0?Math.round(withPrice/total27*100):0;
-  h+='<div class="ins'+(recPct<40?" w":"")+'"><div style="font-weight:600;margin-bottom:4px">'+(recPct>=40?"✅":"⚠️")+' Qualidade do orçamento</div><div style="font-size:13px;color:#7a7268;line-height:1.6">'+recPct+'% do orçamento 2027 vem de receita recorrente já contratada ou em pipeline; '+(100-recPct)+'% depende de vender de novo. '+(recPct>=40?"Uma base saudável — o ano não começa do zero.":"Um orçamento assente sobretudo em novo negócio é frágil: qualquer atraso comercial passa directamente para o resultado. Aumentar a base recorrente devia ser prioridade em 2026.")+'</div></div>';
+  h+='<div class="ins'+(recPct<40?" w":"")+'"><div style="font-weight:600;margin-bottom:4px">'+(recPct>=40?"✅":"⚠️")+' Qualidade do orçamento</div><div style="font-size:13px;color:#7a7268;line-height:1.6">'+recPct+'% do orçamento de '+NY+' vem de receita recorrente já contratada ou em pipeline; '+(100-recPct)+'% depende de vender de novo. '+(recPct>=40?"Uma base saudável — o ano não começa do zero.":"Um orçamento assente sobretudo em novo negócio é frágil: qualquer atraso comercial passa directamente para o resultado. Aumentar a base recorrente devia ser prioridade em '+(NY-1)+'.")+'</div></div>';
   if(Number(B.newBiz)>0){var ticket=oneOff26>0&&D.deals.filter(function(d){return isWon(d)&&inYear(d.date)}).length>0?oneOff26/D.deals.filter(function(d){return isWon(d)&&inYear(d.date)}).length:0;
     var winR=(function(){var t=D.deals.filter(function(d){return inYear(d.date)&&d.stage!=="lead"}).length;var w=D.deals.filter(function(d){return isWon(d)&&inYear(d.date)}).length;return t>0?w/t:0.3})();
     if(ticket>0){var dealsNeeded=Math.ceil(Number(B.newBiz)/ticket);var oppsNeeded=Math.ceil(dealsNeeded/(winR||0.3));
@@ -806,7 +807,7 @@ h+='</div></div>';
   h+='</div></div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Região</th><th>Canal</th><th>Especialidades</th><th></th></tr><tbody id="clRows">'+clRowsHtml()+'</tbody></table></div></div>';
 } else if(cTab==="financeiro"){
-  h=pgHead("💶",finSub==="orcamento"?"Financeiro — Orçamento":finSub==="cobrancas"?"Financeiro — Cobranças":"Financeiro — Movimentos",yearPicker())+'<div class="kr">'+kpi("Facturado",fmt(S.inv),"",GD,G)+kpi("Cobrado",fmt(S.col),"",GRN,GRN)+kpi("Pendente",fmt(S.pend),S.pendPrev>0?"inclui "+fmt(S.pendPrev)+" anteriores a 2026":"",R,R)+kpi("Custos",fmt(S.exp),"",R,R)+kpi("Cashflow",fmt(S.cf2),"",S.cf2<0?R:GRN,S.cf2<0?R:GRN)+'</div>';
+  h=pgHead("💶",finSub==="orcamento"?"Orçamento":finSub==="cobrancas"?"Financeiro — Pendentes":finSub==="despesas"?"Financeiro — Despesas":"Financeiro — Faturação",yearPicker())+'<div class="kr">'+kpi("Facturado",fmt(S.inv),"",GD,G)+kpi("Cobrado",fmt(S.col),"",GRN,GRN)+kpi("Pendente",fmt(S.pend),S.pendPrev>0?"inclui "+fmt(S.pendPrev)+" anteriores a 2026":"",R,R)+kpi("Custos",fmt(S.exp),"",R,R)+kpi("Cashflow",fmt(S.cf2),"",S.cf2<0?R:GRN,S.cf2<0?R:GRN)+'</div>';
   if(finSub==="orcamento"){
     var fVendasAT=0,fVendasNV=0;
     D.invoices.forEach(function(i){if(beforeYear(i.date))return;var d=D.deals.find(function(x){return x.id===i.dealId});if(d&&d.type==="AT")fVendasAT+=i.amount;else fVendasNV+=i.amount});
@@ -845,16 +846,18 @@ h+='</div></div>';
     Object.entries(S.debtCh).sort(function(a,b){return b[1]-a[1]}).forEach(function(e){h+=barH(e[0],e[1],mxCh,R)});
     if(S.pendPrev>0)h+='<div style="font-size:11px;color:#7a7268;margin-top:6px">Das quais <b>'+fmt(S.pendPrev)+'</b> são facturas anteriores a 2026 (incluído no total acima, não é adicional).</div>';
     h+='</div>';
+  } else if(finSub==="despesas"){
+  h+='<div class="cd"><div class="ch"><div class="ct2">Despesas</div><button class="btn bs" style="background:'+R+'" onclick="openEM()">+ Despesa</button></div><div style="max-height:560px;overflow:auto">';
+  D.expenses.slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8f7f5"><div><div style="font-size:12px">'+e.desc+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(e.date)+" · "+e.bank+'</div></div><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="delEx(\''+e.id+'\')">✕</button></div></div>'});
+  h+='</div></div>';
   } else {
   var _movPend=!!window.__movPend;var _ylab=(typeof _yearSel!=="undefined"&&_yearSel==="all")?"(todos os anos)":activeYear();var _dd=function(a,b){return (b.date||"").localeCompare(a.date||"")};
-  h+='<div class="g2"><div class="cd"><div class="ch"><div class="ct2">Facturas</div><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7a7268;cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_movPend?"checked":"")+' onchange="window.__movPend=this.checked;rPnl()" style="accent-color:'+R+'"> só pendentes</label><button class="btn bs" style="background:'+R+'" onclick="openIM()">+ Factura</button></div></div>';
+  h+='<div class="cd"><div class="ch"><div class="ct2">Facturas</div><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7a7268;cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_movPend?"checked":"")+' onchange="window.__movPend=this.checked;rPnl()" style="accent-color:'+R+'"> só pendentes</label><button class="btn bs" style="background:'+R+'" onclick="openIM()">+ Factura</button></div></div>';
   var ivPrev=D.invoices.filter(function(i){return beforeYear(i.date)&&!i.collected}).sort(_dd);
   var iv2026=D.invoices.filter(function(i){return inYear(i.date)&&(!_movPend||!i.collected)}).sort(_dd);
   if(ivPrev.length){h+='<div style="font-size:10px;font-weight:700;color:'+R+';text-transform:uppercase;letter-spacing:.5px;margin:2px 0 4px">Dívida anterior a '+activeYear()+' — só conta no somatório de Pendente/Dívida</div>';ivPrev.forEach(function(iv){h+=ivRow(iv)});h+='<div style="font-size:10px;font-weight:700;color:'+SL+';text-transform:uppercase;letter-spacing:.5px;margin:14px 0 4px">Faturas '+_ylab+'</div>'}
   iv2026.forEach(function(iv){h+=ivRow(iv)});
-  h+='</div><div class="cd"><div class="ch"><div class="ct2">Despesas</div><button class="btn bs" style="background:'+R+'" onclick="openEM()">+ Despesa</button></div><div style="max-height:350px;overflow:auto">';
-  D.expenses.slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8f7f5"><div><div style="font-size:12px">'+e.desc+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(e.date)+" · "+e.bank+'</div></div><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="delEx(\''+e.id+'\')">✕</button></div></div>'});
-  h+='</div></div></div>';
+  h+='</div>';
   }
 } else if(cTab==="prospeccao"){
   h=pgHead("🗺️","Prospeção")+'<div class="kr">'+kpi("Hospitais",""+D.clients.length,"",GD,G)+kpi("Regiões",""+[...new Set(D.clients.map(function(c){return c.region}))].length,"",BLU,BLU)+kpi("Propostas",""+S.pN,fmt(D.deals.filter(function(d){return d.stage==="proposta"&&inYear(d.date)}).reduce(function(s,d){return s+d.value},0)),GD,G)+'</div>';
@@ -4573,7 +4576,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     // grupos do menu
     "A minha área":"Mi área","Direção":"Dirección","Férias & Ausências":"Vacaciones y ausencias","Agenda":"Agenda","Operações":"Operaciones","Clientes":"Clientes","Comercial":"Comercial","Projectos":"Proyectos","Suporte":"Soporte","Administração":"Administración",
     // itens do menu
-    "Segurança":"Seguridad","Registo de horas":"Registro de horas","Dashboard executivo":"Panel ejecutivo","Mapa & pedidos":"Mapa y solicitudes","Agenda / Calendário":"Agenda / Calendario","Faturação legal":"Facturación legal","Cobrança de vencidos":"Cobro de vencidos","Orçamento":"Presupuesto","Cobranças":"Cobros","Movimentos":"Movimientos","Tesouraria":"Tesorería","Rentabilidade":"Rentabilidad","Orçamento 2027":"Presupuesto 2027","Histórico":"Histórico","Estratégia & Insights":"Estrategia e Insights","Recursos Humanos":"Recursos Humanos","Clientes Totais":"Clientes Totales","Contactos":"Contactos","Mapa & carteira":"Mapa y cartera","Pipeline":"Pipeline","Prospeção":"Prospección","Forecast":"Previsión","Follow-up":"Seguimiento","Vendas":"Ventas","Ganhas":"Ganadas","Perdidas":"Perdidas","Mapa":"Mapa","Em curso":"En curso","Concluídas & Relatórios":"Concluidas e Informes","Pedidos":"Solicitudes","Colaboradores & Perfis":"Colaboradores y Perfiles","Auditoria":"Auditoría","Atividades":"Actividades","Definições":"Ajustes","Proteção de dados (RGPD)":"Protección de datos (RGPD)",
+    "Segurança":"Seguridad","Registo de horas":"Registro de horas","Dashboard executivo":"Panel ejecutivo","Mapa & pedidos":"Mapa y solicitudes","Agenda / Calendário":"Agenda / Calendario","Faturação legal":"Facturación legal","Cobrança de vencidos":"Cobro de vencidos","Orçamento":"Presupuesto","Cobranças":"Cobros","Movimentos":"Movimientos","Pendentes":"Pendientes","Faturação":"Facturación","Despesas":"Gastos","Financeiro":"Financiero","Orçamento previsto próximo ano":"Presupuesto previsto próximo año","Tesouraria":"Tesorería","Rentabilidade":"Rentabilidad","Orçamento 2027":"Presupuesto 2027","Histórico":"Histórico","Estratégia & Insights":"Estrategia e Insights","Recursos Humanos":"Recursos Humanos","Clientes Totais":"Clientes Totales","Contactos":"Contactos","Mapa & carteira":"Mapa y cartera","Pipeline":"Pipeline","Prospeção":"Prospección","Forecast":"Previsión","Follow-up":"Seguimiento","Vendas":"Ventas","Ganhas":"Ganadas","Perdidas":"Perdidas","Mapa":"Mapa","Em curso":"En curso","Concluídas & Relatórios":"Concluidas e Informes","Pedidos":"Solicitudes","Colaboradores & Perfis":"Colaboradores y Perfiles","Auditoria":"Auditoría","Atividades":"Actividades","Definições":"Ajustes","Proteção de dados (RGPD)":"Protección de datos (RGPD)",
     // títulos de página (pgHead)
     "Faturação legal (PT / ES)":"Facturación legal (PT / ES)","Proteção de dados (RGPD)":"Protección de datos (RGPD)","Cobrança de vencidos":"Cobro de vencidos","Operações — Rentabilidade por cliente":"Operaciones — Rentabilidad por cliente","Logs — Registo de Movimentos":"Registros — Movimientos","Recursos Humanos":"Recursos Humanos"
   };
@@ -6481,7 +6484,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&cTab==="rentabilidade"){try{renderRentabilidade();}catch(e){}try{injectRentabProjetos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="dashboard"){try{injectExecPanel();}catch(e){}}
-      if(typeof cTab!=="undefined"&&cTab==="financeiro"){try{injectRecurringCard();}catch(e){}try{injectScenariosCard();}catch(e){}}
+      if(typeof cTab!=="undefined"&&cTab==="financeiro"){if(finSub==="faturas"){try{injectRecurringCard();}catch(e){}}if(finSub==="orcamento"){try{injectScenariosCard();}catch(e){}}}
       try{if(typeof cTab!=="undefined"){if(cTab==="estrategia"||cTab==="correcoes"){accordionizeCards(true);addExpandAll();}}}catch(e){}
       try{updateBell();}catch(e){}try{applyTheme();}catch(e){}
       return x;
@@ -6572,18 +6575,21 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   // ===================== ACESSO POR DEPARTAMENTO (Fase 1) =====================
   var DEPT_GROUPS=[
     {group:"A minha área",i:"🙋",dept:"eu",always:true,items:[
-      {id:"minhaarea",l:"A minha área"},{id:"pesquisa",l:"Pesquisa & avisos"},{id:"seguranca",l:"Segurança"},{id:"horas",l:"Registo de horas"}]},
+      {id:"minhaarea",l:"A minha área"},{id:"pesquisa",l:"Pesquisa & avisos"},{id:"horas",l:"Registo de horas"},{id:"seguranca",l:"Segurança"}]},
     {group:"Direção",i:"🧭",dept:"direcao",items:[
       {id:"dashboard",l:"Dashboard executivo"}]},
     {group:"Férias & Ausências",i:"🌴",dept:"ferias",always:true,items:[
       {id:"ferias",l:"Mapa & pedidos"}]},
     {group:"Agenda",i:"📅",dept:"agenda",always:true,items:[
       {id:"agenda",l:"Agenda / Calendário"}]},
-    {group:"Operações",i:"💶",dept:"operacoes",items:[
-      {id:"faturacao",l:"Faturação legal"},{id:"financeiro",sub:"movimentos",l:"Movimentos"},{id:"financeiro",sub:"cobrancas",l:"Cobranças"},{id:"dunning",l:"Cobrança de vencidos"},
-      {id:"tesouraria",l:"Tesouraria"},{id:"pl",l:"P&L"},{id:"rentabilidade",l:"Rentabilidade"},{id:"arr",l:"ARR"},
-      {id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"orc2027",l:"Orçamento 2027"},{id:"estrategia",l:"Estratégia & Insights"},
-      {id:"contratos",l:"Contratos & licenças"},{id:"historico",l:"Histórico"}]},
+    {group:"Financeiro",i:"💶",dept:"operacoes",items:[
+      {id:"pl",l:"P&L"},{id:"tesouraria",l:"Tesouraria"},
+      {id:"financeiro",sub:"faturas",l:"Faturação"},{id:"financeiro",sub:"despesas",l:"Despesas"},
+      {id:"historico",l:"Histórico"},{id:"faturacao",l:"Faturação legal"},
+      {id:"financeiro",sub:"cobrancas",l:"Pendentes"},{id:"dunning",l:"Cobrança de vencidos"},
+      {id:"rentabilidade",l:"Rentabilidade"},{id:"estrategia",l:"Estratégia & Insights"},{id:"contratos",l:"Contratos & licenças"}]},
+    {group:"Orçamento",i:"🎯",dept:"operacoes",items:[
+      {id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"orc2027",l:"Orçamento previsto próximo ano"},{id:"arr",l:"ARR"}]},
     {group:"Recursos Humanos",i:"👥",dept:"operacoes",items:[{id:"rh",l:"Recursos Humanos"},{id:"salarios2025",l:"Salários 2025"},{id:"salarios2026",l:"Salários 2026"},{id:"reembolsos",l:"Despesas"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Clientes Totais"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Mapa & carteira"}]},
