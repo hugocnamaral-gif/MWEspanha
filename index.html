@@ -228,7 +228,7 @@ function migrate(){var changed=false;
   if(D.timeCostMonth===undefined){D.timeCostMonth=0;changed=true}
   if(D.lastBackup===undefined){D.lastBackup="";changed=true}
   if(D.autoBackupDays===undefined){D.autoBackupDays=7;changed=true}
-  if(!D._actMigrated){D._actMigrated=true;if(!Array.isArray(D.agenda))D.agenda=[];var _amap={"Visita":"visita","Contacto":"chamada","Proposta":"evento","Factura":"evento","Cobrança":"evento","Nota":"outro"};(D.activities||[]).forEach(function(a){if(a.auto||!a.date||!a.desc||!_amap[a.type])return;if((D.agenda||[]).some(function(x){return x._fromAct===a.id;}))return;D.agenda.push({id:uid(),_fromAct:a.id,owner:(a.email||""),dept:"comercial",titulo:String(a.desc).slice(0,80),tipo:_amap[a.type],local:"",date:a.date,end:"",allDay:true,startTime:"",endTime:"",repeat:"none"});});changed=true;}
+  if(!D._actMigratedV2){if(!Array.isArray(D.agenda))D.agenda=[];D._actMigratedV2=true;D._actMigrated=true;var _amap={"Visita":"visita","Contacto":"chamada","Proposta":"evento","Factura":"evento","Cobrança":"evento","Nota":"outro"};var _an=0;(D.activities||[]).forEach(function(a){if(a.auto||!a.date||!a.desc||!_amap[a.type])return;if((D.agenda||[]).some(function(x){return x._fromAct===a.id;}))return;D.agenda.push({id:uid(),_fromAct:a.id,owner:(a.email||""),dept:"comercial",titulo:String(a.desc).slice(0,80),tipo:_amap[a.type],local:"",date:a.date,end:"",allDay:true,startTime:"",endTime:"",repeat:"none"});_an++;});if(_an>0)changed=true;}
   INIT.changelog.forEach(function(c){if(!D.changelog.find(function(x){return x.v===c.v})){D.changelog.push(JSON.parse(JSON.stringify(c)));changed=true}});
   D.deals.forEach(function(d){if(d.mrr!==undefined&&d.arr===undefined){d.arr=d.mrr;delete d.mrr;changed=true}});
   INIT.clients.forEach(function(c){if(!D.clients.find(function(x){return x.id===c.id})){D.clients.push(JSON.parse(JSON.stringify(c)));changed=true}});
@@ -296,34 +296,38 @@ function migrate(){var changed=false;
   }
   if(!D._voidNCfmt7){var _ncx=(D.faturas||[]).filter(function(f){return f.id==="fmt7ib7zwyhenr";})[0];if(_ncx&&_ncx.estado==="emitida"){_ncx.estado="anulada";_ncx.anuladaData="2026-08-24";_ncx.anuladaPor="correção";changed=true;}D._voidNCfmt7=true;changed=true;}
   if(!D.salarios&&typeof SALARIOS_SEED!=="undefined"){D.salarios=JSON.parse(JSON.stringify(SALARIOS_SEED));changed=true}
-  if(!D._projImported&&typeof PROJSEED!=="undefined"&&PROJSEED.length){D._projImported=true;
+  if(typeof PROJSEED!=="undefined"&&PROJSEED.length&&!D._projImportedV3){D._projImportedV3=true;D._projImported=true;var _pn=0;
     var _impVH=function(nome){if(D.hrRates&&D.hrRates[nome]!=null&&D.hrRates[nome]!=="")return Number(D.hrRates[nome]);var cfg=D.salCfg||{mesesVenc:14,tsu:23.75,mesesSubs:11,horasAno:1760};var yr=(D.salarios&&(D.salarios["2026"]||D.salarios["2025"]))||[];var nt=String(nome||"").toLowerCase().split(/\s+/).filter(Boolean);var best=null;yr.forEach(function(e){var et=String(e.nome||"").toLowerCase().split(/\s+/).filter(Boolean);var mm=nt.filter(function(t){return et.indexOf(t)>=0;}).length;if(mm>=2&&(!best||mm>best.m))best={e:e,m:mm};});if(best){var e=best.e;var vh=(Number(e.venc)*cfg.mesesVenc*(1+cfg.tsu/100)+Number(e.subsAlim||0)*cfg.mesesSubs)/cfg.horasAno;return Math.round(vh*100)/100;}return 30;};
     if(!Array.isArray(D.projectos))D.projectos=[];if(!Array.isArray(D.deals))D.deals=[];if(!Array.isArray(D.clients))D.clients=[];
-    PROJSEED.forEach(function(P){
+    if(D.projectos.some(function(p){return p.imported&&!p.impKey;})||D.deals.some(function(d){return d.imported&&!d.impKey;})){D.projectos=D.projectos.filter(function(p){return !(p.imported&&!p.impKey);});D.deals=D.deals.filter(function(d){return !(d.imported&&!d.impKey);});changed=true;}
+    PROJSEED.forEach(function(P,ix){
+      if((D.projectos||[]).some(function(p){return p.impKey==="pj"+ix;}))return;
       var ss=(P.cliente&&!/tecnologias de informa/i.test(P.cliente))?P.cliente:P.nome;
       var cli=(typeof matchClient==="function")?(matchClient(ss)||matchClient(P.nome)):null;
       var clientId=cli?cli.id:null;
       if(!clientId){var nc={id:uid(),name:String(P.cliente&&!/tecnologias de informa/i.test(P.cliente)?P.cliente:P.nome).slice(0,70),region:"",channel:"Directo",imported:true};D.clients.push(nc);clientId=nc.id;}
       var stage=/complet|conclu/i.test(P.status||"")?"concluido":"projeto";
-      var deal={id:uid(),clientId:clientId,product:P.nome,stage:stage,value:0,arr:0,date:"2026-01-01",type:"NV",specialty:"Gastro",imported:true,doneDate:(stage==="concluido"?"2026-06-30":"")};
+      var deal={id:uid(),clientId:clientId,product:P.nome,stage:stage,value:0,arr:0,date:"2026-01-01",type:"NV",specialty:"Gastro",imported:true,impKey:"pj"+ix,doneDate:(stage==="concluido"?"2026-06-30":"")};
       D.deals.push(deal);
-      var r={id:uid(),dealId:deal.id,tipo:"implementacao",status:(stage==="concluido"?"concluido":"em_curso"),nome:P.nome,gestorExt:P.gestor||"",statusExt:P.status||"",note:"",createdAt:new Date().toISOString().slice(0,10),fases:[],tarefas:[],horas:[],integracoes:[],riscos:[],entregaveis:[],imported:true};
+      var r={id:uid(),dealId:deal.id,tipo:"implementacao",status:(stage==="concluido"?"concluido":"em_curso"),nome:P.nome,gestorExt:P.gestor||"",statusExt:P.status||"",note:"",createdAt:new Date().toISOString().slice(0,10),fases:[],tarefas:[],horas:[],integracoes:[],riscos:[],entregaveis:[],imported:true,impKey:"pj"+ix};
       (P.tasks||[]).forEach(function(t){var tid=uid();r.tarefas.push({id:tid,titulo:t.t,faseId:"",estado:t.e,responsavel:t.a||"",horasEst:t.h||0,dataInicio:"",dataFim:t.dl||"",dataPrev:t.dl||"",inicioReal:"",fimReal:(t.e==="feita"?(t.dl||"2026-06-30"):""),equipamento:false,createdAt:new Date().toISOString().slice(0,10),imported:true});if(t.h>0){r.horas.push({id:uid(),colaborador:t.a||"",data:t.dl||"2026-03-01",horas:t.h,tarefaId:tid,valorHora:_impVH(t.a),nota:"importado do Excel",imported:true});}});
-      D.projectos.push(r);
+      D.projectos.push(r);_pn++;
     });
-    changed=true;
+    if(_pn>0)changed=true;
   }
-  if(!D._ticketsImported&&typeof TICKETSEED!=="undefined"&&TICKETSEED.length){D._ticketsImported=true;
+  if(typeof TICKETSEED!=="undefined"&&TICKETSEED.length&&!D._ticketsImportedV3){D._ticketsImportedV3=true;D._ticketsImported=true;var _tn=0;
     if(!Array.isArray(D.tickets))D.tickets=[];
-    TICKETSEED.forEach(function(T){
+    if(D.tickets.some(function(x){return x.imported&&!x.impKey;})){D.tickets=D.tickets.filter(function(x){return !(x.imported&&!x.impKey);});changed=true;}
+    TICKETSEED.forEach(function(T,ix){
+      if((D.tickets||[]).some(function(x){return x.impKey==="tk"+ix;}))return;
       var cli=(typeof matchClient==="function")?matchClient(T.cli):null;
       var cr=T.cr||new Date().toISOString().slice(0,10);
       var _d=new Date(cr);_d.setDate(_d.getDate()+5);var due=isNaN(_d.getTime())?cr:_d.toISOString().slice(0,10);
-      var tk={id:uid(),clientId:cli?cli.id:"",titulo:T.tit,descricao:"",prioridade:"media",estado:T.est,tipo:T.tipo||"suporte",assignee:T.asg||"",canal:"importado",createdAt:cr,dueDate:due,intervencoes:[],mensagens:[],imported:true};
+      var tk={id:uid(),clientId:cli?cli.id:"",titulo:T.tit,descricao:"",prioridade:"media",estado:T.est,tipo:T.tipo||"suporte",assignee:T.asg||"",canal:"importado",createdAt:cr,dueDate:due,intervencoes:[],mensagens:[],imported:true,impKey:"tk"+ix};
       if(T.est==="resolvido"||T.est==="fechado")tk.resolvedAt=T.up||cr;
-      D.tickets.push(tk);
+      D.tickets.push(tk);_tn++;
     });
-    changed=true;
+    if(_tn>0)changed=true;
   }
   if((D.dataVersion||1)<INIT.dataVersion){D.dataVersion=INIT.dataVersion;changed=true}
   try{window.__migrateChanged=changed;}catch(e){}
@@ -331,6 +335,7 @@ function migrate(){var changed=false;
 }
 function save(){try{localStorage.setItem("esp26v3",JSON.stringify(D));return true}catch(e){if(typeof toast==="function")toast("⚠️ Não foi possível guardar — o armazenamento do navegador está cheio (provavelmente por causa de anexos grandes). Os dados em memória continuam, mas NÃO foram gravados. Remove alguns anexos ou exporta um backup já.",{type:"error"});return false}}
 function rstData(){confirmM("Repor dados iniciais?\n\nISTO APAGA todos os teus dados e volta ao estado de fábrica. Exporta um backup primeiro se tiveres dúvidas.",function(){D=JSON.parse(JSON.stringify(INIT));save();ren()},{yesLabel:"Repor tudo"})}
+function reimportarDados(){try{D._projImportedV3=false;D._ticketsImportedV3=false;D._actMigratedV2=false;if(typeof migrate==="function")migrate();}catch(e){}var np=(D.projectos||[]).filter(function(p){return p.imported;}).length;var nt=(D.tickets||[]).filter(function(t){return t.imported;}).length;var na=(D.agenda||[]).filter(function(a){return a._fromAct;}).length;try{save();}catch(e){}try{ren();}catch(e){}if(typeof toast==="function")toast(np+" projetos · "+nt+" tickets · "+na+" atividades na agenda — sincronizado.",{type:"ok"});}
 function genReport(){
   var S=st();
   var now=new Date();
@@ -990,6 +995,7 @@ if(cTab==="dashboard"){
 } else if(cTab==="correcoes"){
   h=pgHead("🛠️","Registo de Correções de Dados");
   h+='<div class="cd" style="margin-bottom:14px"><div class="ct2" style="margin-bottom:10px">DEFINIÇÕES</div><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:end"><div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Objectivo anual (€)</label><input type="number" id="setBudget" value="'+D.budget+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:130px"></div><div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Custo nocional do teu tempo (€/mês)</label><input type="number" id="setTime" value="'+(D.timeCostMonth||0)+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:150px"></div><div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Backup automático a cada (dias)</label><input type="number" id="setBk" value="'+(D.autoBackupDays===undefined?7:D.autoBackupDays)+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:130px"></div><button class="btn bs" style="background:'+R+'" onclick="saveSettings()">Guardar</button></div><div style="font-size:11px;color:#a89d8d;margin-top:8px">O custo do tempo alimenta o break-even real em Financeiro › Orçamento (0 desactiva). O backup automático descarrega uma cópia de segurança quando abres a app e já passaram os dias indicados desde o último (0 desactiva). '+(D.lastBackup?"Último backup: "+fmtD(D.lastBackup)+".":"Ainda sem backup registado.")+'</div></div>';
+  h+='<div class="cd" style="margin-bottom:14px"><div class="ct2" style="margin-bottom:10px">IMPORTAÇÕES (Excel)</div><div style="font-size:12px;color:#7a7268;margin-bottom:10px">Sincroniza os dados importados dos ficheiros Excel — <b>projetos &amp; tarefas</b>, <b>tickets de suporte</b> e <b>atividades para a agenda</b>. Corre sozinho ao abrir a app; usa o botão para forçar ou confirmar quantos entraram.</div><button class="btn" style="background:'+R+'" onclick="reimportarDados()">↻ Importar / sincronizar agora</button></div>';
   var integ2=integrityCheck();
   h+='<div class="cd" style="margin-bottom:14px"><div class="ct2" style="margin-bottom:10px">VERIFICAÇÃO DE INTEGRIDADE</div>'+(integ2.length?'<div style="font-size:13px;color:'+R+'">'+integ2.map(function(p){return "• "+p}).join("<br>")+'</div>':'<div style="font-size:13px;color:'+GRN+'">✓ Sem problemas detectados — todas as referências entre clientes, deals e facturas estão consistentes, sem IDs duplicados.</div>')+'</div>';
   h+='<div class="cd"><div style="font-size:12px;color:#7a7268;margin-bottom:14px">Histórico de todas as correções aplicadas aos dados desta app, por versão. Actualizado automaticamente sempre que os dados são revistos.</div>';
