@@ -2598,6 +2598,36 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(typeof confirmM==="function")confirmM("Eliminar o projeto <b>"+esc(nome)+"</b>? Remove também o deal e as faturas/anexos ligados. Esta ação pode ser anulada na Auditoria.",doIt,{yesLabel:"Eliminar"});
     else if(confirm("Eliminar o projeto "+nome+"?"))doIt();
   };
+  window.openMergeProj=function(dealId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var others=(D.deals||[]).filter(function(d){return d.id!==dealId&&(D.projectos||[]).some(function(p){return p.dealId===d.id;});});
+    if(!others.length){toastSafe("Não há outros projetos para unir.");return;}
+    var opts=others.map(function(d){var rr=(D.projectos||[]).filter(function(p){return p.dealId===d.id;})[0]||{};return {v:d.id,t:cn(d.clientId)+" — "+String(projName(rr,d)).slice(0,42)+(d.doneDate?" ("+fmtD(d.doneDate)+")":"")};});
+    var body=fld("Projeto a unir a ESTE (a origem é eliminada)",sel("mrg_src",opts,opts[0].v))
+      +'<div style="font-size:11.5px;color:#a89d8d;margin:6px 0 12px">As <b>tarefas</b>, <b>horas</b> e <b>faturas</b> do projeto escolhido passam para este projeto, e o projeto de origem é eliminado. A ação pode ser anulada na Auditoria.</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="mergeProj(\''+dealId+'\',document.getElementById(\'mrg_src\').value)">Unir projetos</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Unir projeto a este",body);
+  };
+  window.mergeProj=function(tgt,src){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    if(!src||tgt===src){toastSafe("Escolhe um projeto diferente.");return;}
+    var rt=projRec(tgt);var rs=(D.projectos||[]).filter(function(p){return p.dealId===src;})[0];
+    var dt=(D.deals||[]).filter(function(d){return d.id===tgt;})[0]||{};var dsd=(D.deals||[]).filter(function(d){return d.id===src;})[0]||{};
+    if(!rs){toastSafe("Projeto de origem não encontrado.");return;}
+    var doIt=function(){
+      if(!Array.isArray(rt.tarefas))rt.tarefas=[];if(!Array.isArray(rt.horas))rt.horas=[];
+      (rs.tarefas||[]).forEach(function(t){rt.tarefas.push(t);});
+      (rs.horas||[]).forEach(function(x){rt.horas.push(x);});
+      (D.invoices||[]).forEach(function(i){if(i.dealId===src)i.dealId=tgt;});
+      (D.attachments||[]).forEach(function(a){if(a.dealId===src)a.dealId=tgt;});
+      D.projectos=(D.projectos||[]).filter(function(p){return p.dealId!==src;});
+      D.deals=(D.deals||[]).filter(function(d){return d.id!==src;});
+      if(typeof logAct==="function")logAct("Projectos","Projetos unidos — "+cn(dsd.clientId)+" · "+(projName(rs,dsd))+" → "+(projName(rt,dt)));
+      save();clM();projView=tgt;ren();toastSafe("Projetos unidos.","ok");
+    };
+    if(typeof confirmM==="function")confirmM("Unir <b>"+esc(projName(rs,dsd))+"</b> a <b>"+esc(projName(rt,dt))+"</b>?<br><br>As tarefas, horas e faturas passam para o projeto de destino e o de origem é eliminado.",doIt,{yesLabel:"Unir"});
+    else doIt();
+  };
 
   function renderProjWorkspace(dealId){
     var app=document.getElementById("app");if(!app)return;
@@ -2609,7 +2639,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='<div><div style="font-size:11px;color:#a89d8d;text-transform:uppercase;letter-spacing:.5px;font-weight:700">'+esc(cn(d.clientId))+'</div>'+
        '<div style="font-family:\'Fraunces\',serif;font-size:22px;font-weight:600;margin:2px 0 4px">'+esc(projName(r,d))+'</div>'+
        '<div style="display:flex;gap:6px;flex-wrap:wrap">'+bdg(tipoLbl(r.tipo),r.tipo==="integracao"?TEAL:(r.tipo==="misto"?PUR:BLU))+bdg((PROJ_TPL[r.template]||{}).l||r.template,SL)+bdg(hl.l,hl.c)+'</div></div>';
-    h+='<div style="text-align:right;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn bs" style="background:'+PUR+'" onclick="projReport(\''+dealId+'\')">📄 Relatório de estado</button><button class="btn bs" style="background:'+SL+'" onclick="projRelInterno(\''+dealId+'\')">📊 Relatório interno</button>'+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openProjEdit(\''+dealId+'\')">Editar projeto</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+'" onclick="delProj(\''+dealId+'\')">Eliminar</button>':'')+'</div>';
+    h+='<div style="text-align:right;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn bs" style="background:'+PUR+'" onclick="projReport(\''+dealId+'\')">📄 Relatório de estado</button><button class="btn bs" style="background:'+SL+'" onclick="projRelInterno(\''+dealId+'\')">📊 Relatório interno</button>'+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openProjEdit(\''+dealId+'\')">Editar projeto</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+'" onclick="openMergeProj(\''+dealId+'\')">⤵ Unir projeto</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+'" onclick="delProj(\''+dealId+'\')">Eliminar</button>':'')+'</div>';
     h+='</div>';
     h+='<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Gestor</div><div style="font-weight:600">'+esc(r.gestor||"—")+'</div></div>'+
@@ -4554,12 +4584,12 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var proj=(D.projectos||[]).filter(function(p){return p.dealId===d.id;})[0];
       var hProj=proj?(proj.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0):0;
       var hTs=(D.timesheets||[]).filter(function(t){return t.dealId===d.id;}).reduce(function(a,t){return a+(Number(t.horas)||0);},0);
-      var horas=hProj+hTs;var custo=horas*hr;
+      var horas=hProj+hTs;var custo=(proj?projMaoObra(proj):0)+hTs*hr;
       if(rec>0||horas>0)rows.push({d:d,rec:rec,horas:horas,custo:custo,mrg:rec-custo});
     });
     var totRec=rows.reduce(function(a,x){return a+x.rec;},0),totCst=rows.reduce(function(a,x){return a+x.custo;},0);
     var h='<div class="cd"><div class="ch"><div class="ct2">Rentabilidade por projeto</div><button class="btn bs" style="background:'+SL+'" onclick="setHrRate()">Custo/hora: '+fmt(hr)+'</button></div>';
-    h+='<div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Receita faturada menos o custo das horas (execução do projeto + registo de horas) a '+fmt(hr)+'/hora. Clica numa linha para abrir o cliente.</div>';
+    h+='<div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Receita faturada menos o custo das horas, ao <b>valor-hora de cada colaborador</b> (base '+fmt(hr)+'/h quando não há salário associado). Clica numa linha para abrir o cliente.</div>';
     if(!rows.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem projetos com receita ou horas registadas.</div>';
     else{rows.sort(function(a,b){return b.mrg-a.mrg;});
       h+='<div style="overflow-x:auto"><table><thead><tr><th>Projeto / Cliente</th><th style="text-align:right">Receita</th><th style="text-align:right">Horas</th><th style="text-align:right">Custo</th><th style="text-align:right">Margem</th><th style="text-align:right">%</th></tr></thead><tbody>';
@@ -5841,7 +5871,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // ===================== OPERAÇÕES · RENTABILIDADE (Passo 3) =====================
   function clientFaturado(clientId){var ds=(D.deals||[]).filter(function(d){return d.clientId===clientId;});var dids=ds.map(function(d){return d.id;});return (D.invoices||[]).filter(function(i){return dids.indexOf(i.dealId)>=0;}).reduce(function(a,i){return a+(Number(i.amount)||0);},0);}
-  function clientCustoProjetos(clientId){var ds=(D.deals||[]).filter(function(d){return d.clientId===clientId;});var dids=ds.map(function(d){return d.id;});var hr=(D.hrRate!=null?Number(D.hrRate):30);var hProj=(D.projectos||[]).filter(function(p){return dids.indexOf(p.dealId)>=0;}).reduce(function(a,p){return a+(p.horas||[]).reduce(function(s,x){return s+(Number(x.horas)||0);},0);},0);var hTs=(D.timesheets||[]).filter(function(t){return dids.indexOf(t.dealId)>=0;}).reduce(function(a,t){return a+(Number(t.horas)||0);},0);return (hProj+hTs)*hr;}
+  function clientCustoProjetos(clientId){var ds=(D.deals||[]).filter(function(d){return d.clientId===clientId;});var dids=ds.map(function(d){return d.id;});var hr=(D.hrRate!=null?Number(D.hrRate):30);var cProj=(D.projectos||[]).filter(function(p){return dids.indexOf(p.dealId)>=0;}).reduce(function(a,p){return a+projMaoObra(p);},0);var hTs=(D.timesheets||[]).filter(function(t){return dids.indexOf(t.dealId)>=0;}).reduce(function(a,t){return a+(Number(t.horas)||0);},0);return cProj+hTs*hr;}
   function renderRentabilidade(){
     var app=document.getElementById("app");if(!app)return;
     var cls=(D.clients||[]).map(function(c){var fat=clientFaturado(c.id);var cst=clientCustoProjetos(c.id);return {c:c,fat:fat,cst:cst,mrg:fat-cst};}).filter(function(x){return x.fat>0||x.cst>0;});
