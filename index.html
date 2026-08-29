@@ -693,13 +693,13 @@ function integrityCheck(){var p=[];
 
 function st(){
   var inv=0,col=0,exp=0,pend=0,pendPrev=0,cash=0;
-  D.invoices.forEach(function(i){if(inYear(i.date)){inv+=i.amount}if(i.collected&&inYear(i.collDate)){col+=i.amount;cash+=i.amount}if(!i.collected){pend+=i.amount;if(beforeYear(i.date))pendPrev+=i.amount}});
+  D.invoices.forEach(function(i){if(inYear(i.date)){inv+=i.amount}var _cd=i.collDate||i.date;if(i.collected&&inYear(_cd)){col+=i.amount;cash+=i.amount}if(!i.collected){pend+=i.amount;if(beforeYear(i.date))pendPrev+=i.amount}});
   D.expenses.forEach(function(e){if(inYear(e.date))exp+=e.amount});
   var pipe=0;D.deals.forEach(function(d){if(!isClosed(d)&&inYear(d.date)){pipe+=d.value}});
   var debtCh={};D.invoices.forEach(function(i){if(i.collected)return;var d=D.deals.find(function(x){return x.id===i.dealId});var c=d?D.clients.find(function(x){return x.id===d.clientId}):null;var ch=c?c.channel:"Outro";debtCh[ch]=(debtCh[ch]||0)+i.amount});
   var debt=pend;
   var mo={};D.expenses.forEach(function(e){if(!inYear(e.date))return;var m=new Date(e.date).getMonth();mo[m]=(mo[m]||0)-e.amount});
-  D.invoices.forEach(function(i){if(i.collected&&i.collDate&&inYear(i.collDate)){var m=new Date(i.collDate).getMonth();mo[m]=(mo[m]||0)+i.amount}});
+  D.invoices.forEach(function(i){var _cd=i.collDate||i.date;if(i.collected&&_cd&&inYear(_cd)){var m=new Date(_cd).getMonth();mo[m]=(mo[m]||0)+i.amount}});
   var cf=[];for(var m=0;m<12;m++){cf.push({m:MO[m],v:Math.round(mo[m]||0)})}
   var bs={},eb={},bc={};
   D.invoices.forEach(function(i){if(beforeYear(i.date)){return}var d=D.deals.find(function(x){return x.id===i.dealId});if(d){bs[d.specialty]=(bs[d.specialty]||0)+i.amount;var c=D.clients.find(function(x){return x.id===d.clientId});if(c){bc[c.channel]=(bc[c.channel]||0)+i.amount}}});
