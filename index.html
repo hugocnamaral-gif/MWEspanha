@@ -4741,9 +4741,10 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var used={};rows.forEach(function(x){x.ids.forEach(function(id){used[id]=1;});});
     var livres=(D.deals||[]).filter(function(d){return isWon(d)&&!used[d.id];});
     var livresTotal=livres.reduce(function(a,d){return a+(Number(d.value)||0);},0);
-    var totAllRev=(totGross+livresTotal)-totNC;
+    var _allWon=(D.deals||[]).filter(function(d){return isWon(d);}).reduce(function(a,d){return a+(Number(d.value)||0);},0);
+    var totAllRev=_allWon-totNC;
     var h=pgHead("🔗","Vendas ↔ Projetos");
-    h+='<div class="kr">'+kpi("Projetos",""+rows.length,rows.length+" c/ projeto · "+livres.length+" por associar",PUR,PUR)+kpi("Rendimento",fmt(totAllRev),"todas as vendas "+fmt(totGross+livresTotal)+(totNC>0?" − NC "+fmt(totNC):""),GRN,GRN)+kpi("Custo",fmt(totCst),"horas + avulsos (projetos)",GD,GD)+kpi("Margem",fmt(totAllRev-totCst),totAllRev>0?Math.round((totAllRev-totCst)/totAllRev*100)+"% do rendimento":"",(totAllRev-totCst)>=0?GRN:R,(totAllRev-totCst)>=0?GRN:R)+'</div>';
+    h+='<div class="kr">'+kpi("Projetos",""+rows.length,rows.length+" c/ projeto · "+livres.length+" por associar",PUR,PUR)+kpi("Rendimento",fmt(totAllRev),"todas as vendas "+fmt(_allWon)+(totNC>0?" − NC "+fmt(totNC):""),GRN,GRN)+kpi("Custo",fmt(totCst),"horas + avulsos (projetos)",GD,GD)+kpi("Margem",fmt(totAllRev-totCst),totAllRev>0?Math.round((totAllRev-totCst)/totAllRev*100)+"% do rendimento":"",(totAllRev-totCst)>=0?GRN:R,(totAllRev-totCst)>=0?GRN:R)+'</div>';
     h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Projetos e vendas associadas</div><div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Cada projeto pode agregar várias vendas. O <b>rendimento</b> é a soma do valor das vendas associadas; o <b>custo</b> é a soma das horas (ao valor-hora de cada colaborador) e custos avulsos. Tudo recalcula automaticamente.</div>';
     h+='<div style="overflow-x:auto"><table><thead><tr><th>Projeto</th><th>Cliente</th><th>Estado</th><th>Vendas associadas</th><th style="text-align:right">Rendimento</th><th style="text-align:right">Custo</th><th style="text-align:right">Margem</th><th style="text-align:right">%</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
     if(!rows.length)h+='<tr><td colspan="'+(canEdit?9:8)+'" style="text-align:center;padding:22px;color:#a89d8d">Sem projetos.</td></tr>';
