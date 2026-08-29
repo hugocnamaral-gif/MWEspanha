@@ -868,13 +868,13 @@ if(cTab==="dashboard"){
   var cD=D.deals.filter(function(d){return d.stage==="concluido"&&inYear(d.date)&&(!_cq||((cn(d.clientId)+" "+(d.product||"")).toLowerCase().indexOf(_cq)>=0))}).sort(function(a,b){return(b.doneDate||b.date).localeCompare(a.doneDate||a.date)});
   var cTot=cD.reduce(function(a,d){return a+d.value},0);
   var comRel=cD.filter(function(d){return dealAtts(d.id).some(function(a){return a.kind==="relatorio"})}).length;
-  h=pgHead("✅","Projetos Concluídos "+yearLabel(),yearPicker());
+  h=pgHead("✅","Projetos Concluídos "+yearLabel(),'<button class="btn bs" style="background:'+TEAL+'" onclick="openMergeProjPicker()">⤵ Unir projetos</button> '+yearPicker());
   h+='<div style="margin-bottom:12px"><input id="concSearch" placeholder="Procurar por cliente ou produto…" value="'+esc(window.__concQ||"")+'" oninput="window.__concQ=this.value;clearTimeout(window.__concT);window.__concT=setTimeout(function(){rPnl();var e=document.getElementById(\'concSearch\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},250)" style="width:100%;max-width:320px;border:1px solid #e5e0da;border-radius:8px;padding:8px 11px;font-size:12.5px;font-family:inherit;outline:none"></div>';
   h+='<div class="kr">'+kpi("Concluídos",""+cD.length,"",TEAL,TEAL)+kpi("Valor entregue",fmt(cTot),"",TEAL,TEAL)+kpi("Com relatório",comRel+" de "+cD.length,"",GD,G)+'</div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th>Concluído em</th><th style="text-align:right">Valor</th><th>Relatório</th><th></th></tr>';
   if(!cD.length)h+='<tr><td colspan="6" style="text-align:center;padding:24px;color:#a89d8d">Ainda não há projetos concluídos. Na aba Ganhas, marca um projeto como concluído quando o entregares.</td></tr>';
   cD.forEach(function(d){var rel=dealAtts(d.id).filter(function(a){return a.kind==="relatorio"});
-    h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+esc(d.product.slice(0,45))+'</td><td>'+fmtD(d.doneDate||d.date)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td>'+(rel.length?bdg("✓ "+rel.length+" relatório(s)",TEAL):'<span style="font-size:11px;color:#c9a227">sem relatório</span>')+'</td><td style="text-align:right;white-space:nowrap"><button style="background:'+rgba(TEAL,.12)+';color:'+TEAL+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="openAttM(\''+d.id+'\',\'relatorio\')">📎 Relatório</button> <button style="background:#f4f0e8;color:#5a5347;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="mvDl(\''+d.id+'\',\'ganho\')">↩ Reabrir</button></td></tr>'});
+    h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+esc(d.product.slice(0,45))+'</td><td>'+fmtD(d.doneDate||d.date)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td>'+(rel.length?bdg("✓ "+rel.length+" relatório(s)",TEAL):'<span style="font-size:11px;color:#c9a227">sem relatório</span>')+'</td><td style="text-align:right;white-space:nowrap"><button style="background:'+rgba(TEAL,.12)+';color:'+TEAL+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="openAttM(\''+d.id+'\',\'relatorio\')">📎 Relatório</button> <button style="background:#f4f0e8;color:#5a5347;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" <button style="background:'+rgba(BLU,.1)+';color:'+BLU+';border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer" onclick="openProj(\''+d.id+'\')">Abrir</button> onclick="mvDl(\''+d.id+'\',\'ganho\')">↩ Reabrir</button></td></tr>'});
   h+='</table></div></div>';
 } else if(cTab==="perdidas"){
   var pD=D.deals.filter(function(d){return d.stage==="perdido"&&inYear(d.lostDate||d.date)}).sort(function(a,b){return(b.lostDate||"").localeCompare(a.lostDate||"")});
@@ -2554,7 +2554,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var val=projs.reduce(function(a,d){return a+(d.value||0);},0);
     var risco=projs.filter(function(d){return projHealth(projRec(d.id)).k==="risco";}).length;
     var aFechar=projs.filter(function(d){var r=projRec(d.id);return projCurrent(r).k==="fecho"||projProgress(r)>=80;}).length;
-    var h=pgHead("🛠️","Projetos em curso",canEdit?'<button class="btn" style="background:'+R+'" onclick="openProjM()">+ Novo projeto</button>':'');
+    var h=pgHead("🛠️","Projetos em curso",canEdit?'<button class="btn bs" style="background:'+TEAL+'" onclick="openMergeProjPicker()">⤵ Unir projetos</button> <button class="btn" style="background:'+R+'" onclick="openProjM()">+ Novo projeto</button>':'');
     h+='<div class="kr">'+kpi("Projetos ativos",""+projs.length,"em implementação/integração",PUR,PUR)+kpi("Em risco",""+risco,"marco ou prazo em atraso",risco?R:GRN,risco?R:GRN)+kpi("A fechar",""+aFechar,"na reta final",GD,GD)+kpi("Valor em entrega",fmt(val),"já ganho",GRN,GRN)+'</div>';
     h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Portfólio de projetos</div><div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Nascem quando o Comercial move um deal para <b>Projeto</b> (depois de Ganho). Clica numa linha para abrir o projeto: fases, marcos, gestor e prazos.</div>';
     h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Projeto</th><th>Tipo</th><th>Gestor</th><th>Fase atual</th><th>Saúde</th><th style="min-width:110px">Progresso</th><th style="text-align:right">Horas</th><th style="text-align:right">Margem</th><th>Prazo</th><th></th></tr></thead><tbody>';
@@ -2627,6 +2627,21 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     };
     if(typeof confirmM==="function")confirmM("Unir <b>"+esc(projName(rs,dsd))+"</b> a <b>"+esc(projName(rt,dt))+"</b>?<br><br>As tarefas, horas e faturas passam para o projeto de destino e o de origem é eliminado.",doIt,{yesLabel:"Unir"});
     else doIt();
+  };
+  window.openMergeProjPicker=function(preTgt){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var all=(D.deals||[]).filter(function(d){return (D.projectos||[]).some(function(p){return p.dealId===d.id;});});
+    if(all.length<2){toastSafe("São precisos pelo menos 2 projetos para unir.");return;}
+    function lbl(d){var rr=(D.projectos||[]).filter(function(p){return p.dealId===d.id;})[0]||{};var st=d.stage==="concluido"?"concluído":"em curso";return cn(d.clientId)+" — "+String(projName(rr,d)).slice(0,38)+" ["+st+"]";}
+    all.sort(function(a,b){return lbl(a).localeCompare(lbl(b));});
+    var opts=all.map(function(d){return {v:d.id,t:lbl(d)};});
+    var tgtDef=preTgt||opts[0].v;
+    var srcDef=(opts.filter(function(o){return o.v!==tgtDef;})[0]||{}).v;
+    var body=fld("Projeto a MANTER (destino)",sel("mrgp_tgt",opts,tgtDef))
+      +fld("Projeto a UNIR e eliminar (origem)",sel("mrgp_src",opts,srcDef))
+      +'<div style="font-size:11.5px;color:#a89d8d;margin:6px 0 12px">As <b>tarefas</b>, <b>horas</b> e <b>faturas</b> do projeto de origem passam para o de destino, e a origem é eliminada. Funciona com projetos <b>em curso ou concluídos</b>. Pode ser anulado na Auditoria.</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="mergeProj(document.getElementById(\'mrgp_tgt\').value,document.getElementById(\'mrgp_src\').value)">Unir projetos</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Unir projetos",body);
   };
 
   function renderProjWorkspace(dealId){
