@@ -230,13 +230,14 @@ function migrate(){var changed=false;
   if(D.lastBackup===undefined){D.lastBackup="";changed=true}
   if(D.autoBackupDays===undefined){D.autoBackupDays=7;changed=true}
   try{if(!D._actMigratedV2){if(!Array.isArray(D.agenda))D.agenda=[];D._actMigratedV2=true;D._actMigrated=true;var _amap={"Visita":"visita","Contacto":"chamada","Proposta":"evento","Factura":"evento","Cobrança":"evento","Nota":"outro"};var _an=0;(D.activities||[]).forEach(function(a){if(a.auto||!a.date||!a.desc||!_amap[a.type])return;if((D.agenda||[]).some(function(x){return x._fromAct===a.id;}))return;D.agenda.push({id:uid(),_fromAct:a.id,owner:(a.email||""),dept:"comercial",titulo:String(a.desc).slice(0,80),tipo:_amap[a.type],local:"",date:a.date,end:"",allDay:true,startTime:"",endTime:"",repeat:"none"});_an++;});if(_an>0)changed=true;}}catch(e){}
+  if(!D._tomb)D._tomb={cli:[],deal:[],inv:[],exp:[],spec:[]};["cli","deal","inv","exp","spec"].forEach(function(k){if(!D._tomb[k])D._tomb[k]=[];});
   INIT.changelog.forEach(function(c){if(!D.changelog.find(function(x){return x.v===c.v})){D.changelog.push(JSON.parse(JSON.stringify(c)));changed=true}});
   D.deals.forEach(function(d){if(d.mrr!==undefined&&d.arr===undefined){d.arr=d.mrr;delete d.mrr;changed=true}});
-  INIT.clients.forEach(function(c){if(!D.clients.find(function(x){return x.id===c.id})){D.clients.push(JSON.parse(JSON.stringify(c)));changed=true}});
-  INIT.deals.forEach(function(d){if(!D.deals.find(function(x){return x.id===d.id})){D.deals.push(JSON.parse(JSON.stringify(d)));changed=true}});
-  INIT.invoices.forEach(function(iv){if(!D.invoices.find(function(x){return x.id===iv.id})){D.invoices.push(JSON.parse(JSON.stringify(iv)));changed=true}});
-  INIT.clientSpecs.forEach(function(s){if(!D.clientSpecs.find(function(x){return x.id===s.id})){D.clientSpecs.push(JSON.parse(JSON.stringify(s)));changed=true}});
-  INIT.expenses.forEach(function(e){if(!D.expenses.find(function(x){return x.id===e.id})){D.expenses.push(JSON.parse(JSON.stringify(e)));changed=true}});
+  INIT.clients.forEach(function(c){if(!D.clients.find(function(x){return x.id===c.id})&&D._tomb.cli.indexOf(c.id)<0){D.clients.push(JSON.parse(JSON.stringify(c)));changed=true}});
+  INIT.deals.forEach(function(d){if(!D.deals.find(function(x){return x.id===d.id})&&D._tomb.deal.indexOf(d.id)<0){D.deals.push(JSON.parse(JSON.stringify(d)));changed=true}});
+  INIT.invoices.forEach(function(iv){if(!D.invoices.find(function(x){return x.id===iv.id})&&D._tomb.inv.indexOf(iv.id)<0){D.invoices.push(JSON.parse(JSON.stringify(iv)));changed=true}});
+  INIT.clientSpecs.forEach(function(s){if(!D.clientSpecs.find(function(x){return x.id===s.id})&&D._tomb.spec.indexOf(s.id)<0){D.clientSpecs.push(JSON.parse(JSON.stringify(s)));changed=true}});
+  INIT.expenses.forEach(function(e){if(!D.expenses.find(function(x){return x.id===e.id})&&D._tomb.exp.indexOf(e.id)<0){D.expenses.push(JSON.parse(JSON.stringify(e)));changed=true}});
   if((D.dataVersion||1)<2){
     ["d6","d7","d8","d9","d12","d13","d15"].forEach(function(id){var dl=D.deals.find(function(x){return x.id===id});var src=INIT.deals.find(function(x){return x.id===id});if(dl&&src)Object.assign(dl,JSON.parse(JSON.stringify(src)))});
     D.expenses=JSON.parse(JSON.stringify(INIT.expenses));
@@ -330,11 +331,11 @@ function migrate(){var changed=false;
     });
     if(_tn>0)changed=true;
   }}catch(e){}
-  if(!D._moradasV1){D._moradasV1=true;try{
-    var _mor=(typeof MORADAS_SEED!=="undefined")?MORADAS_SEED:[];
-    (D.clients||[]).forEach(function(c){_mor.forEach(function(m){if(c.name===m.n&&!c.address){c.address=m.a;if(m.lat)c.lat=m.lat;if(m.lng)c.lng=m.lng;}});});
-    changed=true;
-  }catch(e){}}
+  try{
+    var _mor=(typeof MORADAS_SEED!=="undefined")?MORADAS_SEED:[];var _mc=0;
+    (D.clients||[]).forEach(function(c){_mor.forEach(function(m){if(c.name===m.n&&!c.address){c.address=m.a;if(m.lat)c.lat=m.lat;if(m.lng)c.lng=m.lng;_mc++;}});});
+    if(_mc>0)changed=true;
+  }catch(e){}
   if((D.dataVersion||1)<INIT.dataVersion){D.dataVersion=INIT.dataVersion;changed=true}
   try{window.__migrateChanged=changed;}catch(e){}
   if(changed)save();
@@ -912,7 +913,7 @@ if(cTab==="dashboard"){
   h+='</div></div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Região</th><th>Canal</th><th>Especialidades</th><th></th></tr><tbody id="clRows">'+clRowsHtml()+'</tbody></table></div></div>';
 } else if(cTab==="financeiro"){
-  h=pgHead("💶",finSub==="orcamento"?"Orçamento":finSub==="cobrancas"?"Financeiro — Pendentes":finSub==="despesas"?"Financeiro — Despesas":"Financeiro — Faturação",yearPicker())+'<div class="kr">'+kpi("Facturado",fmt(S.inv),"",GD,G)+kpi("Cobrado",fmt(S.col),"",GRN,GRN)+kpi("Pendente",fmt(S.pend),S.pendPrev>0?"inclui "+fmt(S.pendPrev)+" anteriores a 2026":"",R,R)+kpi("Custos",fmt(S.exp),"",R,R)+kpi("Cashflow",fmt(S.cf2),"",S.cf2<0?R:GRN,S.cf2<0?R:GRN)+'</div>';
+  h=pgHead("💶",finSub==="orcamento"?"Orçamento":finSub==="cobrancas"?"Financeiro — Pendentes":finSub==="despesas"?"Financeiro — Despesas":"Financeiro — Faturação",yearPicker())+'<div class="kr">'+kpi("Facturado",fmt(S.inv),"emitido em "+yearLabel(),GD,G)+kpi("Cobrado",fmt(S.col),"recebido em "+yearLabel(),GRN,GRN)+kpi("Pendente",fmt(S.pend),S.pendPrev>0?"inclui "+fmt(S.pendPrev)+" de anos anteriores":"",R,R)+kpi("Custos",fmt(S.exp),"",R,R)+kpi("Cashflow",fmt(S.cf2),"recebido − custos",S.cf2<0?R:GRN,S.cf2<0?R:GRN)+'</div>';
   if(finSub==="orcamento"){
     var fVendasAT=0,fVendasNV=0;
     D.invoices.forEach(function(i){if(beforeYear(i.date))return;var d=D.deals.find(function(x){return x.id===i.dealId});if(d&&d.type==="AT")fVendasAT+=i.amount;else fVendasNV+=i.amount});
@@ -1134,8 +1135,8 @@ function delAtt(id){var a=(D.attachments||[]).find(function(x){return x.id===id}
   confirmM("Remover o anexo \""+a.name+"\"?",function(){var dealId=a.dealId,kind=a.kind;D.attachments=D.attachments.filter(function(x){return x.id!==id});logAct("Anexo","Anexo removido: "+a.name);save();openAttM(dealId,kind);},{yesLabel:"Remover"});}
 function loseDl(id){var dl=D.deals.find(function(d){return d.id===id});if(!dl)return;promptM("Razão da perda de "+cn(dl.clientId)+"?",function(r){dl.stage="perdido";dl.lostReason=(r||"").trim()||"Não especificada";dl.lostDate=new Date().toISOString().slice(0,10);D.invoices=D.invoices.filter(function(i){return!(i.dealId===id&&!i.collected)});logAct("Perda","Proposta perdida: "+cn(dl.clientId)+" — "+fmt(dl.value)+" · Razão: "+dl.lostReason);save();ren()},{placeholder:"ex.: preço, concorrência, adiado, sem orçamento",multiline:true,okLabel:"Marcar como perdida"})}
 function reopenDl(id){var dl=D.deals.find(function(d){return d.id===id});if(!dl)return;var paid=D.invoices.find(function(i){return i.dealId===id&&i.collected});if(paid){toast("Este deal tem uma factura já cobrada ("+fmt(paid.amount)+") — não pode ser reaberto. Remove ou reverte a cobrança primeiro (Financeiro > Movimentos).",{type:"error"});return}confirmM("Reabrir "+cn(dl.clientId)+" e voltar a Proposta?",function(){D.invoices=D.invoices.filter(function(i){return i.dealId!==id});var was=dl.stage;dl.stage="proposta";delete dl.lostReason;delete dl.lostDate;logAct("Pipeline","Reaberto ("+SL2[was]+" → Proposta): "+cn(dl.clientId)+" — "+fmt(dl.value));save();ren()},{danger:false,yesLabel:"Reabrir"})}
-function delDl(id){var dl=D.deals.find(function(d){return d.id===id});confirmM("Apagar este deal"+(dl?" ("+cn(dl.clientId)+")":"")+"?\nAs faturas associadas também são removidas.",function(){if(dl)logAct("Pipeline","Deal removido: "+cn(dl.clientId)+" — "+dl.product.slice(0,40));D.deals=D.deals.filter(function(d){return d.id!==id});D.invoices=D.invoices.filter(function(i){return i.dealId!==id});D.attachments=(D.attachments||[]).filter(function(a){return a.dealId!==id});save();ren()},{yesLabel:"Apagar"})}
-function delEx(id){confirmM("Apagar esta despesa?",function(){D.expenses=D.expenses.filter(function(e){return e.id!==id});save();ren()},{yesLabel:"Apagar"})}
+function delDl(id){var dl=D.deals.find(function(d){return d.id===id});confirmM("Apagar este deal"+(dl?" ("+cn(dl.clientId)+")":"")+"?\nAs faturas associadas também são removidas.",function(){if(dl)logAct("Pipeline","Deal removido: "+cn(dl.clientId)+" — "+dl.product.slice(0,40));tombDel("deal",id);(D.invoices||[]).forEach(function(i){if(i.dealId===id)tombDel("inv",i.id);});D.deals=D.deals.filter(function(d){return d.id!==id});D.invoices=D.invoices.filter(function(i){return i.dealId!==id});D.attachments=(D.attachments||[]).filter(function(a){return a.dealId!==id});save();ren()},{yesLabel:"Apagar"})}
+function delEx(id){confirmM("Apagar esta despesa?",function(){tombDel("exp",id);D.expenses=D.expenses.filter(function(e){return e.id!==id});save();ren()},{yesLabel:"Apagar"})}
 function delAc(id){confirmM("Remover esta atividade do registo?",function(){D.activities=D.activities.filter(function(a){return a.id!==id});save();ren()},{yesLabel:"Remover"})}
 function delCl(id){var cl=D.clients.find(function(c){return c.id===id});if(!cl)return;
   var ds=D.deals.filter(function(d){return d.clientId===id});
@@ -1145,6 +1146,7 @@ function delCl(id){var cl=D.clients.find(function(c){return c.id===id});if(!cl)r
   if(ds.length)msg+="\n\nATENÇÃO: serão também removidos "+ds.length+" deal(s)"+(ivs.length?" e "+ivs.length+" factura(s)":"")+" associados"+(paidN?" — INCLUINDO "+paidN+" já cobrada(s), o que altera o histórico financeiro":"")+".";
   confirmM(msg,function(){
     var delDealIds=ds.map(function(d){return d.id});
+    tombDel("cli",id);delDealIds.forEach(function(x){tombDel("deal",x);});ivs.forEach(function(x){tombDel("inv",x.id);});
     D.attachments=(D.attachments||[]).filter(function(a){return delDealIds.indexOf(a.dealId)<0});
     D.deals=D.deals.filter(function(d){return d.clientId!==id});
     D.invoices=D.invoices.filter(function(i){return!ivs.some(function(x){return x.id===i.id})});
@@ -1179,7 +1181,7 @@ function addSpecialty(clientId){openDM({clientId:clientId})}
 function openSpecM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.clientId;var sp=editId?D.clientSpecs.find(function(x){return x.id===editId}):null;var cs=D.clients.map(function(c){return{v:c.id,t:c.name}});document.getElementById("mArea").innerHTML=mWrap(sp?"Editar Especialidade":"Nova Especialidade",fld("Cliente",sel("f1",cs,sp?sp.clientId:(preClient||"")))+fld("Especialidade",sel("f2",SPECS,sp?sp.specialty:"Gastro"))+fld("AT Activa?",sel("f3",[{v:"1",t:"Sim"},{v:"0",t:"Não"}],sp&&sp.at?"1":"0"))+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svSpec(\''+(editId||"")+'\')">Guardar</button>')}
 function editSpec(id){openSpecM({editId:id})}
 function svSpec(editId){var data={clientId:document.getElementById("f1").value,specialty:document.getElementById("f2").value,at:document.getElementById("f3").value==="1"};if(editId){var sp=D.clientSpecs.find(function(x){return x.id===editId});if(sp){Object.assign(sp,data);logAct("Cliente","Especialidade actualizada: "+cn(data.clientId)+" — "+data.specialty+(data.at?" (AT activa)":""))}}else{data.id=uid();D.clientSpecs.push(data);logAct("Cliente","Especialidade adicionada: "+cn(data.clientId)+" — "+data.specialty)}save();clM();ren()}
-function delSpec(id){confirmM("Remover esta especialidade do registo?",function(){D.clientSpecs=D.clientSpecs.filter(function(s){return s.id!==id});save();ren()},{yesLabel:"Remover"})}
+function delSpec(id){confirmM("Remover esta especialidade do registo?",function(){tombDel("spec",id);D.clientSpecs=D.clientSpecs.filter(function(s){return s.id!==id});save();ren()},{yesLabel:"Remover"})}
 function svDl(editId){var _ct=document.getElementById("f1t");var _cid=(document.getElementById("f1")||{}).value||"";if(_ct){var _nm=(_ct.value||"").trim().toLowerCase();var _m=D.clients.filter(function(c){return (c.name||"").toLowerCase()===_nm;})[0];if(_m)_cid=_m.id;}if(!_cid){if(typeof toast==="function")toast("Escolhe um cliente da lista.",{type:"error"});return}var data={clientId:_cid,product:document.getElementById("f2").value,specialty:document.getElementById("f3").value,type:document.getElementById("f4").value,stage:document.getElementById("f7").value,value:Number(document.getElementById("f5").value),arr:Number(document.getElementById("f6").value),date:document.getElementById("f8").value,nextAction:(document.getElementById("f9")||{}).value||"",nextDate:(document.getElementById("f10")||{}).value||""};if(editId){var dl=D.deals.find(function(x){return x.id===editId});if(dl){Object.assign(dl,data);logAct("Pipeline","Deal editado: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}}else{data.id=uid();D.deals.push(data);logAct(data.stage==="proposta"?"Proposta":"Pipeline","Novo deal ["+SL2[data.stage]+"]: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}save();clM();ren()}
 function openEM(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var projs=[{v:"",t:"— sem projeto —"}].concat((D.projectos||[]).map(function(p){var d=(D.deals||[]).find(function(x){return x.id===p.dealId})||{};return {v:p.dealId,t:cn(d.clientId)+" · "+String(d.product||p.nome||"").slice(0,26)};}));document.getElementById("mArea").innerHTML=mWrap(e?"Editar Despesa":"Nova Despesa",fld("Descrição / a que se refere",'<input id="f1" value="'+esc(e?(e.desc||""):"")+'">')+'<div class="r2">'+fld("Valor €",'<input type="number" step="0.01" id="f2" value="'+(e?e.amount:0)+'">')+fld("Data",'<input type="date" id="f3" value="'+(e?e.date:new Date().toISOString().slice(0,10))+'">')+'</div><div class="r2">'+fld("Banco",sel("f4",["Santander","CGD",""],e?(e.bank||""):"Santander"))+fld("Tipo",sel("f5",["Viagem","Marketing","Software","Serviços","Equipamento","Outro"],e?(e.type||"Outro"):"Viagem"))+'</div><div class="r2">'+fld("Projeto (opcional)",sel("f7",projs,e?(e.projetoId||""):""))+fld("Cliente (opcional)",'<input id="f6" value="'+esc(e?(e.client||""):"")+'">')+'</div>'+(id?'<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+';width:100%;margin-bottom:6px" onclick="delEx(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svEx(\''+(id||"")+'\')">Guardar</button>')}
 function svEx(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var rec=e||{id:uid()};rec.desc=document.getElementById("f1").value;rec.amount=Number(document.getElementById("f2").value)||0;rec.date=document.getElementById("f3").value;rec.bank=document.getElementById("f4").value;rec.type=document.getElementById("f5").value;rec.client=document.getElementById("f6").value;rec.projetoId=document.getElementById("f7").value;if(!e){D.expenses.push(rec);logAct("Despesa",(rec.desc||"").slice(0,40)+" — "+fmt(rec.amount));}else{logAct("Despesa","Despesa editada — "+(rec.desc||"").slice(0,40));}save();clM();ren()}
@@ -1188,7 +1190,7 @@ function impDespesasXlsx(input){var file=input.files&&input.files[0];if(!file){r
 function openIM(editId){var iv=editId?D.invoices.find(function(x){return x.id===editId}):null;var ds=[{v:"",t:"— sem negócio (manual) —"}].concat(D.deals.map(function(d){return{v:d.id,t:cn(d.clientId)+" — "+String(d.product||"").slice(0,30)}}));document.getElementById("mArea").innerHTML=mWrap(iv?"Editar Factura":"Nova Factura",fld("Negócio (opcional)",sel("f1",ds,iv?iv.dealId:""))+'<div class="r2">'+fld("Cliente (livre)",'<input id="f_cli" placeholder="nome do cliente — se sem negócio" value="'+esc(iv&&iv.clienteNome?iv.clienteNome:"")+'">')+fld("Descrição",'<input id="f_desc" placeholder="ex.: Anuidade 2024" value="'+esc(iv&&iv.descricao?iv.descricao:"")+'">')+'</div>'+'<div class="r2">'+fld("Valor €",'<input type="number" step="0.01" id="f2" value="'+(iv?iv.amount:"")+'">')+fld("Data",'<input type="date" id="f3" value="'+(iv?iv.date:new Date().toISOString().slice(0,10))+'">')+'</div>'+'<div class="r2">'+fld("Cobrado?",sel("f4",[{v:"0",t:"Pendente"},{v:"1",t:"Cobrado"}],iv&&iv.collected?"1":"0"))+fld("Data de cobrança",'<input type="date" id="f5" value="'+((iv&&iv.collDate)||new Date().toISOString().slice(0,10))+'">')+'</div>'+'<div style="font-size:11px;color:#a89d8d;margin:0 0 8px">Escolhe um <b>negócio</b> <u>ou</u> escreve o <b>cliente</b> à mão (para faturas antigas sem negócio). A data de cobrança só conta quando “Cobrado”.</div>'+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svIv(\''+(editId||"")+'\')">Guardar</button>')}
 function openIM_pre(dealId){var d=D.deals.find(function(x){return x.id===dealId});var ds=D.deals.map(function(x){return{v:x.id,t:cn(x.clientId)+" — "+x.product.slice(0,30)}});document.getElementById("mArea").innerHTML=mWrap("Nova Factura",fld("Deal",sel("f1",ds,dealId))+'<div class="r2">'+fld("Valor €",'<input type="number" id="f2" value="'+(d?d.value:0)+'">')+fld("Data",'<input type="date" id="f3" value="'+new Date().toISOString().slice(0,10)+'">')+'</div>'+fld("Cobrado?",sel("f4",[{v:"0",t:"Pendente"},{v:"1",t:"Cobrado"}],"0"))+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svIv(\'\')">Guardar</button>')}
 function editIv(id){openIM(id)}
-function delIv(id){confirmM("Apagar esta factura?",function(){var iv=D.invoices.find(function(i){return i.id===id});if(iv){var d=D.deals.find(function(x){return x.id===iv.dealId});logAct("Factura","Factura removida: "+(d?cn(d.clientId):"—")+" — "+fmt(iv.amount))}D.invoices=D.invoices.filter(function(i){return i.id!==id});save();ren()},{yesLabel:"Apagar"})}
+function delIv(id){confirmM("Apagar esta factura?",function(){var iv=D.invoices.find(function(i){return i.id===id});if(iv){var d=D.deals.find(function(x){return x.id===iv.dealId});logAct("Factura","Factura removida: "+(d?cn(d.clientId):"—")+" — "+fmt(iv.amount))}tombDel("inv",id);D.invoices=D.invoices.filter(function(i){return i.id!==id});save();ren()},{yesLabel:"Apagar"})}
 function svIv(editId){var g=function(id){var el=document.getElementById(id);return el?el.value:""};var cl=g("f4")==="1";var _cd=g("f5");var data={dealId:g("f1"),amount:Number(g("f2"))||0,date:g("f3")||new Date().toISOString().slice(0,10),collected:cl,collDate:cl?(_cd||new Date().toISOString().slice(0,10)):"",clienteNome:(g("f_cli")||"").trim(),descricao:(g("f_desc")||"").trim()};if(!data.dealId&&!data.clienteNome){if(typeof toast==="function")toast("Escolhe um negócio ou escreve o nome do cliente.",{type:"error"});return}if(!data.amount){if(typeof toast==="function")toast("Indica o valor da fatura.",{type:"error"});return}var dd=D.deals.find(function(x){return x.id===data.dealId});var nome=dd?cn(dd.clientId):(data.clienteNome||"—");if(editId){var iv=D.invoices.find(function(x){return x.id===editId});if(iv){Object.assign(iv,data);logAct("Factura","Factura editada: "+nome+" — "+fmt(data.amount))}}else{data.id=uid();D.invoices.push(data);logAct("Factura","Factura registada: "+nome+" — "+fmt(data.amount))}save();clM();ren()}
 function openAM(){document.getElementById("mArea").innerHTML=mWrap("Nova Atividade",'<div class="r2">'+fld("Tipo",sel("f1",["Nota","Visita","Proposta","Cobrança","Factura","Contacto"],"Nota"))+fld("Data",'<input type="date" id="f2" value="'+new Date().toISOString().slice(0,10)+'">')+'</div>'+fld("Descrição",'<textarea id="f3"></textarea>')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svAc()">Guardar</button>')}
 function svAc(){D.activities.unshift({id:uid(),type:document.getElementById("f1").value,date:document.getElementById("f2").value,desc:document.getElementById("f3").value});save();clM();ren()}
@@ -1427,6 +1429,7 @@ function initHC(){
 }
 
 function syncPayload(){var d={};for(var k in D){if(k==="_log"||k==="_redo")continue;d[k]=D[k];}return d;}
+function tombDel(cat,id){if(!D._tomb)D._tomb={cli:[],deal:[],inv:[],exp:[],spec:[]};if(!D._tomb[cat])D._tomb[cat]=[];if(D._tomb[cat].indexOf(id)<0)D._tomb[cat].push(id);}
 function ren(){rTabs();rPnl()}
 function autoBackup(){try{
   var days=(D.autoBackupDays===undefined?7:D.autoBackupDays);
@@ -2571,7 +2574,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(projView){var dl=(D.deals||[]).filter(function(d){return d.id===projView;})[0];if(dl)return renderProjWorkspace(projView);projView=null;}
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!isReadOnlyNow();
-    var allProj=(D.deals||[]).filter(function(d){return d.stage==="projeto"||d.stage==="concluido"||(D.projectos||[]).some(function(p){return p.dealId===d.id;});});
+    var allProj=(D.deals||[]).filter(function(d){return (d.stage==="projeto"||d.stage==="concluido"||(D.projectos||[]).some(function(p){return p.dealId===d.id;}))&&!dealLinkedTo(d.id);});
     allProj.forEach(function(d){projRec(d.id);});
     var PSTLBL={projeto:"Em curso",concluido:"Concluído",ganho:"Ganho",proposta:"Proposta",lead:"Lead",perdido:"Perdido"};
     var PSTCOL={projeto:BLU,concluido:GRN,ganho:GD,proposta:PUR,lead:SL,perdido:R};
@@ -2607,7 +2610,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
          '<td>'+bdg(hl.l,hl.c)+'</td>'+
          '<td><div style="display:flex;align-items:center;gap:7px">'+hbar(pr,hl.c)+'<span style="font-size:11px;font-weight:700;color:#7a7268">'+pr+'%</span></div></td>'+
          '<td style="text-align:right;font-size:11.5px;color:#7a7268">'+projHoras(r)+'h</td>'+
-         '<td style="text-align:right;font-size:11.5px;font-weight:700;color:'+(((d.value||0)-projCusto(r))>=0?GRN:R)+'">'+fmt((d.value||0)-projCusto(r))+'</td>'+
+         '<td style="text-align:right;font-size:11.5px;font-weight:700;color:'+((projRevenueAgg(r)-projCustoAgg(r))>=0?GRN:R)+'">'+fmt(projRevenueAgg(r)-projCustoAgg(r))+(projDealIds(r).length>1?' <span style="font-size:9px;color:#a89d8d">('+projDealIds(r).length+'v)</span>':'')+'</td>'+
          '<td style="font-size:11.5px;color:'+(late?R:"#7a7268")+';font-weight:'+(late?700:400)+'">'+(r.fimPrev?fmtD(r.fimPrev):"—")+'</td>'+
          '<td style="text-align:right;white-space:nowrap">'+acts+'</td></tr>';
     });
@@ -2778,7 +2781,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     }
     h+='</div>';
     // ---- Horas & custo ----
-    var totH=projHoras(r),custo=projCusto(r),valor=d.value||0,margem=valor-custo;
+    var totH=projHorasAgg(r),custo=projCustoAgg(r),valor=projRevenueAgg(r),margem=valor-custo;
     h+='<div class="cd"><div class="ch"><div class="ct2">Horas &amp; custo</div>'+(canEdit?'<div style="display:flex;gap:6px"><button class="btn bs" style="background:'+GD+'" onclick="openCustoAvulso(\''+dealId+'\')">+ Custo avulso</button><button class="btn bs" style="background:'+BLU+'" onclick="openHoras(\''+dealId+'\')">+ Registar horas</button></div>':'')+'</div>';
     h+='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Horas registadas</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif">'+totH+'h</div></div>'+
@@ -2837,7 +2840,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+=upsCard("projeto",dealId,canEdit);
     // ---- Rentabilidade & lições ----
     if(!r.report)r.report={};
-    var _rc=projCusto(r),_rv=(d.value||0),_rm=_rv-_rc;
+    var _rc=projCustoAgg(r),_rv=projRevenueAgg(r),_rm=_rv-_rc;
     h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">Rentabilidade &amp; lições aprendidas</div>'+
        '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Valor</div><div style="font-weight:700;font-family:\'Fraunces\',serif;font-size:17px">'+fmt(_rv)+'</div></div>'+
@@ -4631,11 +4634,13 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var app=document.getElementById("app");if(!app)return;var hr=rentHrRate();
     var rows=[];
     (D.deals||[]).forEach(function(d){
-      var rec=(D.invoices||[]).filter(function(i){return i.dealId===d.id;}).reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+      if(dealLinkedTo(d.id))return;
       var proj=(D.projectos||[]).filter(function(p){return p.dealId===d.id;})[0];
-      var hProj=proj?(proj.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0):0;
-      var hTs=(D.timesheets||[]).filter(function(t){return t.dealId===d.id;}).reduce(function(a,t){return a+(Number(t.horas)||0);},0);
-      var horas=hProj+hTs;var custo=(proj?projMaoObra(proj):0)+hTs*hr;
+      var ids=proj?projDealIds(proj):[d.id];
+      var rec=ids.reduce(function(a,id){return a+(D.invoices||[]).filter(function(i){return i.dealId===id;}).reduce(function(s,i){return s+(Number(i.amount)||0);},0);},0);
+      var hProj=0,custo=0;ids.forEach(function(id){var pr=(D.projectos||[]).filter(function(p){return p.dealId===id;})[0];if(pr){hProj+=(pr.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0);custo+=projMaoObra(pr);}});
+      var hTs=ids.reduce(function(a,id){return a+(D.timesheets||[]).filter(function(t){return t.dealId===id;}).reduce(function(s,t){return s+(Number(t.horas)||0);},0);},0);
+      var horas=hProj+hTs;custo+=hTs*hr;
       if(rec>0||horas>0)rows.push({d:d,rec:rec,horas:horas,custo:custo,mrg:rec-custo});
     });
     var totRec=rows.reduce(function(a,x){return a+x.rec;},0),totCst=rows.reduce(function(a,x){return a+x.custo;},0);
@@ -4652,6 +4657,100 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
 
   
+  // ===================== VENDAS ↔ PROJETOS (associação dinâmica) =====================
+  function projRecIfExists(dealId){return (D.projectos||[]).filter(function(p){return p.dealId===dealId;})[0]||null;}
+  function projLinked(r){return (r&&Array.isArray(r.linkedDeals))?r.linkedDeals.filter(function(id){return (D.deals||[]).some(function(d){return d.id===id;});}):[];}
+  function projDealIds(r){var ids=[];if(r&&r.dealId&&(D.deals||[]).some(function(d){return d.id===r.dealId;}))ids.push(r.dealId);projLinked(r).forEach(function(id){if(ids.indexOf(id)<0)ids.push(id);});return ids;}
+  function dealVal(id){var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];return d?(Number(d.value)||0):0;}
+  function projRevenueAgg(r){return projDealIds(r).reduce(function(a,id){return a+dealVal(id);},0);}
+  function projCustoAgg(r){return projDealIds(r).reduce(function(a,id){var rec=(id===r.dealId)?r:projRecIfExists(id);return a+(rec?projCusto(rec):0);},0);}
+  function projHorasAgg(r){return Math.round(projDealIds(r).reduce(function(a,id){var rec=(id===r.dealId)?r:projRecIfExists(id);return a+(rec?projHoras(rec):0);},0)*100)/100;}
+  function projFaturadoAgg(r){return projDealIds(r).reduce(function(a,id){return a+(D.invoices||[]).filter(function(i){return i.dealId===id;}).reduce(function(s,i){return s+(Number(i.amount)||0);},0);},0);}
+  function dealLinkedTo(dealId){return (D.projectos||[]).filter(function(p){return Array.isArray(p.linkedDeals)&&p.linkedDeals.indexOf(dealId)>=0;})[0]||null;}
+  window.projRevenueAgg=projRevenueAgg;window.projCustoAgg=projCustoAgg;window.dealLinkedTo=dealLinkedTo;
+  window.linkVendaProj=function(anchorDealId,dealId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    if(!anchorDealId||!dealId||anchorDealId===dealId){clM();return;}
+    var r=projRecIfExists(anchorDealId)||projRec(anchorDealId);
+    if(!Array.isArray(r.linkedDeals))r.linkedDeals=[];
+    (D.projectos||[]).forEach(function(p){if(Array.isArray(p.linkedDeals)){var k=p.linkedDeals.indexOf(dealId);if(k>=0)p.linkedDeals.splice(k,1);}});
+    if(r.linkedDeals.indexOf(dealId)<0)r.linkedDeals.push(dealId);
+    var dd=(D.deals||[]).filter(function(x){return x.id===dealId;})[0]||{};
+    if(typeof logAct==="function")logAct("Projectos","Venda associada ao projeto: "+cn(dd.clientId)+" — "+fmt(dd.value||0));
+    save();clM();ren();
+  };
+  window.unlinkVenda=function(dealId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    (D.projectos||[]).forEach(function(p){if(Array.isArray(p.linkedDeals)){var k=p.linkedDeals.indexOf(dealId);if(k>=0)p.linkedDeals.splice(k,1);}});
+    if(typeof logAct==="function")logAct("Projectos","Venda desassociada do projeto");
+    save();ren();
+  };
+  window.openAssocVenda=function(dealId){
+    var d=(D.deals||[]).filter(function(x){return x.id===dealId;})[0];if(!d)return;
+    var projs=(D.projectos||[]).filter(function(p){return (D.deals||[]).some(function(x){return x.id===p.dealId;})&&!dealLinkedTo(p.dealId);});
+    if(!projs.length){toastSafe("Ainda não há projetos. Cria um projeto primeiro em Projetos.");return;}
+    var opts=projs.map(function(p){var pd=(D.deals||[]).filter(function(x){return x.id===p.dealId;})[0]||{};return {v:p.dealId,t:cn(pd.clientId)+" · "+String(p.nome||pd.product||"Projeto").slice(0,34)};});
+    var body=fld("Venda",'<input value="'+esc(cn(d.clientId)+" · "+String(d.product||"").slice(0,40)+" · "+fmt(d.value||0))+'" disabled>')+fld("Associar ao projeto",sel("av_p",opts,opts[0].v))+'<div style="font-size:11px;color:#a89d8d;margin:2px 0 8px">O valor e as faturas desta venda passam a contar no rendimento do projeto escolhido.</div><button class="btn" style="background:'+R+';width:100%" onclick="linkVendaProj(document.getElementById(\'av_p\').value,\''+dealId+'\')">Associar</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Associar venda a projeto",body);
+  };
+  window.openAddVendaToProj=function(anchorDealId){
+    var r=projRecIfExists(anchorDealId);var pd=(D.deals||[]).filter(function(x){return x.id===anchorDealId;})[0]||{};
+    var used={};(D.projectos||[]).forEach(function(p){used[p.dealId]=1;(p.linkedDeals||[]).forEach(function(id){used[id]=1;});});
+    var cands=(D.deals||[]).filter(function(d){return isWon(d)&&!used[d.id];});
+    if(!cands.length){toastSafe("Não há vendas livres para associar.");return;}
+    cands.sort(function(a,b){var sa=(a.clientId===pd.clientId)?0:1,sb=(b.clientId===pd.clientId)?0:1;if(sa!==sb)return sa-sb;return (b.value||0)-(a.value||0);});
+    var opts=cands.map(function(d){return {v:d.id,t:cn(d.clientId)+" · "+String(d.product||"").slice(0,28)+" · "+fmt(d.value||0)+(d.clientId===pd.clientId?"  ✓ mesmo cliente":"")};});
+    var body=fld("Projeto",'<input value="'+esc(cn(pd.clientId)+" · "+String((r&&r.nome)||pd.product||"Projeto").slice(0,40))+'" disabled>')+fld("Venda a associar",sel("ap_d",opts,opts[0].v))+'<div style="font-size:11px;color:#a89d8d;margin:2px 0 8px">O valor e as faturas da venda passam a contar no rendimento deste projeto.</div><button class="btn" style="background:'+R+';width:100%" onclick="linkVendaProj(\''+anchorDealId+'\',document.getElementById(\'ap_d\').value)">Associar venda</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Associar venda ao projeto",body);
+  };
+  function renderVendasProj(){
+    var app=document.getElementById("app");if(!app)return;
+    var canEdit=(currentRole==="admin"||canSeeTab("projetos"))&&!isReadOnlyNow();
+    var anchors=(D.deals||[]).filter(function(d){return (d.stage==="projeto"||d.stage==="concluido"||projRecIfExists(d.id))&&!dealLinkedTo(d.id);});
+    anchors.forEach(function(d){projRec(d.id);});
+    var PSTLBL={projeto:"Em curso",concluido:"Concluído",ganho:"Ganho",proposta:"Proposta",lead:"Lead",perdido:"Perdido"};
+    var PSTCOL={projeto:BLU,concluido:GRN,ganho:GD,proposta:PUR,lead:SL,perdido:R};
+    var rows=anchors.map(function(d){var r=projRec(d.id);var rev=projRevenueAgg(r),cst=projCustoAgg(r);return {d:d,r:r,rev:rev,cst:cst,mrg:rev-cst,ids:projDealIds(r)};});
+    var totRev=rows.reduce(function(a,x){return a+x.rev;},0),totCst=rows.reduce(function(a,x){return a+x.cst;},0);
+    var used={};rows.forEach(function(x){x.ids.forEach(function(id){used[id]=1;});});
+    var livres=(D.deals||[]).filter(function(d){return isWon(d)&&!used[d.id];});
+    var h=pgHead("🔗","Vendas ↔ Projetos");
+    h+='<div class="kr">'+kpi("Projetos",""+rows.length,"com venda associada",PUR,PUR)+kpi("Rendimento",fmt(totRev),"soma das vendas",GRN,GRN)+kpi("Custo",fmt(totCst),"horas + avulsos",GD,GD)+kpi("Margem",fmt(totRev-totCst),totRev>0?Math.round((totRev-totCst)/totRev*100)+"% do rendimento":"",(totRev-totCst)>=0?GRN:R,(totRev-totCst)>=0?GRN:R)+'</div>';
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Projetos e vendas associadas</div><div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Cada projeto pode agregar várias vendas. O <b>rendimento</b> é a soma do valor das vendas associadas; o <b>custo</b> é a soma das horas (ao valor-hora de cada colaborador) e custos avulsos. Tudo recalcula automaticamente.</div>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Projeto</th><th>Cliente</th><th>Estado</th><th>Vendas associadas</th><th style="text-align:right">Rendimento</th><th style="text-align:right">Custo</th><th style="text-align:right">Margem</th><th style="text-align:right">%</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+    if(!rows.length)h+='<tr><td colspan="'+(canEdit?9:8)+'" style="text-align:center;padding:22px;color:#a89d8d">Sem projetos.</td></tr>';
+    rows.sort(function(a,b){return b.rev-a.rev;});
+    rows.forEach(function(x){
+      var d=x.d,r=x.r;
+      var vendasHtml=x.ids.map(function(id){var dd=(D.deals||[]).filter(function(z){return z.id===id;})[0]||{};var isAnchor=(id===r.dealId);
+        return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="font-size:11.5px">'+esc(String(dd.product||"venda").slice(0,32))+' · '+fmt(dd.value||0)+'</span>'+(isAnchor?' <span style="font-size:9px;color:'+PUR+';font-weight:700;text-transform:uppercase">principal</span>':(canEdit?' <button title="desassociar" onclick="event.stopPropagation();unlinkVenda(\''+id+'\')" style="background:none;border:none;color:#c9c1b4;cursor:pointer;font-size:12px">✕</button>':''))+'</div>';
+      }).join("");
+      h+='<tr>'+
+        '<td style="font-weight:600;cursor:pointer;color:'+PUR+'" onclick="cTab=\'projetos\';openProj(\''+d.id+'\')">'+esc(projName(r,d))+'</td>'+
+        '<td>'+esc(cn(d.clientId))+'</td>'+
+        '<td>'+bdg(PSTLBL[d.stage]||d.stage,PSTCOL[d.stage]||SL)+'</td>'+
+        '<td>'+vendasHtml+(x.ids.length>1?'<div style="font-size:10px;color:#a89d8d">'+x.ids.length+' vendas</div>':'')+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+fmt(x.rev)+'</td>'+
+        '<td style="text-align:right;color:#7a7268">'+fmt(x.cst)+'</td>'+
+        '<td style="text-align:right;font-weight:700;color:'+(x.mrg>=0?GRN:R)+'">'+fmt(x.mrg)+'</td>'+
+        '<td style="text-align:right;font-size:12px;color:'+(x.mrg>=0?GRN:R)+'">'+(x.rev>0?Math.round(x.mrg/x.rev*100)+"%":"—")+'</td>'+
+        (canEdit?'<td style="text-align:right;white-space:nowrap"><button class="btn bs" style="background:'+rgba(TEAL,.14)+';color:'+TEAL+'" onclick="openAddVendaToProj(\''+d.id+'\')">+ venda</button></td>':'')+
+      '</tr>';
+    });
+    if(rows.length)h+='<tr style="border-top:2px solid #ece6dc;font-weight:800"><td colspan="4">Total</td><td style="text-align:right">'+fmt(totRev)+'</td><td style="text-align:right">'+fmt(totCst)+'</td><td style="text-align:right;color:'+((totRev-totCst)>=0?GRN:R)+'">'+fmt(totRev-totCst)+'</td><td></td>'+(canEdit?'<td></td>':'')+'</tr>';
+    h+='</tbody></table></div></div>';
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Vendas por associar ('+livres.length+')</div><div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Vendas adjudicadas que ainda não estão ligadas a nenhum projeto. Associa-as para que o rendimento entre no projeto certo.</div>';
+    if(!livres.length)h+='<div style="font-size:12.5px;color:#a89d8d">Todas as vendas adjudicadas estão associadas. ✓</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Venda</th><th>Estado</th><th style="text-align:right">Valor</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      livres.sort(function(a,b){return (b.value||0)-(a.value||0);}).forEach(function(d){
+        h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#3a352e">'+esc(String(d.product||"").slice(0,44))+'</td><td>'+bdg(PSTLBL[d.stage]||d.stage,PSTCOL[d.stage]||SL)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value||0)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:'+R+'" onclick="openAssocVenda(\''+d.id+'\')">Associar</button></td>':'')+'</tr>';
+      });
+      h+='</tbody></table></div>';}
+    h+='</div>';
+    app.innerHTML=h;
+  }
+  window.renderVendasProj=renderVendasProj;
+
   // ===================== COBRANÇA DE VENCIDOS (dunning) =====================
   function dunTerm(){return Number(D.paymentTermDays)||30;}
   function dunList(){return Array.isArray(D.dunning)?D.dunning:(D.dunning=[]);}
@@ -6317,7 +6416,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var H='<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Relatório interno — '+esc(projName(r,d))+'</title>';
     H+='<style>body{font-family:system-ui,-apple-system,sans-serif;max-width:840px;margin:24px auto;padding:0 20px;color:#2f2b26;line-height:1.5}h1{font-size:22px;margin-bottom:2px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:#7a7268;border-bottom:2px solid #eee;padding-bottom:5px;margin-top:26px}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}th,td{text-align:left;padding:6px 9px;border-bottom:1px solid #eee}.muted{color:#9a9086;font-size:12px}</style></head><body>';
     H+='<h1>Relatório interno de projeto</h1><div class="muted">'+esc(projName(r,d))+' · '+esc(cn(d.clientId))+' · gerado a '+fmtD(todayISO())+'</div>';
-    H+='<h2>Rentabilidade</h2><table><tr><td>Valor do projeto</td><td style="text-align:right"><b>'+fmt(d.value||0)+'</b></td></tr><tr><td>Custo (mão de obra + avulsos)</td><td style="text-align:right">'+fmt(projCusto(r))+'</td></tr><tr><td>Margem</td><td style="text-align:right"><b>'+fmt((d.value||0)-projCusto(r))+'</b></td></tr><tr><td>Horas registadas</td><td style="text-align:right">'+projHoras(r)+'h</td></tr></table>';
+    H+='<h2>Rentabilidade</h2><table><tr><td>Rendimento (vendas associadas)</td><td style="text-align:right"><b>'+fmt(projRevenueAgg(r))+'</b></td></tr><tr><td>Custo (mão de obra + avulsos)</td><td style="text-align:right">'+fmt(projCustoAgg(r))+'</td></tr><tr><td>Margem</td><td style="text-align:right"><b>'+fmt(projRevenueAgg(r)-projCustoAgg(r))+'</b></td></tr><tr><td>Horas registadas</td><td style="text-align:right">'+projHorasAgg(r)+'h</td></tr></table>';
     H+='<h2>Oportunidades de upselling ('+ups.length+')</h2>';
     if(!ups.length)H+='<div class="muted">Nenhuma registada.</div>';else{H+='<table><tr><th>Oportunidade</th><th>Valor</th><th>Comercial</th><th>Estado</th><th>Aceite em</th></tr>';ups.forEach(function(u){H+='<tr><td>'+esc(u.descricao||"")+'</td><td>'+fmt(u.valorEst)+'</td><td>'+esc(u.comercial||"—")+'</td><td>'+esc(u.estado)+'</td><td>'+(u.aceiteEm?fmtD(u.aceiteEm):"—")+'</td></tr>';});H+='</table>';}
     H+='<h2>Passagens tarefa → ticket de equipamento ('+passagens.length+')</h2>';
@@ -6664,6 +6763,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&cTab==="tesouraria"){try{renderTesouraria();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="carteira"){try{renderCarteira();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="rentabilidade"){try{renderRentabilidade();}catch(e){}try{injectRentabProjetos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="vendasproj"){try{renderVendasProj();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="dashboard"){try{injectExecPanel();}catch(e){}}
       if(typeof cTab!=="undefined"&&cTab==="financeiro"){if(finSub==="faturas"){try{injectRecurringCard();}catch(e){}}if(finSub==="orcamento"){try{injectScenariosCard();}catch(e){}}}
@@ -6778,7 +6878,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
       {id:"pipeline",l:"Pipeline"},{id:"prospeccao",l:"Prospeção"},{id:"followup",l:"Follow-up"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"forecast",l:"Forecast"},{id:"propostas",l:"Propostas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Projectos",i:"🛠️",dept:"projectos",items:[
-      {id:"projetos",l:"Projetos"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"}]},
+      {id:"projetos",l:"Projetos"},{id:"vendasproj",l:"Vendas ↔ Projetos"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"}]},
     {group:"Suporte",i:"🎧",dept:"suporte",items:[
       {id:"suporte",l:"Pedidos"},{id:"inventario",l:"Inventário & Equipamentos"},{id:"kb",l:"Base de conhecimento"}]},
     {group:"Settings",i:"⚙️",dept:"admin",items:[{id:"rgpd",l:"Proteção de dados (RGPD)"},
@@ -6808,7 +6908,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
   // reconstrói o menu por departamentos (substitui o NAV antigo)
   if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,always:g.always,items:g.items});});}
-  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","reembolsos","kb","cronograma","inventario","comparacao","salarios2025","salarios2026"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
+  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","reembolsos","kb","cronograma","inventario","comparacao","salarios2025","salarios2026","vendasproj"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
 
   // menu: admin vê tudo; membro vê os seus departamentos + os grupos de acesso geral (Férias)
   if(typeof rTabs==="function"){
