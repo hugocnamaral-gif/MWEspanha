@@ -1421,6 +1421,7 @@ function initHC(){
   }catch(e){}
 }
 
+function syncPayload(){var d={};for(var k in D){if(k==="_log"||k==="_redo")continue;d[k]=D[k];}return d;}
 function ren(){rTabs();rPnl()}
 function autoBackup(){try{
   var days=(D.autoBackupDays===undefined?7:D.autoBackupDays);
@@ -1938,7 +1939,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(r.error)throw r.error;
       var d=r.data&&r.data.data;
       if(d&&Object.keys(d).length){D=d;}
-      else if(currentRole!=="viewer"){await sb.from("app_state").update({data:D}).eq("id",stateId());} // semeia 1ª vez (linha da organização)
+      else if(currentRole!=="viewer"){await sb.from("app_state").update({data:syncPayload()}).eq("id",stateId());} // semeia 1ª vez (linha da organização)
     }catch(e){toastSafe("Erro a carregar dados: "+(e.message||e));}
     try{if(typeof migrate==="function")migrate();}catch(e){}
     ready=true;
@@ -1963,7 +1964,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var js=JSON.stringify(d);
       if(js===__lastData)return;                // nada mudou
       __lastData=js;
-      D=d;
+      var _ll=D._log,_lr=D._redo;D=d;if(!Array.isArray(D._log))D._log=_ll||[];if(!Array.isArray(D._redo))D._redo=_lr||[];
       try{if(typeof migrate==="function")migrate();}catch(e){}
       try{if(typeof ren==="function")ren();}catch(e){}
       try{applyRoleGating();}catch(e){}
@@ -1973,7 +1974,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var __syncSetup=false;
   function setupSync(){
     if(__syncSetup)return;__syncSetup=true;
-    try{__lastData=JSON.stringify(D);}catch(e){}
+    try{__lastData=JSON.stringify(syncPayload());}catch(e){}
     // 1) ao voltar ao separador
     try{document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")reloadState(false);});}catch(e){}
     try{window.addEventListener("focus",function(){reloadState(false);});}catch(e){}
@@ -2030,7 +2031,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
           var remoteJs=JSON.stringify(remote);
           if(remoteJs!==__lastData){
             var base=null;try{base=JSON.parse(__lastData);}catch(e){}
-            D=mwMergeStates(base,remote,D);
+            var _mll=D._log,_mlr=D._redo;D=mwMergeStates(base,remote,D);if(!Array.isArray(D._log))D._log=_mll||[];if(!Array.isArray(D._redo))D._redo=_mlr||[];
             try{if(typeof migrate==="function")migrate();}catch(e){}
             try{if(typeof ren==="function")ren();}catch(e){}
             try{prevSnap=snapClone();}catch(e){}
@@ -2038,8 +2039,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
           }
         }
       }catch(e){}
-      var r=await sb.from("app_state").update({data:D}).eq("id",stateId());if(r&&r.error)throw r.error;
-      try{__lastData=JSON.stringify(D);}catch(e){}
+      var r=await sb.from("app_state").update({data:syncPayload()}).eq("id",stateId());if(r&&r.error)throw r.error;
+      try{__lastData=JSON.stringify(syncPayload());}catch(e){}
     }
     catch(e){toastSafe("Erro ao gravar: "+(e.message||e));}
   }
@@ -2119,7 +2120,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         if(!Array.isArray(D._log))D._log=[];
         var lid=(typeof uid==="function"?uid():String(Math.random()).slice(2));
         D._log.unshift({id:lid,ts:new Date().toISOString(),email:currentEmail||"",type:type,desc:desc,before:prevSnap});
-        if(D._log.length>15)D._log=D._log.slice(0,15);
+        if(D._log.length>8)D._log=D._log.slice(0,8);
         if(D.activities&&D.activities[0]){D.activities[0].email=currentEmail||"";D.activities[0].ts=new Date().toISOString();D.activities[0]._logId=lid;}
       }catch(e){}
     };
@@ -2549,23 +2550,36 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(projView){var dl=(D.deals||[]).filter(function(d){return d.id===projView;})[0];if(dl)return renderProjWorkspace(projView);projView=null;}
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!isReadOnlyNow();
-    var projs=(D.deals||[]).filter(function(d){return d.stage==="projeto";});
-    projs.forEach(function(d){projRec(d.id);});
-    var val=projs.reduce(function(a,d){return a+(d.value||0);},0);
-    var risco=projs.filter(function(d){return projHealth(projRec(d.id)).k==="risco";}).length;
-    var aFechar=projs.filter(function(d){var r=projRec(d.id);return projCurrent(r).k==="fecho"||projProgress(r)>=80;}).length;
-    var h=pgHead("🛠️","Projetos em curso",canEdit?'<button class="btn bs" style="background:'+TEAL+'" onclick="openMergeProjPicker()">⤵ Unir projetos</button> <button class="btn" style="background:'+R+'" onclick="openProjM()">+ Novo projeto</button>':'');
-    h+='<div class="kr">'+kpi("Projetos ativos",""+projs.length,"em implementação/integração",PUR,PUR)+kpi("Em risco",""+risco,"marco ou prazo em atraso",risco?R:GRN,risco?R:GRN)+kpi("A fechar",""+aFechar,"na reta final",GD,GD)+kpi("Valor em entrega",fmt(val),"já ganho",GRN,GRN)+'</div>';
-    h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Portfólio de projetos</div><div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Nascem quando o Comercial move um deal para <b>Projeto</b> (depois de Ganho). Clica numa linha para abrir o projeto: fases, marcos, gestor e prazos.</div>';
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Projeto</th><th>Tipo</th><th>Gestor</th><th>Fase atual</th><th>Saúde</th><th style="min-width:110px">Progresso</th><th style="text-align:right">Horas</th><th style="text-align:right">Margem</th><th>Prazo</th><th></th></tr></thead><tbody>';
-    if(!projs.length)h+='<tr><td colspan="11" style="text-align:center;padding:24px;color:#a89d8d">Sem projetos em curso. Move um deal ganho para <b>Projeto</b> no Pipeline.</td></tr>';
-    projs.sort(function(a,b){var ha=projHealth(projRec(a.id)).k,hb=projHealth(projRec(b.id)).k;var ord={risco:0,atencao:1,ok:2,concluido:3};return (ord[ha]-ord[hb])||(projRec(a.id).createdAt||"").localeCompare(projRec(b.id).createdAt||"");});
+    var allProj=(D.deals||[]).filter(function(d){return d.stage==="projeto"||d.stage==="concluido"||(D.projectos||[]).some(function(p){return p.dealId===d.id;});});
+    allProj.forEach(function(d){projRec(d.id);});
+    var PSTLBL={projeto:"Em curso",concluido:"Concluído",ganho:"Ganho",proposta:"Proposta",lead:"Lead",perdido:"Perdido"};
+    var PSTCOL={projeto:BLU,concluido:GRN,ganho:GD,proposta:PUR,lead:SL,perdido:R};
+    var PSTORD={projeto:0,ganho:1,proposta:2,lead:3,concluido:4,perdido:5};
+    var stagesPresent=[];allProj.forEach(function(d){if(stagesPresent.indexOf(d.stage)<0)stagesPresent.push(d.stage);});
+    stagesPresent.sort(function(a,b){return (PSTORD[a]==null?9:PSTORD[a])-(PSTORD[b]==null?9:PSTORD[b]);});
+    var pf=window.__projFilter||"todos";if(pf!=="todos"&&stagesPresent.indexOf(pf)<0)pf="todos";
+    var projs=(pf==="todos")?allProj.slice():allProj.filter(function(d){return d.stage===pf;});
+    var emCurso=allProj.filter(function(d){return d.stage==="projeto";}).length;
+    var concl=allProj.filter(function(d){return d.stage==="concluido";}).length;
+    var risco=allProj.filter(function(d){return d.stage==="projeto"&&projHealth(projRec(d.id)).k==="risco";}).length;
+    var val=allProj.reduce(function(a,d){return a+(d.value||0);},0);
+    var h=pgHead("🛠️","Projetos",canEdit?'<button class="btn bs" style="background:'+TEAL+'" onclick="openMergeProjPicker()">⤵ Unir projetos</button> <button class="btn" style="background:'+R+'" onclick="openProjM()">+ Novo projeto</button>':'');
+    h+='<div class="kr">'+kpi("Total projetos",""+allProj.length,"todas as fases",PUR,PUR)+kpi("Em curso",""+emCurso,"em implementação/integração",BLU,BLU)+kpi("Concluídos",""+concl,"entregues",GRN,GRN)+kpi("Em risco",""+risco,"marco ou prazo em atraso",risco?R:GRN,risco?R:GRN)+'</div>';
+    h+='<div class="cd"><div class="ch" style="flex-wrap:wrap;gap:8px"><div class="ct2">Portfólio de projetos ('+projs.length+')</div>';
+    h+='<select onchange="window.__projFilter=this.value;renderProjetos()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:inherit;background:#fff;outline:none"><option value="todos"'+(pf==="todos"?" selected":"")+'>Todos os estados ('+allProj.length+')</option>'+stagesPresent.map(function(s){var n=allProj.filter(function(d){return d.stage===s;}).length;return '<option value="'+s+'"'+(pf===s?" selected":"")+'>'+(PSTLBL[s]||s)+' ('+n+')</option>';}).join("")+'</select></div>';
+    h+='<div style="font-size:12px;color:#a89d8d;margin-bottom:10px">Todos os projetos, com o seu estado. Filtra por estado no menu acima. Clica numa linha para abrir o projeto (fases, tarefas, horas, gestor e prazos).</div>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Projeto</th><th>Estado</th><th>Tipo</th><th>Gestor</th><th>Fase atual</th><th>Saúde</th><th style="min-width:100px">Progresso</th><th style="text-align:right">Horas</th><th style="text-align:right">Margem</th><th>Prazo</th><th></th></tr></thead><tbody>';
+    if(!projs.length)h+='<tr><td colspan="12" style="text-align:center;padding:24px;color:#a89d8d">Sem projetos para este filtro.</td></tr>';
+    projs.sort(function(a,b){var oa=(PSTORD[a.stage]==null?9:PSTORD[a.stage]),ob=(PSTORD[b.stage]==null?9:PSTORD[b.stage]);if(oa!==ob)return oa-ob;var ha=projHealth(projRec(a.id)).k,hb=projHealth(projRec(b.id)).k;var ord={risco:0,atencao:1,ok:2,concluido:3};return (ord[ha]-ord[hb])||(projRec(b.id).createdAt||"").localeCompare(projRec(a.id).createdAt||"");});
     projs.forEach(function(d){
       var r=projRec(d.id);var hl=projHealth(r);var cur=projCurrent(r);var pr=projProgress(r);var atts=(D.attachments||[]).filter(function(a){return a.dealId===d.id;}).length;
       var late=r.fimPrev&&r.fimPrev<todayISO()&&!projDone(r);
+      var acts='<span style="color:'+PUR+';font-size:12px;font-weight:600;white-space:nowrap">abrir ›</span>';
+      if(d.stage==="concluido"&&canEdit){acts='<button class="btn bs" style="background:'+rgba(TEAL,.12)+';color:'+TEAL+'" onclick="event.stopPropagation();openAttM(\''+d.id+'\',\'relatorio\')">📎</button> <button class="btn bs" style="background:#f4f0e8;color:#5a5347" onclick="event.stopPropagation();mvDl(\''+d.id+'\',\'ganho\')">↩ Reabrir</button>';}
       h+='<tr style="cursor:pointer" onclick="openProj(\''+d.id+'\')">'+
          '<td style="font-weight:600">'+esc(cn(d.clientId))+'</td>'+
-         '<td style="color:#3a352e;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(projName(r,d))+(atts?' <span style="font-size:10px;color:#a89d8d">📎'+atts+'</span>':'')+'</td>'+
+         '<td style="color:#3a352e;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(projName(r,d))+(atts?' <span style="font-size:10px;color:#a89d8d">📎'+atts+'</span>':'')+'</td>'+
+         '<td>'+bdg(PSTLBL[d.stage]||d.stage,PSTCOL[d.stage]||SL)+'</td>'+
          '<td>'+bdg(tipoLbl(r.tipo),r.tipo==="integracao"?TEAL:(r.tipo==="misto"?PUR:BLU))+'</td>'+
          '<td style="font-size:12px;color:#7a7268">'+esc(r.gestor||"—")+'</td>'+
          '<td style="font-size:12px">'+esc(cur.l)+(cur.gate?' <span title="porta de validação">🚪</span>':'')+'</td>'+
@@ -2574,7 +2588,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
          '<td style="text-align:right;font-size:11.5px;color:#7a7268">'+projHoras(r)+'h</td>'+
          '<td style="text-align:right;font-size:11.5px;font-weight:700;color:'+(((d.value||0)-projCusto(r))>=0?GRN:R)+'">'+fmt((d.value||0)-projCusto(r))+'</td>'+
          '<td style="font-size:11.5px;color:'+(late?R:"#7a7268")+';font-weight:'+(late?700:400)+'">'+(r.fimPrev?fmtD(r.fimPrev):"—")+'</td>'+
-         '<td style="text-align:right;color:'+PUR+';font-size:12px;font-weight:600;white-space:nowrap">abrir ›</td></tr>';
+         '<td style="text-align:right;white-space:nowrap">'+acts+'</td></tr>';
     });
     h+='</tbody></table></div></div>';
     app.innerHTML=h;
@@ -6749,8 +6763,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
       {id:"pipeline",l:"Pipeline"},{id:"prospeccao",l:"Prospeção"},{id:"followup",l:"Follow-up"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"forecast",l:"Forecast"},{id:"propostas",l:"Propostas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Projectos",i:"🛠️",dept:"projectos",items:[
-      {id:"projetos",l:"Em curso"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"},
-      {id:"concluidas",l:"Concluídos e Relatórios"}]},
+      {id:"projetos",l:"Projetos"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"}]},
     {group:"Suporte",i:"🎧",dept:"suporte",items:[
       {id:"suporte",l:"Pedidos"},{id:"inventario",l:"Inventário & Equipamentos"},{id:"kb",l:"Base de conhecimento"}]},
     {group:"Settings",i:"⚙️",dept:"admin",items:[{id:"rgpd",l:"Proteção de dados (RGPD)"},
