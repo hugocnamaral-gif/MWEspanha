@@ -964,6 +964,19 @@ if(cTab==="dashboard"){
   if(ivPrev.length){h+='<div style="font-size:10px;font-weight:700;color:'+R+';text-transform:uppercase;letter-spacing:.5px;margin:2px 0 4px">Dívida anterior a '+activeYear()+' — só conta no somatório de Pendente/Dívida</div>';ivPrev.forEach(function(iv){h+=ivRow(iv)});h+='<div style="font-size:10px;font-weight:700;color:'+SL+';text-transform:uppercase;letter-spacing:.5px;margin:14px 0 4px">Faturas '+_ylab+'</div>'}
   iv2026.forEach(function(iv){h+=ivRow(iv)});
   h+='</div>';
+  var _colYear=D.invoices.filter(function(i){var _cd=i.collDate||i.date;return i.collected&&inYear(_cd);});
+  var _colSemData=_colYear.filter(function(i){return !i.collDate;});
+  var _colTot=_colYear.reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+  h+='<div class="cd"><div class="ch"><div class="ct2">Cobran\u00e7as de '+_ylab+' \u2014 '+fmt(_colTot)+'</div><span style="font-size:11px;color:#a89d8d">'+_colYear.length+' faturas</span></div>';
+  h+='<div style="font-size:11px;color:#a89d8d;margin-bottom:8px">Dinheiro <b>recebido</b> neste ano, pela data de cobran\u00e7a \u2014 inclui faturas emitidas noutros anos mas cobradas neste. Este total bate com o KPI <b>Cobrado</b>.</div>';
+  if(_colSemData.length)h+='<div style="background:'+rgba(GD,.12)+';border:1px solid '+rgba(GD,.35)+';border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11.5px;color:#8a6d1a">\u26a0\ufe0f '+_colSemData.length+' fatura(s) marcada(s) como paga(s) <b>sem data de cobran\u00e7a</b> \u2014 contadas pela data da fatura. Se foram cobradas noutro ano, clica na fatura e corrige a data para irem para o ano certo.</div>';
+  if(!_colYear.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem cobran\u00e7as neste ano.</div>';
+  else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Fatura</th><th style="text-align:right">Valor</th><th>Emitida</th><th>Cobrada</th></tr></thead><tbody>';
+    _colYear.slice().sort(function(a,b){return String(b.collDate||b.date).localeCompare(String(a.collDate||a.date));}).forEach(function(i){var d=D.deals.find(function(x){return x.id===i.dealId;});var _cross=i.collDate&&!inYear(i.date);
+      h+='<tr style="cursor:pointer" onclick="openIM(\''+i.id+'\')"><td style="font-weight:600">'+esc(d?cn(d.clientId):(i.clienteNome||"\u2014"))+'</td><td style="color:#7a7268;font-size:12px">'+esc(d?String(d.product||"").slice(0,32):(i.descricao||"\u2014"))+'</td><td style="text-align:right;font-weight:700">'+fmt(i.amount)+'</td><td style="font-size:11.5px;color:#a89d8d">'+(i.date?fmtD(i.date):"\u2014")+(_cross?' <span style="color:'+SL+';font-size:9px">(ano ant.)</span>':'')+'</td><td style="font-size:11.5px">'+(i.collDate?fmtD(i.collDate):'<span style="color:'+GD+'">sem data</span>')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';}
+  h+='</div>';
   }
 } else if(cTab==="prospeccao"){
   h=pgHead("🗺️","Prospeção")+'<div class="kr">'+kpi("Hospitais",""+D.clients.length,"",GD,G)+kpi("Regiões",""+[...new Set(D.clients.map(function(c){return c.region}))].length,"",BLU,BLU)+kpi("Propostas",""+S.pN,fmt(D.deals.filter(function(d){return d.stage==="proposta"&&inYear(d.date)}).reduce(function(s,d){return s+d.value},0)),GD,G)+'</div>';
