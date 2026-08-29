@@ -1724,6 +1724,20 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   };
 
   // Substitui a ficha de cliente por uma versão em acordeão
+  function _projCliHtml(list){
+    if(!list.length)return '<div style="font-size:12.5px;color:#a89d8d">Sem projetos para este cliente.</div>';
+    var PL={projeto:"Em curso",concluido:"Concluído",ganho:"Ganho",proposta:"Proposta",lead:"Lead",perdido:"Perdido"};
+    var PC={projeto:BLU,concluido:GRN,ganho:GD,proposta:PUR,lead:SL,perdido:R};
+    var h='<div style="overflow-x:auto"><table><thead><tr><th>Projeto</th><th>Estado</th><th style="text-align:right">Progresso</th><th style="text-align:right">Horas</th><th></th></tr></thead><tbody>';
+    list.forEach(function(d){
+      var r=(D.projectos||[]).filter(function(p){return p.dealId===d.id;})[0]||{};
+      var pr=(r.fases&&r.fases.length)?Math.round(r.fases.filter(function(f){return f.estado==="concluida";}).length/r.fases.length*100):0;
+      var hz=(r.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0);
+      var nm=r.nome||d.product||"Projeto";
+      h+='<tr style="cursor:pointer" onclick="clM();cTab=\'projetos\';if(typeof rTabs===\'function\')rTabs();openProj(\''+d.id+'\')"><td style="font-weight:600">'+esc(nm)+'</td><td>'+bdg(PL[d.stage]||d.stage,PC[d.stage]||SL)+'</td><td style="text-align:right">'+pr+'%</td><td style="text-align:right;color:#7a7268">'+hz+'h</td><td style="text-align:right;color:'+PUR+';font-size:11px;white-space:nowrap">abrir ›</td></tr>';
+    });
+    h+='</tbody></table></div>';return h;
+  }
   window.openClient=function(clientId,openKey){
     var cl=D.clients.find(function(c){return c.id===clientId;});if(!cl)return;
     var specs=(D.clientSpecs||[]).filter(function(x){return x.clientId===clientId;});
@@ -1750,6 +1764,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     b+=accSection("parque","Parque instalado / Configuração",(cl.install||[]).length,buildInstall(cl),instBtn,openKey);
     b+=accSection("ficheiros","Ficheiros das propostas",atts.length,buildFiles(clientId),"",openKey);
     b+=accSection("reunioes","Reuniões",ms.length,buildMeetings(ms),"",openKey);
+    var _pjd=ds.filter(function(d){return d.stage==="projeto"||d.stage==="concluido"||(D.projectos||[]).some(function(p){return p.dealId===d.id;});});
+    b+=accSection("projetos","Projetos",_pjd.length,_projCliHtml(_pjd),"",openKey);
 
     document.getElementById("mArea").innerHTML=mWrap(cl.name,b);
   };
@@ -3109,7 +3125,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);var d=(D.deals||[]).filter(function(x){return x.id===dealId;})[0]||{};
     var tpls=Object.keys(PROJ_TPL).map(function(k){return {v:k,t:PROJ_TPL[k].l};});
-    var body=fld("Nome do projeto",'<input id="pe_n" value="'+esc(r.nome||d.product||"")+'">')
+    var body='<div class="r2">'+fld("Nome do projeto",'<input id="pe_n" value="'+esc(r.nome||d.product||"")+'">')+fld("Cliente",'<select id="pe_cli">'+(D.clients||[]).slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}).map(function(c){return '<option value="'+c.id+'"'+(c.id===d.clientId?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select>')+'</div>'
       +'<div class="r2">'+fld("Gestor responsável",'<input id="pe_g" list="pe_glist" value="'+esc(r.gestor||"")+'" placeholder="colaborador">'+dlist("pe_glist",collabNomes()))+fld("Tipo",sel("pe_t",PROJ_TIPO.map(function(o){return {v:o[0],t:o[1]};}),r.tipo))+'</div>'
       +fld("Equipa afeta ao projeto",'<select id="pe_eq" multiple size="'+Math.min(6,Math.max(3,collabNomes().length))+'" style="width:100%;border:1px solid #e5e0da;border-radius:8px;padding:6px;font-size:12.5px;font-family:inherit">'+collabNomes().map(function(n){return '<option value="'+esc(n)+'"'+(((r.equipa||[]).indexOf(n)>=0)?" selected":"")+'>'+esc(n)+'</option>';}).join("")+'</select>')
       +'<div class="r2">'+fld("Início",'<input type="date" id="pe_i" value="'+(r.inicio||"")+'">')+fld("Fim previsto",'<input type="date" id="pe_f" value="'+(r.fimPrev||"")+'">')+'</div>'
@@ -3122,6 +3138,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);
     r.nome=(document.getElementById("pe_n").value||"").trim();
+    var _pc=document.getElementById("pe_cli");if(_pc&&_pc.value){var _dl=(D.deals||[]).filter(function(x){return x.id===dealId;})[0];if(_dl&&_dl.clientId!==_pc.value){_dl.clientId=_pc.value;}}
     r.gestor=(document.getElementById("pe_g").value||"").trim();
     var _eqs=document.getElementById("pe_eq");if(_eqs){r.equipa=Array.prototype.slice.call(_eqs.selectedOptions||[]).map(function(o){return o.value;});}
     r.tipo=document.getElementById("pe_t").value;
@@ -5986,14 +6003,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         var projAtivos=(D.deals||[]).filter(function(d){return d.clientId===clientId&&d.stage==="projeto";});
         var tks=(D.tickets||[]).filter(function(t){return t.clientId===clientId;});
         var tkAbertos=tks.filter(function(t){return t.estado!=="resolvido"&&t.estado!=="fechado";});
-        var h='<div style="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px"><div class="ct2" style="margin-bottom:8px">🛠️ Projetos</div>';
-        if(!projAtivos.length&&!projs.length)h+='<div style="font-size:12px;color:#a89d8d">Sem projetos.</div>';
-        else{
-          if(projAtivos.length)h+='<div style="font-size:12.5px;color:#3a352e;margin-bottom:4px">'+projAtivos.length+' em curso: '+projAtivos.map(function(d){return esc(d.product||"—");}).join(", ")+'</div>';
-          var conc=(D.deals||[]).filter(function(d){return d.clientId===clientId&&d.stage==="concluido";}).length;
-          if(conc)h+='<div style="font-size:11.5px;color:#a89d8d">'+conc+' concluído'+(conc>1?"s":"")+'.</div>';
-        }
-        h+='</div>';
+        var h='';
         h+='<div style="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px"><div class="ct2" style="margin-bottom:8px">🎧 Suporte</div>';
         if(!tks.length)h+='<div style="font-size:12px;color:#a89d8d">Sem pedidos de suporte.</div>';
         else h+='<div style="font-size:12.5px;color:#3a352e">'+tkAbertos.length+' aberto'+(tkAbertos.length===1?"":"s")+' de '+tks.length+' no total.'+(tkAbertos.length?' '+esc(tkAbertos.slice(0,3).map(function(t){return (t.titulo||"").slice(0,30);}).join("; ")):'')+'</div>';
