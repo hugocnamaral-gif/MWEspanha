@@ -6099,6 +6099,26 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var totVal=(D.deals||[]).filter(function(d){return isWon(d);}).reduce(function(a,d){return a+(Number(d.value)||0);},0);
     var h=pgHead("🗺️","Mapa & carteira de clientes");
     h+='<div class="kr">'+kpi("Clientes",""+cls.length,"na carteira",BLU,BLU)+kpi("Regiões",""+regs.length,"com clientes",PUR,PUR)+kpi("Valor ganho",fmt(totVal),"histórico",GRN,GRN)+kpi("Em risco",""+totRisco,"a precisar de atenção",totRisco?R:GRN,totRisco?R:GRN)+'</div>';
+    (function(){try{
+      var _won=(D.deals||[]).filter(function(d){return isWon(d);});
+      var _invOf=function(id){return (D.invoices||[]).filter(function(i){return i.dealId===id;}).reduce(function(a,i){return a+(Number(i.amount)||0);},0);};
+      var _sumVal=_won.reduce(function(a,d){return a+(Number(d.value)||0);},0);
+      var _wonInv=_won.reduce(function(a,d){return a+_invOf(d.id);},0);
+      var _allInv=(D.invoices||[]).reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+      var _sumArr=_won.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+      h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:6px">🔍 Reconciliação de totais (diagnóstico)</div>';
+      h+='<div style="font-size:12.5px;line-height:1.8">Σ <b>valor</b> das vendas ganhas: <b>'+fmt(_sumVal)+'</b><br>Σ <b>faturado</b> nas vendas ganhas: <b>'+fmt(_wonInv)+'</b><br>Σ faturado (<b>todas</b> as faturas, qualquer estado): <b>'+fmt(_allInv)+'</b><br>Σ ARR das vendas ganhas: <b>'+fmt(_sumArr)+'</b><br>Nº de vendas ganhas: '+_won.length+'</div>';
+      var _mism=_won.filter(function(d){return Math.abs((Number(d.value)||0)-_invOf(d.id))>1;});
+      if(_mism.length){h+='<div style="font-size:11px;color:#a89d8d;margin:10px 0 4px">Vendas onde o <b>valor</b> difere do <b>faturado</b> ('+_mism.length+') \u2014 provavelmente a origem da diferença:</div><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Produto</th><th style="text-align:right">Valor</th><th style="text-align:right">Faturado</th><th style="text-align:right">ARR</th></tr></thead><tbody>';
+        _mism.sort(function(a,b){return Math.abs((Number(b.value)||0)-_invOf(b.id))-Math.abs((Number(a.value)||0)-_invOf(a.id));}).forEach(function(d){h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="font-size:11.5px;color:#7a7268">'+esc(String(d.product||"").slice(0,36))+'</td><td style="text-align:right">'+fmt(d.value||0)+'</td><td style="text-align:right;font-weight:700">'+fmt(_invOf(d.id))+'</td><td style="text-align:right;color:'+PUR+'">'+fmt(d.arr||0)+'</td></tr>';});
+        h+='</tbody></table></div>';}
+      // faturas em deals NÃO ganhos ou sem deal
+      var _wonIds={};_won.forEach(function(d){_wonIds[d.id]=1;});
+      var _invOut=(D.invoices||[]).filter(function(i){return !_wonIds[i.dealId];});
+      var _invOutSum=_invOut.reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+      if(Math.abs(_invOutSum)>1){h+='<div style="font-size:11.5px;color:#8a6d1a;margin-top:8px">⚠️ Faturas em negócios NÃO ganhos ou sem negócio: <b>'+fmt(_invOutSum)+'</b> ('+_invOut.length+' faturas). Estas entram no \'Faturado\' da Rentabilidade mas não no valor das vendas.</div>';}
+      h+='</div>';
+    }catch(e){h+='<div class="cd">erro diag: '+e+'</div>';}})();
     h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Carteira por região</div>';
     var maxV=Math.max(1,regs.reduce(function(a,r){return Math.max(a,byReg[r].val+byReg[r].pipe);},0));
     regs.forEach(function(r){var b=byReg[r];
