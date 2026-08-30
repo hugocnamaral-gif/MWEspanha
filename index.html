@@ -594,27 +594,28 @@ function expCSV(){var rows=[["TIPO","DATA","CLIENTE_OU_DESTINO","DESCRICAO","VAL
   var b=new Blob([csv],{type:"text/csv;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="espanha2026_contabilidade_"+new Date().toISOString().slice(0,10)+".csv";a.click()}
 window.exportPipeVsFat=function(){
   try{
-    function q(s){s=String(s==null?"":s);return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
     var invOf=function(id){return (D.invoices||[]).filter(function(i){return i.dealId===id;});};
     var sumInv=function(id){return invOf(id).reduce(function(a,i){return a+(Number(i.amount)||0);},0);};
     var STL={lead:"Lead",proposta:"Proposta",ganho:"Ganho",projeto:"Projeto",concluido:"Concluído",perdido:"Perdido"};
-    var L=[["Tipo","Cliente","Produto/Descricao","Estado","Data","Valor card","Nr faturas","Faturado","ARR","Diferenca (Fat-Valor)"]];
     var deals=(D.deals||[]).slice().sort(function(a,b){return (Number(b.value)||0)-(Number(a.value)||0);});
-    var tV=0,tF=0,tVwon=0,tFwon=0;
-    deals.forEach(function(d){var f=sumInv(d.id);var n=invOf(d.id).length;var val=Number(d.value)||0;tV+=val;tF+=f;if(typeof isWon==="function"&&isWon(d)){tVwon+=val;tFwon+=f;}
-      L.push(["Negocio",cn(d.clientId),String(d.product||""),STL[d.stage]||d.stage,d.date||"",val,n,f,Number(d.arr)||0,f-val]);});
+    var tsv=["Tipo\tCliente\tProduto\tEstado\tData\tValor card\tNr faturas\tFaturado\tARR\tDif (Fat-Valor)"];
+    var trows="";var tV=0,tF=0,tVwon=0,tFwon=0;
+    deals.forEach(function(d){var fa=sumInv(d.id);var n=invOf(d.id).length;var val=Number(d.value)||0;var dif=fa-val;tV+=val;tF+=fa;if(typeof isWon==="function"&&isWon(d)){tVwon+=val;tFwon+=fa;}
+      tsv.push("Negocio\t"+cn(d.clientId)+"\t"+String(d.product||"").replace(/\t/g," ")+"\t"+(STL[d.stage]||d.stage)+"\t"+(d.date||"")+"\t"+val+"\t"+n+"\t"+fa+"\t"+(Number(d.arr)||0)+"\t"+dif);
+      trows+='<tr'+(Math.abs(dif)>1?' style="background:'+rgba(GD,.08)+'"':'')+'><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="font-size:11px;color:#7a7268">'+esc(String(d.product||"").slice(0,30))+'</td><td style="font-size:11px">'+esc(STL[d.stage]||d.stage)+'</td><td style="text-align:right">'+fmt(val)+'</td><td style="text-align:right;font-weight:600">'+fmt(fa)+'</td><td style="text-align:right;font-weight:700;color:'+(Math.abs(dif)>1?R:"#a89d8d")+'">'+(dif===0?"—":(dif>0?"+":"")+fmt(dif))+'</td></tr>';});
     var dset={};(D.deals||[]).forEach(function(d){dset[d.id]=1;});
     var orf=(D.invoices||[]).filter(function(i){return !dset[i.dealId];});
-    if(orf.length){L.push([]);L.push(["--- FATURAS SEM NEGOCIO ASSOCIADO ---"]);
-      orf.forEach(function(i){L.push(["Fatura orfa",i.clienteNome||"(sem)",i.descricao||"",i.collected?"Cobrada":"Pendente",i.date||"",0,1,Number(i.amount)||0,0,Number(i.amount)||0]);});}
-    L.push([]);
-    L.push(["TOTAL (todos os negocios)","","","","",tV,"",tF,"",tF-tV]);
-    L.push(["TOTAL (so vendas ganhas)","","","","",tVwon,"",tFwon,"",tFwon-tVwon]);
-    var csv=L.map(function(r){return r.map(q).join(";");}).join("\r\n");
-    var blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
-    var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="pipeline_vs_faturacao_"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},100);
-    if(typeof toast==="function")toast("Exportado: pipeline_vs_faturacao.csv ("+deals.length+" negocios).",{type:"ok"});
-  }catch(e){if(typeof toast==="function")toast("Nao foi possivel exportar: "+e);}
+    if(orf.length){tsv.push("");tsv.push("--- FATURAS SEM NEGOCIO ---");
+      orf.forEach(function(i){tsv.push("Fatura orfa\t"+(i.clienteNome||"(sem)")+"\t"+String(i.descricao||"").replace(/\t/g," ")+"\t"+(i.collected?"Cobrada":"Pendente")+"\t"+(i.date||"")+"\t0\t1\t"+(Number(i.amount)||0)+"\t0\t"+(Number(i.amount)||0));
+        trows+='<tr style="background:'+rgba(R,.06)+'"><td style="font-weight:600;color:'+R+'">🧾 s/ negócio</td><td style="font-size:11px;color:#7a7268">'+esc((i.clienteNome||"")+" "+(i.descricao||"")).slice(0,30)+'</td><td style="font-size:11px">'+(i.collected?"Cobrada":"Pendente")+'</td><td style="text-align:right">—</td><td style="text-align:right;font-weight:600">'+fmt(Number(i.amount)||0)+'</td><td style="text-align:right;color:'+R+'">+'+fmt(Number(i.amount)||0)+'</td></tr>';});}
+    tsv.push("");tsv.push("TOTAL vendas ganhas\t\t\t\t\t"+tVwon+"\t\t"+tFwon+"\t\t"+(tFwon-tVwon));
+    var body='<div style="font-size:12px;color:#7a7268;margin-bottom:8px">Negócios do pipeline lado a lado com o <b>faturado</b>. Linhas a amarelo = valor difere do faturado; a vermelho = fatura sem negócio. <b>Vendas ganhas:</b> valor '+fmt(tVwon)+' · faturado '+fmt(tFwon)+' · dif '+fmt(tFwon-tVwon)+'.</div>';
+    body+='<div style="overflow:auto;max-height:52vh;border:1px solid #ece6dc;border-radius:8px"><table style="width:100%"><thead><tr><th>Cliente</th><th>Produto</th><th>Estado</th><th style="text-align:right">Valor</th><th style="text-align:right">Faturado</th><th style="text-align:right">Dif.</th></tr></thead><tbody>'+trows+'</tbody></table></div>';
+    body+='<div style="font-size:11px;color:#a89d8d;margin:10px 0 4px">Para Excel: clica na caixa, copia tudo (Ctrl/Cmd+A, Ctrl/Cmd+C) e cola no Excel/Sheets — ou copia e cola aqui no chat.</div>';
+    body+='<textarea readonly onclick="this.focus();this.select();" style="width:100%;height:130px;font-size:11px;font-family:monospace;border:1px solid #e5e0da;border-radius:8px;padding:8px">'+esc(tsv.join("\n"))+'</textarea>';
+    body+='<button class="btn" style="background:'+R+';width:100%;margin-top:8px" onclick="(function(){var t=document.querySelector(\'.mdl textarea\');if(t){t.focus();t.select();try{document.execCommand(\'copy\');}catch(e){}if(navigator.clipboard){navigator.clipboard.writeText(t.value);}toastSafe(\'Copiado.\',\'ok\');}})()">📋 Copiar tudo</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Pipeline vs Faturação ("+deals.length+" negócios)",body);
+  }catch(e){if(typeof toast==="function")toast("Erro: "+e);}
 };
 function save2027(){var b={renew:Number(document.getElementById("b27renew").value)||0,priceInc:Number(document.getElementById("b27price").value)||0,newBiz:Number(document.getElementById("b27new").value)||0,upsell:Number(document.getElementById("b27up").value)||0};D.budget2027=b;save();ren()}
 function ctRowsHtml(q){
@@ -6130,7 +6131,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var _wonInv=_won.reduce(function(a,d){return a+_invOf(d.id);},0);
       var _allInv=(D.invoices||[]).reduce(function(a,i){return a+(Number(i.amount)||0);},0);
       var _sumArr=_won.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
-      h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ch"><div class="ct2">🔍 Reconciliação de totais (diagnóstico)</div><button class="btn bs" style="background:'+R+'" onclick="exportPipeVsFat()">📥 Exportar comparação (Excel)</button></div>';
+      h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ch"><div class="ct2">🔍 Reconciliação de totais (diagnóstico)</div><button class="btn bs" style="background:'+R+'" onclick="exportPipeVsFat()">📊 Ver comparação pipeline vs faturado</button></div>';
       h+='<div style="font-size:12.5px;line-height:1.8">Σ <b>valor</b> das vendas ganhas: <b>'+fmt(_sumVal)+'</b><br>Σ <b>faturado</b> nas vendas ganhas: <b>'+fmt(_wonInv)+'</b><br>Σ faturado (<b>todas</b> as faturas, qualquer estado): <b>'+fmt(_allInv)+'</b><br>Σ ARR das vendas ganhas: <b>'+fmt(_sumArr)+'</b><br>Nº de vendas ganhas: '+_won.length+'</div>';
       var _mism=_won.filter(function(d){return Math.abs((Number(d.value)||0)-_invOf(d.id))>1;});
       if(_mism.length){h+='<div style="font-size:11px;color:#a89d8d;margin:10px 0 4px">Vendas onde o <b>valor</b> difere do <b>faturado</b> ('+_mism.length+') \u2014 provavelmente a origem da diferença:</div><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Produto</th><th style="text-align:right">Valor</th><th style="text-align:right">Faturado</th><th style="text-align:right">ARR</th></tr></thead><tbody>';
