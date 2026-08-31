@@ -2367,10 +2367,11 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // aplica o gating depois de cada render; encaminha a aba Logs; acordeão onde faz sentido
   // ===================== ADMINISTRAÇÃO · COLABORADORES & PERFIS =====================
-  var COLAB_DEPTS=[["direcao","Direção"],["operacoes","Operações"],["comercial","Comercial"],["projectos","Projectos"]];
+  function colabDepts(){var seen={},out=[];(typeof DEPT_GROUPS!=="undefined"?DEPT_GROUPS:[]).forEach(function(g){if(g.always||g.dept==="admin"||g.dept==="eu"||!g.dept||seen[g.dept])return;seen[g.dept]=1;out.push([g.dept,g.group]);});if(!out.length)out=[["direcao","Direção"],["operacoes","Operações"],["comercial","Comercial"],["projectos","Projectos"]];return out;}
   function selStyle(){return 'border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#fff;color:#3a352e';}
   async function renderColaboradores(){
     var app=document.getElementById("app");if(!app)return;
+    var COLAB_DEPTS=colabDepts();
     if(currentRole!=="admin"){app.innerHTML=pgHead("👥","Colaboradores & Perfis")+'<div class="cd"><div style="color:#a89d8d;font-size:13px">Só o administrador pode gerir perfis.</div></div>';return;}
     app.innerHTML=pgHead("👥","Colaboradores & Perfis")+'<div class="cd"><div style="color:#a89d8d;font-size:13px">A carregar colaboradores…</div></div>';
     var res={};try{res=await sb.from("profiles").select("id,email,role,departments").order("email");}catch(e){}
@@ -2394,7 +2395,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       h+='</tr>';
     });
     h+='</tbody></table></div>';
-    h+='<div style="font-size:11px;color:#a89d8d;margin-top:12px">Departamentos <b>Suporte</b> e <b>RH</b> aparecem aqui quando esses módulos forem criados (Fases 3 e 4). Novos utilizadores: Supabase → Authentication → Add user — aparecem aqui a seguir, sem acesso, até lhes atribuíres departamentos.</div></div>';
+    h+='<div style="font-size:11px;color:#a89d8d;margin-top:12px">O <b>Suporte</b> está acessível a <b>todos</b> os colaboradores automaticamente (não precisa de autorização). As colunas acima são os departamentos que podes atribuir por pessoa. Novos utilizadores: Supabase → Authentication → Add user — aparecem aqui a seguir, sem acesso, até lhes atribuíres departamentos.</div></div>';
     app.innerHTML=h;
     app.querySelectorAll(".colab-lvl").forEach(function(s){s.onchange=function(){saveColabDept(s.dataset.u,s.dataset.d,s.value);};});
     app.querySelectorAll(".colab-role").forEach(function(s){s.onchange=function(){saveColabRole(s.dataset.u,s.value);};});
@@ -7023,7 +7024,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       {id:"pipeline",l:"Pipeline"},{id:"prospeccao",l:"Prospeção"},{id:"followup",l:"Follow-up"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"forecast",l:"Forecast"},{id:"propostas",l:"Propostas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Projectos",i:"🛠️",dept:"projectos",items:[
       {id:"projetos",l:"Projetos"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"}]},
-    {group:"Suporte",i:"🎧",dept:"suporte",items:[
+    {group:"Suporte",i:"🎧",dept:"suporte",always:true,items:[
       {id:"suporte",l:"Pedidos"},{id:"inventario",l:"Inventário & Equipamentos"},{id:"kb",l:"Base de conhecimento"}]},
     {group:"Settings",i:"⚙️",dept:"admin",items:[{id:"rgpd",l:"Proteção de dados (RGPD)"},
       {id:"colaboradores",l:"Colaboradores & Perfis"},{id:"logs",l:"Auditoria"},{id:"correcoes",l:"Definições"}]}
