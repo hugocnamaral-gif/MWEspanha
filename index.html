@@ -6106,13 +6106,85 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function myDespesas(){var pp=(D.hrPeople||{})[myEmail()]||{};return pp.despesas||[];}
   function allDespesasPend(){var out=[];Object.keys(D.hrPeople||{}).forEach(function(em){(D.hrPeople[em].despesas||[]).forEach(function(x){if(x.estado==="pendente")out.push({em:em,d:x});});});return out;}
 
+  function renderManual(){
+    var app=document.getElementById("app");if(!app)return;
+    function stp(n,t){return '<div style="display:flex;gap:11px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f4f0e8"><div style="min-width:22px;height:22px;background:'+R+';color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">'+n+'</div><div style="font-size:13px;color:#4a453d;line-height:1.5">'+t+'</div></div>';}
+    function pth(t){return '<span style="font-size:11px;font-weight:700;background:#faf8f4;border:1px solid #ece6dc;border-radius:6px;padding:2px 8px;color:#5a5347;white-space:nowrap">'+t+'</span>';}
+    function bk(ic,nm,d){return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f4f0e8"><div style="font-size:19px;width:28px;text-align:center;flex-shrink:0">'+ic+'</div><div><div style="font-weight:700;font-size:13.5px">'+nm+'</div><div style="font-size:12.5px;color:#7a7268;margin-top:1px">'+d+'</div></div></div>';}
+    var h=(typeof pgHead==="function")?pgHead("📖","Manual / Ajuda"):'<h2>Manual</h2>';
+    h+='<div class="cd" style="border-left:3px solid '+BLU+'"><div style="font-size:13.5px;color:#4a453d;line-height:1.6">Bem-vindo(a)! Este é o guia rápido para usares o programa no dia-a-dia. Só vês as áreas a que tens acesso — se faltar alguma, pede ao administrador.</div></div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Como navegar</div>';
+    h+=stp(1,'<b>Menu principal:</b> cada área é um ícone (Comercial, Projetos, Pessoas…). Clica no que precisas.');
+    h+=stp(2,'<b>Dentro de um bloco:</b> as opções aparecem à esquerda. Escolhe o separador.');
+    h+=stp(3,'O primeiro botão é sempre <b>← Menu principal</b>, para voltares atrás.');
+    h+=stp(4,'O <b>seletor de ano</b> (topo das páginas) muda o ano que estás a ver — os números ajustam-se.');
+    h+='</div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">O que cada bloco faz</div>';
+    h+=bk("🧭","Direção","Visão geral do negócio e análise. Para gestão.");
+    h+=bk("💶","Financeiro","P&L (resultado), orçamento, tesouraria e histórico.");
+    h+=bk("🧾","Faturação & Cobranças","Faturas, faturação legal PT/ES, cobranças e despesas.");
+    h+=bk("🎯","Orçamento & ARR","Orçamento do próximo ano e receita recorrente.");
+    h+=bk("🏥","Comercial","Pipeline, follow-up, propostas, forecast, vendas, perdidas, contratos.");
+    h+=bk("🏢","Clientes","Diretório, contactos, carteira por região e mapa.");
+    h+=bk("🛠️","Projetos","Projetos, cronograma, comparação e rentabilidade.");
+    h+=bk("👥","Pessoas","Equipa/RH, registo de horas, vencimentos (restrito), reembolsos e férias.");
+    h+=bk("🎧","Suporte","Pedidos (tickets), inventário e base de conhecimento.");
+    h+=bk("🙋","A minha área","O teu espaço: agenda, pesquisa, segurança e os teus pedidos.");
+    h+=bk("⚙️","Definições","Colaboradores, RGPD, auditoria. Só administrador.");
+    h+='</div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">⏱️ Registar horas &nbsp;'+pth("Pessoas › Registo de horas")+'</div>';
+    h+=stp(1,'Clica em <b>+ Registar horas</b>.');
+    h+=stp(2,'Escolhe <b>data</b>, <b>nº de horas</b> e o <b>projeto</b> (e tarefa) ou o ticket de suporte.');
+    h+=stp(3,'Escreve uma descrição e guarda. As horas contam logo no custo do projeto e no P&L.');
+    h+=stp(4,'Em <b>Todas as horas</b> vês e corriges qualquer registo (botão <b>Editar</b>) — data e horas.');
+    h+='</div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">🌴 Férias, baixa ou despesa &nbsp;'+pth("A minha área › Início")+'</div>';
+    h+=stp(1,'Na secção <b>Adicionar</b>: Férias/ausência, Baixa médica, Nova despesa ou Documento.');
+    h+=stp(2,'Férias/baixa: indica as datas e envia — fica <b>pendente</b> até o administrador validar.');
+    h+=stp(3,'Despesa: descrição, valor, data e tipo; podes associar a um projeto.');
+    h+='</div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">🏥 Criar / editar uma venda &nbsp;'+pth("Comercial › Pipeline / Vendas")+'</div>';
+    h+=stp(1,'No Pipeline mudas a etapa das oportunidades.');
+    h+=stp(2,'Para editar (também em Vendas e Perdidas) usa <b>✎ Editar</b>: cliente, produto, valor, ARR, <b>datas</b>, etapa e razão da perda.');
+    h+=stp(3,'Quando ganhas, muda para <b>Ganho</b> — origina automaticamente um projeto.');
+    h+='</div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">🛠️ Gerir um projeto e tarefas &nbsp;'+pth("Projetos › Projetos")+'</div>';
+    h+=stp(1,'Abre o projeto para ver cronograma, tarefas, integrações e riscos.');
+    h+=stp(2,'Cria tarefas com <b>horas estimadas</b> e regista horas à medida que trabalhas.');
+    h+=stp(3,'A tabela <b>Execução das tarefas</b> mostra a % do tempo previsto já gasto, com <b>aviso ⚠️</b> se ultrapassar.');
+    h+='</div>';
+
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">🎧 Tratar um pedido de suporte &nbsp;'+pth("Suporte › Pedidos")+'</div>';
+    h+=stp(1,'Cria o pedido (cliente, assunto, prioridade). Podes editar a <b>data de entrada</b>.');
+    h+=stp(2,'Usa o <b>cronómetro</b>; ao parar, regista horas no pedido.');
+    h+=stp(3,'Responde ao cliente ou deixa notas; acompanha o prazo (SLA). Ao <b>Resolver</b>, pede-se o CSAT.');
+    h+='</div>';
+
+    h+='<div class="cd" style="border-left:3px solid '+GRN+'"><div class="ct2" style="margin-bottom:8px">Dicas úteis</div><ul style="margin:0;padding-left:18px;font-size:13px;color:#4a453d;line-height:1.85">'
+      +'<li><b>Guarda-se sozinho</b> e sincroniza com os colegas. Nas caixas de texto só grava 3s depois de parares de escrever.</li>'
+      +'<li><b>Datas certas = números certos:</b> regista horas e despesas com a data real.</li>'
+      +'<li><b>Enganaste-te?</b> A Auditoria (Definições) permite anular/refazer.</li>'
+      +'<li><b>Falta-te uma área?</b> É de autorizações — pede ao administrador e recarrega a página.</li>'
+      +'<li><b>Vencimentos</b> têm autorização própria e separada — nem toda a gente do RH os vê.</li>'
+      +'</ul></div>';
+
+    h+='<div style="font-size:11px;color:#a89d8d;text-align:center;padding:8px">Para dúvidas de acesso, fala com o administrador.</div>';
+    app.innerHTML=h;
+  }
+  window.renderManual=renderManual;
   function renderMinhaArea(){
     var app=document.getElementById("app");if(!app)return;
     var me=myEmail();var pp=(D.hrPeople||{})[me]||{};var canReq=!isReadOnlyNow();
     var nome=pp.nome||(me||"").split("@")[0];var ini=(nome.match(/\b\w/g)||[]).slice(0,2).join("").toUpperCase();
     var y=new Date().getFullYear();
     var proxFer=(D.absences||[]).filter(function(r){return r.email===me&&r.tipo==="ferias"&&r.status==="aprovado"&&(r.end||r.start)>=todayISO();}).sort(function(a,b){return (a.start||"").localeCompare(b.start||"");})[0];
-    var h=pgHead("🙋","A minha área");
+    var h=pgHead("🙋","A minha área",'<button class="btn bs" style="background:'+BLU+'" onclick="sTab(\'manual\')">📖 Manual / Ajuda</button>');
     h+='<div class="cd"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="width:46px;height:46px;border-radius:50%;background:'+PUR+';color:#fff;display:flex;align-items:center;justify-content:center;font-family:\'Fraunces\',serif;font-weight:700;font-size:17px;flex:0 0 auto">'+esc(ini)+'</div><div><div style="font-family:\'Fraunces\',serif;font-size:19px;font-weight:600">'+esc(nome)+'</div><div style="font-size:12px;color:#7a7268">'+esc(pp.funcao||"—")+(pp.departamento?' · '+esc(pp.departamento):'')+'</div></div></div></div>';
     // saldos
     h+='<div class="kr">'+kpi("Férias "+y,hrFeriasAno(me)+" / "+(pp.diasAno||22),"dias gozados",GRN,GRN)+kpi("Banco de horas",(saldoHoras(me)>=0?"+":"")+saldoHoras(me)+"h","saldo",PUR,PUR)+kpi("Próximas férias",proxFer?fmtD(proxFer.start):"—",proxFer?"aprovadas":"nada agendado",BLU,BLU)+kpi("Despesas por reembolsar",fmt(myDespesas().filter(function(x){return x.estado==="aprovado";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0)),"aprovadas",GD,GD)+'</div>';
@@ -7175,6 +7247,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&cTab==="contratos"){try{renderContratos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="propostas"){try{renderPropostas();}catch(e){}try{injectPropostasPipeline();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="minhaarea"){try{renderMinhaArea();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="manual"){try{renderManual();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="pesquisa"){try{renderPesquisa();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="reembolsos"){try{renderReembolsos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="forecast"){try{renderForecast();}catch(e){}try{applyRoleGating();}catch(e){}return;}
@@ -7296,7 +7369,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"Suporte",i:"🎧",dept:"suporte",always:true,items:[
       {id:"suporte",l:"Pedidos"},{id:"inventario",l:"Inventário & Equipamentos"},{id:"kb",l:"Base de conhecimento"}]},
     {group:"A minha área",i:"🙋",dept:"eu",always:true,items:[
-      {id:"minhaarea",l:"Início"},{id:"agenda",l:"Agenda",dept:"agenda",always:true},{id:"pesquisa",l:"Pesquisa & avisos"},{id:"seguranca",l:"Segurança"}]},
+      {id:"minhaarea",l:"Início"},{id:"agenda",l:"Agenda",dept:"agenda",always:true},{id:"pesquisa",l:"Pesquisa & avisos"},{id:"manual",l:"Manual / Ajuda"},{id:"seguranca",l:"Segurança"}]},
     {group:"Definições",i:"⚙️",dept:"admin",items:[
       {id:"colaboradores",l:"Colaboradores & Perfis"},{id:"rgpd",l:"Proteção de dados (RGPD)"},{id:"logs",l:"Auditoria"},{id:"correcoes",l:"Definições"}]}
   ];
@@ -7333,7 +7406,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
   // reconstrói o menu por departamentos (substitui o NAV antigo)
   if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,always:g.always,items:g.items});});}
-  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","reembolsos","kb","cronograma","inventario","comparacao","salarios2024","salarios2025","salarios2026","vendasproj","horasTodas","horasCustos","vencimentos"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
+  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","reembolsos","kb","cronograma","inventario","comparacao","salarios2024","salarios2025","salarios2026","vendasproj","horasTodas","horasCustos","vencimentos","manual"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
 
   // menu: admin vê tudo; membro vê os seus departamentos + os grupos de acesso geral (Férias)
   if(typeof rTabs==="function"){
