@@ -2058,7 +2058,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(r.error)throw r.error;
       var d=r.data&&r.data.data;
       if(d&&Object.keys(d).length){D=d;}
-      else if(currentRole!=="viewer"){await sb.from("app_state").update({data:syncPayload()}).eq("id",stateId());} // semeia 1ª vez (linha da organização)
+      else if(currentRole!=="viewer"){await sb.from("app_state").upsert({id:stateId(),data:syncPayload()});} // semeia 1ª vez (linha da organização)
     }catch(e){toastSafe("Erro a carregar dados: "+(e.message||e));}
     try{if(typeof migrate==="function")migrate();}catch(e){}
     ready=true;
@@ -2158,7 +2158,9 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
           }
         }
       }catch(e){}
-      var r=await sb.from("app_state").update({data:syncPayload()}).eq("id",stateId());if(r&&r.error)throw r.error;
+      var r=await sb.from("app_state").upsert({id:stateId(),data:syncPayload()}).select("id");if(r&&r.error)throw r.error;
+      if(!r||!r.data||!r.data.length){window.__saveBlocked=true;try{showSaveBlocked();}catch(_e){}return;}
+      if(window.__saveBlocked){window.__saveBlocked=false;var _sb=document.getElementById("saveBlockedBar");if(_sb)_sb.remove();}
       try{__lastData=JSON.stringify(syncPayload());}catch(e){}
     }
     catch(e){if(!_retry){setTimeout(function(){pushToSB(1);},2500);try{toastSafe("Ligação lenta — a tentar gravar de novo…");}catch(_){}}else{try{toastSafe("Sem ligação ao servidor. As alterações estão guardadas neste dispositivo e serão gravadas quando houver ligação.","error");}catch(_){}} }
@@ -2185,13 +2187,27 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!prevSnap)return;
     try{var keep={_log:D._log,_redo:D._redo,attachments:D.attachments};var nd=JSON.parse(JSON.stringify(prevSnap));nd._log=keep._log;nd._redo=keep._redo;if(keep.attachments)nd.attachments=keep.attachments;D=nd;}catch(e){}
   }
+  function canLogHours(){return typeof currentRole!=="undefined"&&currentRole!=="viewer";}
+  window.canLogHours=canLogHours;
+  function showSaveBlocked(){
+    try{
+      var idb="saveBlockedBar";if(document.getElementById(idb))return;
+      var isAdm=(currentRole==="admin");
+      var bar=document.createElement("div");bar.id=idb;
+      bar.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#7a1520;color:#fff;padding:10px 16px;font-size:13px;font-family:inherit;box-shadow:0 -2px 12px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center;flex-wrap:wrap;line-height:1.4";
+      bar.innerHTML='<span style="font-size:16px">⚠️</span><b>As alterações não estão a ser guardadas no servidor.</b><span style="opacity:.92">'+(isAdm?'Falta uma permissão no Supabase. Vê o SQL em Definições › Colaboradores &amp; Perfis (Diagnóstico de gravação).':'Avisa o administrador — falta uma permissão no Supabase. Evita continuar a introduzir dados até ficar resolvido.')+'</span><button onclick="var e=document.getElementById(\''+idb+'\');if(e)e.remove();" style="margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-family:inherit;font-weight:600">Entendi</button>';
+      document.body.appendChild(bar);
+    }catch(e){}
+  }
+  window.showSaveBlocked=showSaveBlocked;
   window.save=function(){
     if(!ready)return true;
-    if(isReadOnlyNow()){
+    if(isReadOnlyNow()&&!window.__selfSave){
       toastSafe(currentRole==="editor"?"Como editor só podes editar na área Comercial. Esta alteração não foi guardada.":"Não tens permissão de edição aqui — a alteração não foi guardada.");
       try{revertToSnap();if(typeof ren==="function")ren();}catch(e){}
       return false;
     }
+    window.__selfSave=false;
     clearTimeout(saveTimer);saveTimer=setTimeout(pushToSB,450);
     try{prevSnap=snapClone();}catch(e){}
     return true;
@@ -2428,6 +2444,22 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   // ===================== ADMINISTRAÇÃO · COLABORADORES & PERFIS =====================
   function colabDepts(){var seen={},out=[];var LBL={direcao:"Direção",financeiro:"Financeiro",orcamento:"Orçamento & ARR",comercial:"Comercial",projectos:"Projetos",rh:"Recursos Humanos",vencimentos:"Vencimentos"};function add(d,fb){if(d&&d!=="admin"&&d!=="eu"&&!seen[d]){seen[d]=1;out.push([d,LBL[d]||fb||d]);}}(typeof DEPT_GROUPS!=="undefined"?DEPT_GROUPS:[]).forEach(function(g){if(!g.always)add(g.dept,g.group);(g.items||[]).forEach(function(it){if(it.dept&&!it.always)add(it.dept,it.l);});});if(!out.length)out=[["direcao","Direção"],["financeiro","Financeiro"],["comercial","Comercial"],["projectos","Projetos"]];return out;}
   function selStyle(){return 'border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#fff;color:#3a352e';}
+  var APP_STATE_SQL=[
+    "-- Estado partilhado da app: leitura e escrita para qualquer utilizador autenticado",
+    "alter table public.app_state enable row level security;",
+    "",
+    "drop policy if exists app_state_read on public.app_state;",
+    "create policy app_state_read on public.app_state",
+    "  for select using ( auth.uid() is not null );",
+    "",
+    "drop policy if exists app_state_insert on public.app_state;",
+    "create policy app_state_insert on public.app_state",
+    "  for insert with check ( auth.uid() is not null );",
+    "",
+    "drop policy if exists app_state_update on public.app_state;",
+    "create policy app_state_update on public.app_state",
+    "  for update using ( auth.uid() is not null ) with check ( auth.uid() is not null );"
+  ].join("\n");
   async function renderColaboradores(){
     var app=document.getElementById("app");if(!app)return;
     var COLAB_DEPTS=colabDepts();
@@ -2457,6 +2489,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     });
     h+='</tbody></table></div>';
     h+='<div style="font-size:11px;color:#a89d8d;margin-top:12px">O <b>Suporte</b> está acessível a <b>todos</b> os colaboradores automaticamente (não precisa de autorização). As colunas acima são os departamentos que podes atribuir por pessoa. Novos utilizadores: Supabase → Authentication → Add user — aparecem aqui a seguir, sem acesso, até lhes atribuíres departamentos.</div></div>';
+    h+='<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:6px">🛟 Se os colaboradores não conseguem gravar</div><div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">1) Confirma que cada pessoa tem papel <b>Colaborador</b> (não Visualizador). 2) Se mesmo assim as gravações não ficam guardadas, falta uma política no Supabase que permita a <b>todos</b> gravar o estado partilhado. Vai ao Supabase → <b>SQL Editor</b> e corre isto uma vez:</div><textarea readonly onclick="this.select()" style="width:100%;height:200px;font-family:monospace;font-size:11px;border:1px solid '+rgba(GD,.4)+';border-radius:6px;padding:8px;background:#faf8f4">'+esc(APP_STATE_SQL)+'</textarea><div style="font-size:11px;color:#a89d8d;margin-top:6px">Depois de correres o SQL, cada colaborador recarrega a página e passa a gravar normalmente. Se aparecer uma barra vermelha em baixo a dizer que "não está a guardar", é exatamente isto que falta.</div></div>';
     app.innerHTML=h;
     app.querySelectorAll(".colab-lvl").forEach(function(s){s.onchange=function(){saveColabDept(s.dataset.u,s.dataset.d,s.value);};});
     app.querySelectorAll(".colab-role").forEach(function(s){s.onchange=function(){saveColabRole(s.dataset.u,s.value);};});
@@ -3016,7 +3049,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     save();clM();ren();
   };
   window.openHoras=function(dealId){
-    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    if(!canLogHours()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);
     var tkOpts=[{v:"",t:"— sem tarefa —"}].concat((r.tarefas||[]).map(function(t){return {v:t.id,t:t.titulo};}));
     var meNome=(typeof ferName==="function"?ferName(currentEmail):"")||currentEmail||"";
@@ -3028,19 +3061,19 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     document.getElementById("mArea").innerHTML=mWrap("Registar horas",body);
   };
   window.svHoras=function(dealId){
-    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    if(!canLogHours()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);var horas=Number(document.getElementById("hr_h").value)||0;
     if(horas<=0){toastSafe("Indica as horas.");return;}
     var _col=(document.getElementById("hr_c").value||"").trim();var _vh=Number((document.getElementById("hr_vh")||{}).value);if(!(_vh>=0))_vh=hrRate();if(_col)hrRates()[_col]=_vh;
     r.horas.push({id:uid(),colaborador:_col,data:document.getElementById("hr_d").value||todayISO(),horas:horas,tarefaId:document.getElementById("hr_t").value||"",valorHora:_vh,nota:(document.getElementById("hr_n").value||"").trim()});
     if(typeof logAct==="function")logAct("Projectos","Horas registadas — "+horas+"h · "+cn(((D.deals||[]).filter(function(x){return x.id===dealId;})[0]||{}).clientId));
-    save();clM();ren();toastSafe("Horas registadas.","ok");
+    window.__selfSave=true;save();clM();ren();toastSafe("Horas registadas.","ok");
   };
   window.delHoras=function(dealId,id){
-    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    if(!canLogHours()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);r.horas=(r.horas||[]).filter(function(x){return x.id!==id;});
     if(typeof logAct==="function")logAct("Projectos","Registo de horas eliminado");
-    save();ren();
+    window.__selfSave=true;save();ren();
   };
   window.openCustoAvulso=function(dealId){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
@@ -4783,7 +4816,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var g=function(i){var el=document.getElementById(i);return el?el.value:"";};
     rec.data=g("eh_d")||rec.data;rec.horas=Number(g("eh_h"))||0;rec.valorHora=Number(g("eh_vh"))||0;
     if(typeof logAct==="function")logAct("Horas","Horas editadas — "+rec.data+" · "+rec.horas+"h");
-    save();if(typeof clM==="function")clM();ren();toastSafe("Guardado.","ok");
+    window.__selfSave=true;save();if(typeof clM==="function")clM();ren();toastSafe("Guardado.","ok");
   };
   window.delHoraLinha=function(src,id,deal){
     var doIt=function(){
@@ -4849,6 +4882,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var dealOpts='<option value="">— nenhum —</option>'+(D.deals||[]).slice().sort(function(a,b){return (a.clientId||"").localeCompare(b.clientId||"");}).map(function(d){return '<option value="'+d.id+'"'+(x.dealId===d.id?' selected':'')+'>'+esc(cn(d.clientId)+" — "+(d.product||d.id))+'</option>';}).join("");
     var tkOpts='<option value="">— nenhum —</option>'+(D.tickets||[]).map(function(t){return '<option value="'+t.id+'"'+(x.ticketId===t.id?' selected':'')+'>'+esc((t.titulo||t.id))+'</option>';}).join("");
     var body='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+fld("Data",'<input type="date" id="h_data" value="'+(x.data||todayISO())+'">')+fld("Horas",'<input type="number" id="h_horas" step="0.25" min="0" value="'+(Number(x.horas)||0)+'">')+'</div>'+
+      (horasSeeAll()?fld("Colaborador (em branco = tu)",'<input id="h_email" list="h_elist" value="'+esc(x.email||"")+'" placeholder="email do colaborador">'+dlist("h_elist",(typeof hrRoster!=="undefined"?hrRoster:[]))):'')+
       fld("Projeto (negócio)",'<select id="h_deal" onchange="horaFillTasks()">'+dealOpts+'</select>')+
       fld("Tarefa do projeto (opcional)",'<select id="h_task"></select>')+
       fld("Ou ticket de suporte",'<select id="h_ticket">'+tkOpts+'</select>')+
@@ -4865,8 +4899,9 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     x.data=v("h_data")||todayISO();x.horas=Number(v("h_horas"))||0;x.dealId=v("h_deal");x.taskId=v("h_task")||"";x.ticketId=v("h_ticket");x.descricao=v("h_desc");x.faturavel=v("h_fat")==="1";x.valorHora=Number(v("h_vh"))||0;
     cfg.valorHora=x.valorHora||cfg.valorHora;
     if(!id)horasList().push(x);
+    var _em=v("h_email");if(_em)x.email=_em.trim();
     if(typeof logAct==="function")logAct("Horas",(id?"Horas atualizadas":"Horas registadas")+": "+x.horas+"h — "+(x.descricao||""));
-    save();clM();ren();toastSafe("Guardado.","ok");
+    window.__selfSave=true;save();clM();ren();toastSafe("Guardado.","ok");
   };
   window.delHora=function(id){var doIt=function(){D.timesheets=horasList().filter(function(h){return h.id!==id;});if(typeof logAct==="function")logAct("Horas","Registo de horas removido");save();clM();ren();};if(typeof confirmM==="function")confirmM("Apagar este registo de horas?",doIt,{yesLabel:"Apagar"});else doIt();};
   window.horasAnular=function(id){var x=horasList().filter(function(h){return h.id===id;})[0];if(!x)return;x.faturado=false;if(typeof logAct==="function")logAct("Horas","Faturação de horas anulada");save();ren();toastSafe("Marcado como por faturar.","ok");};
