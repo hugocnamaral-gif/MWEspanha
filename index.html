@@ -3035,6 +3035,14 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       h+='</tbody></table></div>';
     }else h+='<div style="font-size:12.5px;color:#a89d8d">Sem horas registadas. As horas alimentam o custo com pessoal e a margem do projeto.</div>';
     h+='</div>';
+    // ---- Visitas & Reuniões (partilhado com Comercial) ----
+    var _reu=(typeof reuList==="function"?reuList():[]).filter(function(x){return x.dealId===dealId||(x.clientId&&x.clientId===d.clientId);}).sort(function(a,b){return (b.data||"").localeCompare(a.data||"");});
+    h+='<div class="cd"><div class="ch"><div class="ct2">Visitas &amp; Reuniões'+(_reu.length?' ('+_reu.length+')':'')+'</div>'+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openReuniao(\'\',\''+(d.clientId||"")+'\',\''+dealId+'\')">+ Nova reunião</button>':'')+'</div>';
+    if(!_reu.length)h+='<div style="font-size:12.5px;color:#a89d8d;margin-top:6px">Sem reuniões registadas para este cliente/projeto. As que registares aqui aparecem também na área Comercial.</div>';
+    else{h+='<div style="overflow-x:auto;margin-top:8px"><table><thead><tr><th>Data</th><th>Tipo</th><th>Assunto</th><th>Partilha</th><th></th></tr></thead><tbody>';
+      _reu.forEach(function(x){h+='<tr><td style="font-size:12px">'+(x.data?fmtD(x.data):"—")+'</td><td>'+bdg(reuTipoLbl(x.tipo),reuTipoCol(x.tipo))+'</td><td style="font-size:12px">'+esc(x.assunto||"—")+'</td><td style="font-size:11px">'+(x.partilhaCliente?"🔓 cliente":"🔒 interna")+'</td><td style="text-align:right;white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="openReuniao(\''+x.id+'\')">Abrir</button> <button class="btn bs" style="background:'+BLU+'" onclick="printActa(\''+x.id+'\')">📄</button></td></tr>';});
+      h+='</tbody></table></div>';}
+    h+='</div>';
     // ---- Entregáveis & aceitação ----
     var ents=r.entregaveis||[];var aceites=ents.filter(function(x){return x.estado==="aceite";}).length;
     h+='<div class="cd"><div class="ch"><div class="ct2">Entregáveis &amp; aceitação</div>'+(canEdit?'<button class="btn bs" style="background:'+GD+'" onclick="openEntreg(\''+dealId+'\')">+ Entregável</button>':'')+'</div>';
@@ -7380,6 +7388,117 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     };
   }
 
+  // ===================== VISITAS & REUNIÕES (Comercial <-> Projetos) =====================
+  function reuList(){return Array.isArray(D.reunioes)?D.reunioes:(D.reunioes=[]);}
+  var REU_TIPOS=[["visita","Visita"],["reuniao","Reunião"],["call","Chamada"],["demo","Demonstração"],["formacao","Formação"],["outro","Outro"]];
+  var REU_MODOS=[["presencial","Presencial"],["online","Online"],["telefone","Telefónica"]];
+  function reuTipoLbl(v){var m=REU_TIPOS.filter(function(x){return x[0]===v;})[0];return m?m[1]:(v||"Reunião");}
+  function reuTipoCol(v){return v==="visita"?BLU:(v==="reuniao"?PUR:(v==="demo"?TEAL:(v==="formacao"?GD:SL)));}
+  function reuModoLbl(v){var m=REU_MODOS.filter(function(x){return x[0]===v;})[0];return m?m[1]:"";}
+  function reuProjName(r){var d=(D.deals||[]).filter(function(x){return x.id===r.dealId;})[0];return d?(d.product||""):"";}
+  window.reuList=reuList;
+  function renderReunioes(){
+    var app=document.getElementById("app");if(!app)return;
+    var canEdit=!(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
+    var all=reuList().slice().sort(function(a,b){return ((b.data||"")+(b.hora||"")).localeCompare((a.data||"")+(a.hora||""));});
+    var fCli=window.__ruCli||"",fTipo=window.__ruTipo||"",fPart=window.__ruPart||"";
+    var list=all.filter(function(r){
+      if(fCli&&r.clientId!==fCli)return false;
+      if(fTipo&&r.tipo!==fTipo)return false;
+      if(fPart==="cliente"&&!r.partilhaCliente)return false;
+      if(fPart==="interno"&&r.partilhaCliente)return false;
+      return true;});
+    var ym=todayISO().slice(0,7);
+    var nMes=all.filter(function(r){return (r.data||"").slice(0,7)===ym;}).length;
+    var nPart=all.filter(function(r){return r.partilhaCliente;}).length;
+    var h=pgHead("🤝","Visitas & Reuniões",canEdit?'<button class="btn" style="background:'+R+'" onclick="openReuniao()">+ Nova reunião</button>':"");
+    h+='<div class="kr">'+kpi("Reuniões",String(all.length),"registadas",BLU,BLU)+kpi("Este mês",String(nMes),ym,PUR,PUR)+kpi("Partilhadas c/ cliente",String(nPart),"visíveis ao cliente",GRN,GRN)+kpi("Internas",String(all.length-nPart),"só equipa",SL,SL)+'</div>';
+    var clis={};all.forEach(function(r){if(r.clientId)clis[r.clientId]=1;});
+    h+='<div class="cd"><div class="ch"><div class="ct2">Registo ('+list.length+')</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      '<select onchange="window.__ruCli=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os clientes</option>'+Object.keys(clis).map(function(c){return '<option value="'+esc(c)+'"'+(fCli===c?" selected":"")+'>'+esc(cn(c))+'</option>';}).join("")+'</select>'+
+      '<select onchange="window.__ruTipo=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os tipos</option>'+REU_TIPOS.map(function(t){return '<option value="'+t[0]+'"'+(fTipo===t[0]?" selected":"")+'>'+t[1]+'</option>';}).join("")+'</select>'+
+      '<select onchange="window.__ruPart=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todas</option><option value="cliente"'+(fPart==="cliente"?" selected":"")+'>Partilhadas c/ cliente</option><option value="interno"'+(fPart==="interno"?" selected":"")+'>Só internas</option></select>'+
+      ((fCli||fTipo||fPart)?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="window.__ruCli=\'\';window.__ruTipo=\'\';window.__ruPart=\'\';rPnl()">Limpar</button>':'')+
+      '</div></div>';
+    if(!list.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem reuniões'+(all.length?" para este filtro":" registadas")+'. Usa «+ Nova reunião» para registar uma visita ou reunião com o cliente.</div>';
+    else{
+      list.forEach(function(r){
+        var col=reuTipoCol(r.tipo);var proj=reuProjName(r);
+        var part=r.partilhaCliente?'<span style="font-size:10px;font-weight:600;color:'+GRN+';border:1px solid '+rgba(GRN,.4)+';border-radius:7px;padding:1px 7px">🔓 Partilhada c/ cliente</span>':'<span style="font-size:10px;font-weight:600;color:#7a7268;border:1px solid #e5e0da;border-radius:7px;padding:1px 7px">🔒 Interna</span>';
+        h+='<div style="border:1px solid #ece6dc;border-left:3px solid '+col+';border-radius:10px;padding:11px 13px;margin-bottom:9px">';
+        h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div>'+bdg(reuTipoLbl(r.tipo),col)+(r.modo?' <span style="font-size:11px;color:#a89d8d">'+esc(reuModoLbl(r.modo))+'</span>':'')+' <span style="font-size:12px;color:#7a7268">'+(r.data?fmtD(r.data):"—")+(r.hora?" · "+esc(r.hora):"")+'</span></div>'+part+'</div>';
+        h+='<div style="font-weight:700;font-size:13.5px;margin:5px 0 2px">'+esc(cn(r.clientId))+(proj?' <span style="font-weight:500;color:#a89d8d;font-size:12px">· '+esc(proj)+'</span>':'')+'</div>';
+        if(r.assunto)h+='<div style="font-size:12.5px;font-weight:600;color:#3a352e">'+esc(r.assunto)+'</div>';
+        if(r.acta)h+='<div style="font-size:12px;color:#7a7268;margin-top:4px;white-space:pre-wrap;max-height:66px;overflow:hidden">'+esc(String(r.acta).slice(0,240))+(String(r.acta).length>240?"…":"")+'</div>';
+        var pp=[];if(r.participantes)pp.push("Nós: "+r.participantes);if(r.participantesCliente)pp.push("Cliente: "+r.participantesCliente);
+        if(pp.length)h+='<div style="font-size:11px;color:#a89d8d;margin-top:5px">'+esc(pp.join("  ·  "))+'</div>';
+        h+='<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn bs" style="background:'+SL+'" onclick="openReuniao(\''+r.id+'\')">'+(canEdit?"Abrir / editar":"Ver")+'</button><button class="btn bs" style="background:'+BLU+'" onclick="printActa(\''+r.id+'\')">📄 Acta</button>'+(canEdit?'<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delReuniao(\''+r.id+'\')">×</button>':'')+'</div>';
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+    app.innerHTML=h;
+  }
+  window.renderReunioes=renderReunioes;
+  window.openReuniao=function(id,presetClient,presetDeal){
+    var ro=(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
+    if(!id&&ro){toastSafe("Sem permissão.");return;}
+    var r=id?reuList().filter(function(x){return x.id===id;})[0]:null;
+    var cliName=r?cn(r.clientId):(presetClient?cn(presetClient):"");
+    var cliId=r?r.clientId:(presetClient||"");
+    var projs=[{v:"",t:"— sem projeto —"}].concat((D.projectos||[]).map(function(p){var d=(D.deals||[]).find(function(x){return x.id===p.dealId})||{};return {v:p.dealId,t:cn(d.clientId)+" · "+String(d.product||p.nome||"").slice(0,26)};}));
+    var meNome=(typeof ferName==="function"?ferName(currentEmail):"")||currentEmail||"";
+    var body=fld("Cliente",'<input id="ru_cli" list="ru_clis" autocomplete="off" value="'+esc(cliName)+'" placeholder="escreve para procurar…"><datalist id="ru_clis">'+(D.clients||[]).map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="ru_cliid" value="'+esc(cliId)+'">')
+      +'<div class="r2">'+fld("Tipo",sel("ru_tipo",REU_TIPOS.map(function(t){return{v:t[0],t:t[1]};}),r?r.tipo:"reuniao"))+fld("Modo",sel("ru_modo",REU_MODOS.map(function(t){return{v:t[0],t:t[1]};}),r?r.modo:"presencial"))+'</div>'
+      +'<div class="r2">'+fld("Data",'<input type="date" id="ru_data" value="'+(r&&r.data?r.data:todayISO())+'">')+fld("Hora",'<input type="time" id="ru_hora" value="'+(r&&r.hora?esc(r.hora):"")+'">')+'</div>'
+      +'<div class="r2">'+fld("Projeto (opcional)",sel("ru_deal",projs,r?(r.dealId||""):(presetDeal||"")))+fld("Local (opcional)",'<input id="ru_local" value="'+(r?esc(r.local||""):"")+'" placeholder="ex.: hospital, Teams">')+'</div>'
+      +fld("Assunto / objetivo",'<input id="ru_ass" value="'+(r?esc(r.assunto||""):"")+'" placeholder="ex.: apresentação DOCbase, ponto de situação">')
+      +'<div class="r2">'+fld("Participantes (nossa equipa)",'<input id="ru_pnos" value="'+(r?esc(r.participantes||""):esc(meNome))+'">')+fld("Participantes (cliente)",'<input id="ru_pcli" value="'+(r?esc(r.participantesCliente||""):"")+'" placeholder="nomes / cargos">')+'</div>'
+      +fld("Acta / notas importantes",'<textarea id="ru_acta" rows="7" style="resize:vertical" placeholder="Pontos discutidos, decisões, informação relevante…">'+(r?esc(r.acta||""):"")+'</textarea>')
+      +fld("Próximos passos (opcional)",'<textarea id="ru_pp" rows="3" style="resize:vertical" placeholder="Ações, responsáveis e prazos…">'+(r?esc(r.proximosPassos||""):"")+'</textarea>')
+      +'<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;background:#faf8f4;cursor:pointer;margin-bottom:8px"><input type="checkbox" id="ru_part" '+(r&&r.partilhaCliente?"checked":"")+' style="width:17px;height:17px;flex:0 0 auto"><span style="font-size:12.5px"><b>Partilhar com o cliente</b> — a acta fica marcada como visível ao cliente. Se desmarcado, é <b>só interna</b>.</span></label>';
+    if(!ro)body+='<div style="display:flex;gap:8px;margin-top:4px">'+(id?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delReuniao(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';flex:1" onclick="svReuniao(\''+(id||"")+'\')">Guardar</button></div>';
+    else body+='<div style="font-size:11.5px;color:#a89d8d">Sem permissão para editar.</div>';
+    document.getElementById("mArea").innerHTML=mWrap(id?"Reunião / visita":"Nova reunião / visita",body);
+    var ci=document.getElementById("ru_cli");if(ci)ci.addEventListener("change",function(){var nm=(this.value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];var hid=document.getElementById("ru_cliid");if(hid)hid.value=m?m.id:"";});
+  };
+  window.svReuniao=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var g=function(i){var el=document.getElementById(i);return el?el.value:"";};
+    var cliId=g("ru_cliid");
+    if(!cliId){var nm=(g("ru_cli")||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];if(m)cliId=m.id;}
+    if(!cliId){toastSafe("Escolhe um cliente da lista.");return;}
+    var rec=id?reuList().filter(function(x){return x.id===id;})[0]:null;
+    var isNew=!rec;if(isNew)rec={id:uid(),createdBy:(typeof myEmail==="function"?myEmail():"")||"",createdAt:todayISO()};
+    rec.clientId=cliId;rec.tipo=g("ru_tipo");rec.modo=g("ru_modo");rec.data=g("ru_data")||todayISO();rec.hora=g("ru_hora");rec.dealId=g("ru_deal");rec.local=g("ru_local");rec.assunto=g("ru_ass");rec.participantes=g("ru_pnos");rec.participantesCliente=g("ru_pcli");rec.acta=g("ru_acta");rec.proximosPassos=g("ru_pp");
+    var pc=document.getElementById("ru_part");rec.partilhaCliente=!!(pc&&pc.checked);rec.updatedAt=todayISO();
+    if(isNew)reuList().push(rec);
+    if(typeof logAct==="function")logAct("Comercial",(isNew?"Reunião registada":"Reunião atualizada")+" — "+cn(cliId)+(rec.assunto?" · "+String(rec.assunto).slice(0,30):""));
+    save();clM();ren();toastSafe("Reunião guardada.","ok");
+  };
+  window.delReuniao=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var doIt=function(){D.reunioes=reuList().filter(function(x){return x.id!==id;});if(typeof logAct==="function")logAct("Comercial","Reunião eliminada");save();clM();ren();toastSafe("Eliminada.","ok");};
+    if(typeof confirmM==="function")confirmM("Eliminar este registo de reunião?",doIt,{yesLabel:"Eliminar"});else doIt();
+  };
+  window.printActa=function(id){
+    var r=reuList().filter(function(x){return x.id===id;})[0];if(!r)return;
+    var e2=function(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");};
+    var br=function(s){return e2(s).replace(/\n/g,"<br>");};
+    var win=window.open("","_blank");if(!win){toastSafe("Permite pop-ups para abrir a acta.");return;}
+    var html='<!doctype html><html><head><meta charset="utf-8"><title>Acta — '+e2(cn(r.clientId))+'</title>'
+      +'<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#2b2620;max-width:720px;margin:32px auto;padding:0 22px;line-height:1.5}h1{font-size:20px;margin:0 0 2px}.sub{color:#8a8072;font-size:13px;margin-bottom:18px}.meta{background:#faf8f4;border:1px solid #ece6dc;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:18px}.meta b{color:#8a8072;font-weight:600}h2{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #ece6dc;padding-bottom:4px}.body{font-size:13.5px}.foot{margin-top:26px;font-size:11px;color:#a89d8d;border-top:1px solid #ece6dc;padding-top:8px}@media print{.noprint{display:none}}</style></head><body>'
+      +'<h1>Acta de '+e2(reuTipoLbl(r.tipo).toLowerCase())+'</h1><div class="sub">Mobilwave · '+e2(cn(r.clientId))+(reuProjName(r)?' — '+e2(reuProjName(r)):'')+'</div>'
+      +'<div class="meta"><div><b>Data:</b> '+(r.data?e2(fmtD(r.data)):"—")+(r.hora?" · "+e2(r.hora):"")+'</div><div><b>Tipo:</b> '+e2(reuTipoLbl(r.tipo))+(r.modo?" ("+e2(reuModoLbl(r.modo))+")":"")+'</div>'+(r.local?'<div><b>Local:</b> '+e2(r.local)+'</div>':'')+(r.participantes?'<div><b>Nossa equipa:</b> '+e2(r.participantes)+'</div>':'')+(r.participantesCliente?'<div><b>Cliente:</b> '+e2(r.participantesCliente)+'</div>':'')+'</div>'
+      +(r.assunto?'<h2>Assunto</h2><div class="body">'+e2(r.assunto)+'</div>':'')
+      +'<h2>Acta / Notas</h2><div class="body">'+(r.acta?br(r.acta):"<i>Sem notas.</i>")+'</div>'
+      +(r.proximosPassos?'<h2>Próximos passos</h2><div class="body">'+br(r.proximosPassos)+'</div>':'')
+      +'<div class="foot">'+(r.partilhaCliente?"Documento partilhável com o cliente.":"Documento interno — não partilhar com o cliente.")+' · Gerado em '+e2(fmtD(todayISO()))+'</div>'
+      +'<div class="noprint" style="margin-top:18px"><button onclick="window.print()" style="background:#AB2331;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">Imprimir / PDF</button></div>'
+      +'</body></html>';
+    win.document.write(html);win.document.close();
+  };
+
   if(typeof rPnl==="function"){
     var _r=rPnl;
     rPnl=function(){
@@ -7420,6 +7539,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&cTab==="carteira"){try{renderCarteira();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="rentabilidade"){try{renderRentabilidade();}catch(e){}try{injectRentabProjetos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="vendasproj"){try{renderVendasProj();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&(cTab==="reunioes"||cTab==="reunioesp")){try{renderReunioes();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="dashboard"){try{injectExecPanel();}catch(e){}}
       if(typeof cTab!=="undefined"&&cTab==="financeiro"){if(finSub==="faturas"){try{injectRecurringCard();}catch(e){}}if(finSub==="orcamento"){try{injectScenariosCard();}catch(e){}}}
@@ -7521,11 +7641,11 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"Orçamento & ARR",i:"🎯",dept:"orcamento",items:[
       {id:"orc2027",l:"Orçamento próximo ano"},{id:"arr",l:"ARR"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
-      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
+      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Diretório"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Região & Carteira"},{id:"mapa",l:"Mapa"}]},
     {group:"Projetos",i:"🛠️",dept:"projectos",items:[
-      {id:"projetos",l:"Projetos"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"},{id:"rentabilidade",l:"Rentabilidade"},{id:"vendasproj",l:"Vendas ↔ Projetos"}]},
+      {id:"projetos",l:"Projetos"},{id:"reunioesp",l:"Visitas & Reuniões"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"},{id:"rentabilidade",l:"Rentabilidade"},{id:"vendasproj",l:"Vendas ↔ Projetos"}]},
     {group:"Pessoas",i:"👥",dept:"rh",always:true,items:[
       {id:"rh",l:"Equipa / RH",dept:"rh"},{id:"reembolsos",l:"Reembolsos",dept:"rh"},
       {id:"horas",l:"Registar horas",dept:"horas",always:true},{id:"horasTodas",l:"Todas as horas",dept:"horas",always:true},{id:"horasCustos",l:"Custos por projeto",dept:"horas",always:true},
