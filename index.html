@@ -2180,6 +2180,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(d==="horas")return currentRole==="viewer";
     if(d==="eu")return currentRole==="viewer";
     if(d==="clientesg")return currentRole==="viewer"; // Clientes: acesso geral de leitura+edição para todos
+    if(d==="suporte")return currentRole==="viewer"; // Suporte: todos podem registar/gerir pedidos (viewer só lê)
     if(!d||d==="admin")return true;
     return userLevel(d)!=="edit";
   }
