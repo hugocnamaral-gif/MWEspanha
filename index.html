@@ -7202,7 +7202,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var cid=t?(t.clientId||""):"";
     var cl=(D.clients||[]).filter(function(c){return c.id===cid;})[0]||{};
     var dis=canEdit?"":"disabled";
-    var body=fld("Cliente",sel("tk1",cs,cid))
+    var body=fld("Cliente",'<input id="tk1c" list="tk1_clis" autocomplete="off" '+dis+' value="'+esc(cl.name||"")+'" placeholder="escreve para procurar…"><datalist id="tk1_clis">'+(D.clients||[]).map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="tk1" value="'+esc(cid)+'">')
       +fld("Assunto",'<input id="tk2" '+dis+' value="'+(t?esc(t.titulo||""):"")+'" placeholder="ex.: DOCbase não arranca">')
       +fld("Descrição",'<textarea id="tk3" '+dis+' rows="3" style="resize:vertical">'+(t?esc(t.descricao||""):"")+'</textarea>')
       +'<div class="r2">'+fld("Prioridade",sel("tk4",TK_PRIO.map(function(o){return {v:o[0],t:o[1]};}),t?t.prioridade:"media"))+fld("Estado",sel("tk5",TK_ESTADO.map(function(o){return {v:o[0],t:o[1]};}),t?t.estado:"aberto"))+'</div>'
@@ -7252,7 +7252,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         +'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svTicket(\''+(id||"")+'\')">Guardar</button></div>';
     }else body+='<div style="margin-top:12px;text-align:right"><button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Fechar</button></div>';
     document.getElementById("mArea").innerHTML=mWrap(t?"Pedido de suporte":"Novo pedido",body);
-    var _tkc=document.getElementById("tk1");if(_tkc)_tkc.onchange=function(){var el=document.getElementById("tkAtInfo");if(el)el.innerHTML=tkAtBadge(this.value);};
+    var _tkc=document.getElementById("tk1c");if(_tkc)_tkc.onchange=function(){var nm=(this.value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];var hid=document.getElementById("tk1");if(hid)hid.value=m?m.id:"";var el=document.getElementById("tkAtInfo");if(el)el.innerHTML=tkAtBadge(m?m.id:"");};
   };
   window.svTicket=function(id){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
@@ -7285,8 +7285,10 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var from=(document.getElementById("tkFrom")||{}).value||"";var hint=document.getElementById("tkAssoc");var selEl=document.getElementById("tk1");if(!hint)return;
     if(!from.trim()){hint.textContent="A descrição acima entra como a primeira mensagem recebida.";return;}
     var mid=tkMatchClient(from);
-    if(mid){if(selEl)selEl.value=mid;hint.innerHTML='✓ Associado a <b>'+esc(cn(mid))+'</b> (pelo contacto).';}
-    else{if(selEl)selEl.value="";hint.textContent="Sem correspondência nos contactos — fica “por associar”.";}
+    var _vis=document.getElementById("tk1c");
+    if(mid){if(selEl)selEl.value=mid;if(_vis)_vis.value=cn(mid);hint.innerHTML='✓ Associado a <b>'+esc(cn(mid))+'</b> (pelo contacto).';}
+    else{if(selEl)selEl.value="";if(_vis)_vis.value="";hint.textContent="Sem correspondência nos contactos — fica “por associar”.";}
+    try{var _ab=document.getElementById("tkAtInfo");if(_ab)_ab.innerHTML=tkAtBadge(mid||"");}catch(e){}
   };
   // ---- respostas-tipo (base de conhecimento) ----
   window.insertCanned=function(crId){
