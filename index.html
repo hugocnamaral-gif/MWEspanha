@@ -6894,6 +6894,26 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function cmpList(){if(!Array.isArray(D.compras))D.compras=[];return D.compras;}
   function invLbl(a,v){var m=a.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
   function canApproveCompra(){try{return currentRole==="admin"||!!(userDepts()["direcao"]);}catch(e){return currentRole==="admin";}}
+  var CATALOGO_ARTIGOS=[["Magewell USB Capture HDMI Gen 2", 298], ["Magewell USB Capture SDI", 298], ["1>2 Splitter 2 Port HDMI", 24], ["3>1 Switch HDMI 2.0 18G - 3 Portas HDR LINDY", 74], ["Adafruit TRRS Trinkey", 10.732], ["Adafruit TRRS Trinkey + Snap-on Enclosure for Adafruit", 13.984], ["Adaptador (união) BNC F- BNC F", 1.11], ["Adaptador BNC M - BNC F 90º", 2.6], ["Adaptador BNC M - RCA F Dourado", 8.62], ["Adaptador BNC-M 2x BNC-F (T)", 1.42], ["Adaptador DVI-D (F) > HDMI (M) 20Cms LINDY", 9.29], ["Adaptador DVI-D M TO HDMI F", 7.57], ["Adaptador DVI-I 24+5 fêmea - VGA HD15 SUB-D macho", 3.8], ["Adaptador HDMI Dual Port", 0], ["Adaptador Jack2.5 macho - Jack3.5 fêmea - STEREO", 0.63], ["Adaptador RCA F - BNC M", 3.68], ["Adaptador RCA F - RCA F", 0.79], ["Adaptador RCA M - BNC F", 3.68], ["Adaptador RCA M - Jack 3.5mm - metal", 0.57], ["Adaptador USB 3.2 Type C Male > Type A Female ACT", 4.83], ["Adaptador jack 3.5 fêmea - 2.5 macho", 6.73], ["BLUETOOTH USB ADAPTER", 11.7], ["CABLE USB TO JACK 10 METROS - cabo de punho", 0], ["CABLE USB TO JACK 15 METROS - Cabo de Punho", 0], ["CABLE USB TO JACK 2 METROS - Cabo de Punho", 0], ["CABLE USB TO JACK 20 METROS", 0], ["CABO HDMI 5.0M - ANTHRA LINE", 17.52], ["Cabo 20.0m HDMI - ANTHRA LINE LINDY", 89.43], ["Cabo BNC 10MT", 22.14], ["Cabo BNC 15MT", 36.9], ["Cabo BNC 20MT", 15], ["Cabo BNC 2MT", 11.24], ["Cabo BNC 3MT", 11.94], ["Cabo BNC 5MT", 19.85], ["Cabo BNC m/m RG58 50Ω - 1.0m", 3.42], ["Cabo BNC m/m RG58 50Ω - 10.0m", 7.59], ["Cabo BNC m/m RG58 50Ω - 5.0m", 3.57], ["Cabo BNC+DC 2.1/5.5mm - 30.0m", 10.06], ["Cabo DVI-D Dual Link 05.0m", 21], ["Cabo DVI-D Dual Link 20.0m", 193], ["Cabo Ethernet - 5.0m", 0], ["Cabo HDMI - DVI 10MT", 51.99], ["Cabo HDMI - DVI 15MT", 119.35], ["Cabo HDMI - DVI 5MT", 20.77], ["Cabo HDMI 15mts", 18.56], ["Cabo HDMI 2.0 (4K@60Hz) c/ filtros macho «» macho - 10m", 11.6], ["Cabo HDMI 2.0 macho «» macho - 1.0m", 2.7], ["Cabo HDMI 2.0 macho «» macho - 10.0m", 10.74], ["Cabo HDMI 2.0 macho «» macho - 2m", 3.05], ["Cabo HDMI 2.0 macho «» macho - 5m", 0], ["Cabo HDMI 2.0 macho «» macho - 7.5m", 7.61], ["Cabo HDMI 2.0b c/ filtros, macho «» macho - 3.0m - Nimo", 9.88], ["Cabo HDMI/DVI-D 2MT", 12]];
+  window.importCatalogoArtigos=function(){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var cat=CATALOGO_ARTIGOS||[];
+    var have={};invList().forEach(function(i){have[String(i.nome||"").trim().toLowerCase()]=1;});
+    var doIt=function(){
+      var add=0,skip=0;
+      cat.forEach(function(a){
+        var nome=a[0],custo=Number(a[1])||0;var k=String(nome).trim().toLowerCase();
+        if(have[k]){skip++;return;}
+        have[k]=1;
+        invList().push({id:uid(),nome:nome,categoria:"hw",qtd:0,estado:"stock",localizacao:"",serial:"",precoCusto:custo,precoVenda:0,foto:"",notas:"Importado do catálogo de artigos",createdAt:todayISO()});
+        add++;
+      });
+      if(typeof logAct==="function")logAct("Inventário",add+" artigo(s) importado(s) do catálogo (stock 0)");
+      save();clM();ren();toastSafe(add+" artigo(s) adicionado(s)"+(skip?" · "+skip+" já existiam":"")+".","ok");
+    };
+    if(typeof confirmM==="function")confirmM("Importar <b>"+cat.length+" artigos</b> para o inventário com <b>stock 0</b> e o preço de custo? Os que já existem (pelo nome) são ignorados.",doIt,{yesLabel:"Importar"});
+    else doIt();
+  };
   function renderInventario(){
     var app=document.getElementById("app");if(!app)return;var canEdit=!isReadOnlyNow();
     var items=invList(),compras=cmpList();
@@ -6901,7 +6921,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var nAvar=items.filter(function(i){return i.estado==="avariado";}).length;
     var pend=compras.filter(function(c){return c.estado==="pendente";});
     var valPend=pend.reduce(function(a,c){return a+((Number(c.valorEst)||0)*(Number(c.qtd)||1));},0);
-    var h=pgHead("📦","Inventário & Equipamentos",canEdit?'<button class="btn bs" style="background:'+SL+';margin-right:6px" onclick="openCompra(\'\')">+ Pedido de compra</button><button class="btn" style="background:'+R+'" onclick="openInvItem(\'\')">+ Item</button>':'');
+    var h=pgHead("📦","Inventário & Equipamentos",canEdit?'<button class="btn bs" style="background:'+SL+';margin-right:6px" onclick="openCompra(\'\')">+ Pedido de compra</button><button class="btn bs" style="background:'+GD+';margin-right:6px" onclick="importCatalogoArtigos()">📥 Importar catálogo</button><button class="btn" style="background:'+R+'" onclick="openInvItem(\'\')">+ Item</button>':'');
     h+='<div class="kr">'+kpi("Itens",""+items.length,"no inventário",PUR,PUR)+kpi("Em stock",""+nStock,"disponíveis",GRN,GRN)+kpi("Avariados",""+nAvar,"a reparar/abater",nAvar?R:GRN,nAvar?R:GRN)+kpi("Compras pendentes",""+pend.length,fmt(valPend)+" à espera de aprovação",pend.length?GD:GRN,pend.length?GD:GRN)+'</div>';
     // pedidos de compra
     h+='<div class="cd"><div class="ch"><div class="ct2">Pedidos de compra ('+compras.length+')</div>'+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openCompra(\'\')">+ Pedido</button>':'')+'</div>';
