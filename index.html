@@ -7440,6 +7440,22 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     app.innerHTML=h;
   }
   window.renderReunioes=renderReunioes;
+  window.reuProjOpts=function(clientId,selected){
+    var opts='<option value="">— sem projeto —</option>';
+    if(!clientId)return opts;
+    (D.projectos||[]).forEach(function(p){
+      var d=(D.deals||[]).filter(function(x){return x.id===p.dealId;})[0]||{};
+      if(d.clientId!==clientId)return;
+      var lbl=String((d&&d.product)||p.nome||"Projeto").slice(0,40);
+      opts+='<option value="'+esc(p.dealId)+'"'+(selected&&selected===p.dealId?' selected':'')+'>'+esc(lbl)+'</option>';
+    });
+    return opts;
+  };
+  window.reuSyncProjs=function(){
+    var s=document.getElementById("ru_deal");if(!s)return;
+    var cid=(document.getElementById("ru_cliid")||{}).value||"";
+    s.innerHTML=window.reuProjOpts(cid,s.value);
+  };
   window.openReuniao=function(id,presetClient,presetDeal){
     var ro=(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
     if(!id&&ro){toastSafe("Sem permissão.");return;}
@@ -7451,7 +7467,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var body=fld("Cliente",'<input id="ru_cli" list="ru_clis" autocomplete="off" value="'+esc(cliName)+'" placeholder="escreve para procurar…"><datalist id="ru_clis">'+(D.clients||[]).map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="ru_cliid" value="'+esc(cliId)+'">')
       +'<div class="r2">'+fld("Tipo",sel("ru_tipo",REU_TIPOS.map(function(t){return{v:t[0],t:t[1]};}),r?r.tipo:"reuniao"))+fld("Modo",sel("ru_modo",REU_MODOS.map(function(t){return{v:t[0],t:t[1]};}),r?r.modo:"presencial"))+'</div>'
       +'<div class="r2">'+fld("Data",'<input type="date" id="ru_data" value="'+(r&&r.data?r.data:todayISO())+'">')+fld("Hora",'<input type="time" id="ru_hora" value="'+(r&&r.hora?esc(r.hora):"")+'">')+'</div>'
-      +'<div class="r2">'+fld("Projeto (opcional)",sel("ru_deal",projs,r?(r.dealId||""):(presetDeal||"")))+fld("Local (opcional)",'<input id="ru_local" value="'+(r?esc(r.local||""):"")+'" placeholder="ex.: hospital, Teams">')+'</div>'
+      +'<div class="r2">'+fld("Projeto (opcional)",'<select id="ru_deal">'+window.reuProjOpts(cliId,(r?(r.dealId||""):(presetDeal||"")))+'</select>')+fld("Local (opcional)",'<input id="ru_local" value="'+(r?esc(r.local||""):"")+'" placeholder="ex.: hospital, Teams">')+'</div>'
       +fld("Assunto / objetivo",'<input id="ru_ass" value="'+(r?esc(r.assunto||""):"")+'" placeholder="ex.: apresentação DOCbase, ponto de situação">')
       +'<div class="r2">'+fld("Participantes (nossa equipa)",'<input id="ru_pnos" value="'+(r?esc(r.participantes||""):esc(meNome))+'">')+fld("Participantes (cliente)",'<input id="ru_pcli" value="'+(r?esc(r.participantesCliente||""):"")+'" placeholder="nomes / cargos">')+'</div>'
       +fld("Acta / notas importantes",'<textarea id="ru_acta" rows="7" style="resize:vertical" placeholder="Pontos discutidos, decisões, informação relevante…">'+(r?esc(r.acta||""):"")+'</textarea>')
@@ -7460,7 +7476,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(!ro)body+='<div style="display:flex;gap:8px;margin-top:4px">'+(id?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delReuniao(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';flex:1" onclick="svReuniao(\''+(id||"")+'\')">Guardar</button></div>';
     else body+='<div style="font-size:11.5px;color:#a89d8d">Sem permissão para editar.</div>';
     document.getElementById("mArea").innerHTML=mWrap(id?"Reunião / visita":"Nova reunião / visita",body);
-    var ci=document.getElementById("ru_cli");if(ci)ci.addEventListener("change",function(){var nm=(this.value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];var hid=document.getElementById("ru_cliid");if(hid)hid.value=m?m.id:"";});
+    var ci=document.getElementById("ru_cli");if(ci)ci.addEventListener("change",function(){var nm=(this.value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];var hid=document.getElementById("ru_cliid");if(hid)hid.value=m?m.id:"";try{window.reuSyncProjs();}catch(e){}});
   };
   window.svReuniao=function(id){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
