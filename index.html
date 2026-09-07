@@ -2641,7 +2641,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function projTsCusto(r){var did=r&&r.dealId;if(!did)return 0;return (D.timesheets||[]).filter(function(t){return t.dealId===did;}).reduce(function(a,t){return a+(Number(t.horas)||0)*((t.valorHora!=null&&t.valorHora!=="")?Number(t.valorHora):hrRate());},0);}
   function projHoras(r){return Math.round(((r.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0)+projTsHoras(r))*100)/100;}
   function projMaoObra(r){return (r.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0)*((x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):hrRate());},0)+projTsCusto(r);}
-  function projAvulsos(r){return (r.custosAvulsos||[]).reduce(function(a,x){return a+(Number(x.valor)||0);},0);}
+  function projDespesasFat(r){return (D.expenses||[]).filter(function(e){return r&&e.projetoId&&e.projetoId===r.dealId;});}
+  function projAvulsos(r){return (r.custosAvulsos||[]).reduce(function(a,x){return a+(Number(x.valor)||0);},0)+projDespesasFat(r).reduce(function(a,e){return a+(Number(e.amount)||0);},0);}
   function projCusto(r){return projMaoObra(r)+projAvulsos(r);}
   function projReschedule(r){
     if(!r||!Array.isArray(r.tarefas))return;
@@ -3007,7 +3008,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='</div>';
     // ---- Horas & custo ----
     var totH=projHorasAgg(r),custo=projCustoAgg(r),valor=projRevenueAgg(r),margem=valor-custo;
-    h+='<div class="cd"><div class="ch"><div class="ct2">Horas &amp; custo</div>'+'<div style="display:flex;gap:6px">'+(canEdit?'<button class="btn bs" style="background:'+GD+'" onclick="openCustoAvulso(\''+dealId+'\')">+ Custo avulso</button>':'')+(canLogHours()?'<button class="btn bs" style="background:'+BLU+'" onclick="openHoras(\''+dealId+'\')">+ Registar horas</button>':'')+'</div>'+'</div>';
+    h+='<div class="cd"><div class="ch"><div class="ct2">Horas &amp; custo</div>'+'<div style="display:flex;gap:6px">'+(canEdit?'<button class="btn bs" style="background:'+GD+'" onclick="openCustoAvulso(\''+dealId+'\')">+ Custo avulso</button>':'')+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openDespFat(\''+dealId+'\')">+ Da faturação</button>':'')+(canLogHours()?'<button class="btn bs" style="background:'+BLU+'" onclick="openHoras(\''+dealId+'\')">+ Registar horas</button>':'')+'</div>'+'</div>';
     h+='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Horas registadas</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif">'+totH+'h</div></div>'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo estimado</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(custo)+'</div><div style="font-size:10px;color:#a89d8d">mão de obra '+fmt(projMaoObra(r))+' + avulsos '+fmt(projAvulsos(r))+'</div></div>'+
@@ -3015,8 +3016,11 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Margem</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif;color:'+(margem>=0?GRN:R)+'">'+fmt(margem)+(valor>0?' · '+Math.round(margem/valor*100)+'%':'')+'</div></div>'+
        '<div style="margin-left:auto"><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo / hora</div>'+(canEdit?'<input type="number" id="pjRate" value="'+hrRate()+'" style="width:80px;border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit" onchange="setHrRate(this.value)">':'<div style="font-weight:700">'+fmt(hrRate())+'</div>')+'</div>'+
        '</div>';
-    var _av=(r.custosAvulsos||[]);
-    if(_av.length){h+='<div style="margin-bottom:12px"><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Custos avulsos — '+fmt(projAvulsos(r))+'</div><div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';_av.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(c){h+='<tr><td style="font-size:12px">'+(c.data?fmtD(c.data):"—")+'</td><td style="font-size:12px">'+esc(c.desc||"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(c.valor)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delCustoAvulso(\''+dealId+'\',\''+c.id+'\')">×</button></td>':'')+'</tr>';});h+='</tbody></table></div></div>';}
+    var _av=(r.custosAvulsos||[]);var _fat=projDespesasFat(r);
+    if(_av.length||_fat.length){h+='<div style="margin-bottom:12px"><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Custos avulsos — '+fmt(projAvulsos(r))+'</div><div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Origem</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      _av.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(c){h+='<tr><td style="font-size:12px">'+(c.data?fmtD(c.data):"—")+'</td><td style="font-size:12px">'+esc(c.desc||"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(c.valor)+'</td><td>'+bdg("Manual",GD)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delCustoAvulso(\''+dealId+'\',\''+c.id+'\')" title="Remover">×</button></td>':'')+'</tr>';});
+      _fat.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).forEach(function(e){h+='<tr><td style="font-size:12px">'+(e.date?fmtD(e.date):"—")+'</td><td style="font-size:12px">'+esc(e.desc||"—")+(e.type?' <span style="font-size:10px;color:#a89d8d">· '+esc(e.type)+'</span>':'')+'</td><td style="text-align:right;font-weight:700">'+fmt(e.amount)+'</td><td>'+bdg("Faturação",SL)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#fff;color:'+SL+';border:1px solid '+rgba(SL,.35)+'" onclick="unlinkDespFat(\''+dealId+'\',\''+e.id+'\')" title="Desassociar (mantém-se na faturação)">⤫</button></td>':'')+'</tr>';});
+      h+='</tbody></table></div><div style="font-size:10.5px;color:#a89d8d;margin-top:4px">As linhas «Faturação» vêm de Faturação &amp; Cobranças e continuam lá para o P&amp;L. Desassociar (⤫) só as retira deste projeto.</div></div>';}
     var regs=(r.horas||[]).slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");});
     if(regs.length){
       h+='<div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Colaborador</th><th>Tarefa</th><th style="text-align:right">Horas</th><th style="text-align:right">Valor/h</th><th>Nota</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
@@ -3167,6 +3171,30 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);r.custosAvulsos=(r.custosAvulsos||[]).filter(function(x){return x.id!==id;});
     if(typeof logAct==="function")logAct("Projectos","Custo avulso removido");save();ren();
+  };
+  window.openDespFat=function(dealId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var avail=(D.expenses||[]).filter(function(e){return !e.projetoId;}).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+    if(!avail.length){document.getElementById("mArea").innerHTML=mWrap("Adicionar despesas da faturação",'<div style="font-size:12.5px;color:#a89d8d">Não há despesas por associar em Faturação &amp; Cobranças. Ou já estão todas associadas a um projeto, ou ainda não há despesas registadas.</div>');return;}
+    var rows=avail.map(function(e){return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;cursor:pointer;border-bottom:1px solid #f4f0e8"><input type="checkbox" class="df_pick" value="'+esc(e.id)+'"> <span style="flex:1">'+esc(e.desc||"(sem descrição)")+' <span style="color:#a89d8d;font-size:11px">· '+(e.date?fmtD(e.date):"—")+(e.type?" · "+esc(e.type):"")+(e.client?" · "+esc(e.client):"")+'</span></span> <b style="color:'+R+';white-space:nowrap">-'+fmt(e.amount)+'</b></label>';}).join("");
+    var body='<div style="font-size:12.5px;color:#7a7268;margin-bottom:6px">Associa despesas de <b>Faturação &amp; Cobranças</b> a este projeto. Passam a contar no custo do projeto e continuam na faturação (para o P&amp;L).</div>'
+      +'<div style="max-height:300px;overflow:auto;border:1px solid #ece6dc;border-radius:8px;padding:6px 10px;margin-bottom:10px">'+rows+'</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="linkDespFat(\''+dealId+'\')">Associar ao projeto</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Adicionar despesas da faturação",body);
+  };
+  window.linkDespFat=function(dealId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var ids={};try{Array.prototype.forEach.call(document.querySelectorAll(".df_pick"),function(el){if(el.checked)ids[el.value]=1;});}catch(e){}
+    var n=0;(D.expenses||[]).forEach(function(e){if(ids[e.id]){e.projetoId=dealId;n++;}});
+    if(!n){toastSafe("Escolhe pelo menos uma despesa.");return;}
+    if(typeof logAct==="function")logAct("Projectos",n+" despesa(s) da faturação associada(s) ao projeto");
+    save();clM();ren();toastSafe(n+" despesa(s) associada(s).","ok");
+  };
+  window.unlinkDespFat=function(dealId,expId){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var e=(D.expenses||[]).filter(function(x){return x.id===expId;})[0];if(e)e.projetoId="";
+    if(typeof logAct==="function")logAct("Projectos","Despesa da faturação desassociada do projeto");
+    save();ren();
   };
   window.horaFillTasks=function(){
     var de=document.getElementById("h_deal");var sel=document.getElementById("h_task");if(!sel)return;
