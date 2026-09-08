@@ -6914,6 +6914,12 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(typeof confirmM==="function")confirmM("Importar <b>"+cat.length+" artigos</b> para o inventário com <b>stock 0</b> e o preço de custo? Os que já existem (pelo nome) são ignorados.",doIt,{yesLabel:"Importar"});
     else doIt();
   };
+  window.invFilter=function(q){
+    q=(q||"").trim().toLowerCase();
+    var cards=document.querySelectorAll("[data-inv]");var shown=0;
+    Array.prototype.forEach.call(cards,function(c){var m=!q||c.getAttribute("data-inv").indexOf(q)>=0;c.style.display=m?"":"none";if(m)shown++;});
+    var lbl=document.getElementById("invCount");if(lbl)lbl.textContent=shown;
+  };
   function renderInventario(){
     var app=document.getElementById("app");if(!app)return;var canEdit=!isReadOnlyNow();
     var items=invList(),compras=cmpList();
@@ -6931,7 +6937,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         var acts='';
         if(canEdit){
           if(c.estado==="pendente"&&canApproveCompra())acts='<button class="btn bs" style="background:'+GRN+'" onclick="decidirCompra(\''+c.id+'\',\'aprovado\')">Aprovar</button> <button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="decidirCompra(\''+c.id+'\',\'rejeitado\')">Rejeitar</button>';
-          else if(c.estado==="aprovado")acts='<button class="btn bs" style="background:'+BLU+'" onclick="receberCompra(\''+c.id+'\')">Marcar recebido → stock</button>';
+          else if(c.estado==="aprovado")acts='<button class="btn bs" style="background:'+BLU+'" onclick="receberCompra(\''+c.id+'\')">Receber → confirmar</button>';
           acts+=' <button class="btn bs" style="background:'+SL+'" onclick="openCompra(\''+c.id+'\')">Abrir</button>';
         }
         h+='<tr><td style="font-weight:600">'+esc(c.item||"—")+(c.ticketId?' <span style="font-size:9px;color:#fff;background:'+GD+';border-radius:8px;padding:1px 6px">ticket</span>':'')+'</td><td>'+(Number(c.qtd)||1)+'</td><td style="font-size:12px;color:#7a7268">'+esc(c.fornecedor||"—")+'</td><td style="text-align:right;font-weight:700">'+fmt((Number(c.valorEst)||0)*(Number(c.qtd)||1))+'</td><td style="font-size:12px">'+esc(c.pedidoPor||"—")+'</td><td>'+bdg(invLbl(CMP_EST,c.estado),CMP_EST_COL[c.estado]||SL)+(c.decididoPor?'<div style="font-size:9.5px;color:#a89d8d">'+esc(c.decididoPor)+'</div>':'')+'</td>'+(canEdit?'<td style="white-space:nowrap;text-align:right">'+acts+'</td>':'')+'</tr>';
@@ -6939,16 +6945,18 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       h+='</tbody></table></div>';}
     h+='</div>';
     // inventário
-    h+='<div class="cd"><div class="ch"><div class="ct2">Equipamentos &amp; stock ('+items.length+')</div>'+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openInvItem(\'\')">+ Item</button>':'')+'</div>';
+    h+='<div class="cd"><div class="ch"><div class="ct2">Equipamentos &amp; stock (<span id="invCount">'+items.length+'</span>)</div>'+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openInvItem(\'\')">+ Item</button>':'')+'</div>';
+    h+='<input id="invSearch" value="'+esc(window.__invQ||"")+'" oninput="window.__invQ=this.value;invFilter(this.value)" placeholder="🔍 Procurar artigo por nome, categoria, localização…" style="width:100%;border:1px solid #e5e0da;border-radius:9px;padding:9px 12px;font-size:13px;font-family:inherit;margin-bottom:12px">';
     if(!items.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem itens. Regista servidores, hardware, licenças e consumíveis.</div>';
     else{h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px">';
       items.slice().sort(function(a,b){return (a.nome||"").localeCompare(b.nome||"");}).forEach(function(i){
         var img=i.foto?'<div style="height:118px;background:#f4f0e8 center/cover no-repeat;background-image:url(\''+i.foto+'\');border-radius:11px 11px 0 0"></div>':'<div style="height:118px;background:#f4f0e8;border-radius:11px 11px 0 0;display:flex;align-items:center;justify-content:center;font-size:34px;color:#c9c1b4">📦</div>';
-        h+='<div style="border:1px solid #ece6dc;border-radius:12px;overflow:hidden;background:#fff'+(canEdit?';cursor:pointer':'')+'"'+(canEdit?' onclick="openInvItem(\''+i.id+'\')"':'')+'>'+img+'<div style="padding:10px 11px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">'+esc(i.nome||"—")+'</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">'+bdg(invLbl(INV_CAT,i.categoria),SL)+bdg(invLbl(INV_EST,i.estado),INV_EST_COL[i.estado]||SL)+'</div>'+((i.precoCusto||i.precoVenda)?'<div style="font-size:11px;color:#7a7268;display:flex;justify-content:space-between;gap:6px"><span>Custo <b>'+fmt(i.precoCusto||0)+'</b></span><span>Venda <b style="color:'+GRN+'">'+fmt(i.precoVenda||0)+'</b></span></div>':'')+'<div style="font-size:11px;color:#a89d8d;margin-top:4px">Qtd: '+(Number(i.qtd)||0)+(i.localizacao?" · "+esc(i.localizacao):"")+'</div>'+(canEdit?'<div style="text-align:right;margin-top:7px"><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="event.stopPropagation();delInvItem(\''+i.id+'\')">Remover</button></div>':'')+'</div></div>';
+        h+='<div data-inv="'+esc(((i.nome||"")+" "+invLbl(INV_CAT,i.categoria)+" "+(i.localizacao||"")+" "+(i.serial||"")+" "+(i.notas||"")).toLowerCase())+'" style="border:1px solid #ece6dc;border-radius:12px;overflow:hidden;background:#fff'+(canEdit?';cursor:pointer':'')+'"'+(canEdit?' onclick="openInvItem(\''+i.id+'\')"':'')+'>'+img+'<div style="padding:10px 11px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">'+esc(i.nome||"—")+'</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">'+bdg(invLbl(INV_CAT,i.categoria),SL)+bdg(invLbl(INV_EST,i.estado),INV_EST_COL[i.estado]||SL)+'</div>'+((i.precoCusto||i.precoVenda)?'<div style="font-size:11px;color:#7a7268;display:flex;justify-content:space-between;gap:6px"><span>Custo <b>'+fmt(i.precoCusto||0)+'</b></span><span>Venda <b style="color:'+GRN+'">'+fmt(i.precoVenda||0)+'</b></span></div>':'')+'<div style="font-size:11px;color:#a89d8d;margin-top:4px">Qtd: '+(Number(i.qtd)||0)+(i.localizacao?" · "+esc(i.localizacao):"")+'</div>'+(canEdit?'<div style="text-align:right;margin-top:7px"><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="event.stopPropagation();delInvItem(\''+i.id+'\')">Remover</button></div>':'')+'</div></div>';
       });
       h+='</div>';}
     h+='</div>';
     app.innerHTML=h;
+    try{if(window.__invQ)invFilter(window.__invQ);}catch(e){}
   }
   window.invFotoPreview=function(input){var f=input.files&&input.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){var img=new Image();img.onload=function(){var mx=520;var w=img.width,hh=img.height;if(w>mx||hh>mx){var sc=Math.min(mx/w,mx/hh);w=Math.round(w*sc);hh=Math.round(hh*sc);}var c=document.createElement("canvas");c.width=w;c.height=hh;try{c.getContext("2d").drawImage(img,0,0,w,hh);}catch(er){}var d;try{d=c.toDataURL("image/jpeg",0.82);}catch(er){d=e.target.result;}var hid=document.getElementById("iv_foto");if(hid)hid.value=d;var pv=document.getElementById("iv_foto_prev");if(pv)pv.innerHTML='<img src="'+d+'" style="max-height:100px;border-radius:8px">';};img.src=e.target.result;};r.readAsDataURL(f);};
   window.openInvItem=function(id){
@@ -7006,10 +7014,27 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   window.receberCompra=function(id){
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var c=cmpList().filter(function(x){return x.id===id;})[0];if(!c)return;
-    c.estado="recebido";c.recebidoEm=todayISO();
-    invList().push({id:uid(),nome:c.item,categoria:"hw",qtd:Number(c.qtd)||1,estado:"stock",localizacao:"Armazém",serial:"",notas:"Da compra "+(c.fornecedor||""),createdAt:todayISO()});
-    if(typeof logAct==="function")logAct("Inventário","Compra recebida e adicionada ao stock — "+(c.item||""));
-    save();ren();toastSafe("Recebido e adicionado ao stock.","ok");
+    var match=invList().filter(function(i){return String(i.nome||"").trim().toLowerCase()===String(c.item||"").trim().toLowerCase();})[0];
+    var body='<div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">Confirma a <b>receção</b> desta compra. Ao confirmar, o stock é atualizado no inventário.</div>'
+      +'<div class="r2">'+fld("Artigo",'<input id="rc_n" value="'+esc(c.item||"")+'">')+fld("Quantidade recebida",'<input type="number" id="rc_q" value="'+(Number(c.qtd)||1)+'">')+'</div>'
+      +'<div class="r2">'+fld("Preço de custo / un. €",'<input type="number" step="0.01" id="rc_pc" value="'+(c.valorEst!=null?c.valorEst:0)+'">')+fld("Localização",'<input id="rc_l" value="Armazém">')+'</div>';
+    if(match)body+='<div style="border-left:3px solid '+GRN+';background:'+rgba(GRN,.08)+';border-radius:0 8px 8px 0;padding:9px 12px;margin-bottom:10px;font-size:12px;color:#3a352e">Já existe o artigo <b>'+esc(match.nome)+'</b> no inventário (stock atual: '+(Number(match.qtd)||0)+'). A quantidade recebida vai <b>somar</b> a esse artigo.</div>';
+    else body+='<div style="font-size:11.5px;color:#a89d8d;margin-bottom:10px">Não existe este artigo no inventário — vai ser <b>criado</b> um novo.</div>';
+    body+='<button class="btn" style="background:'+R+';width:100%" onclick="svRececao(\''+id+'\')">✓ Confirmar receção</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Receção de compra",body);
+  };
+  window.svRececao=function(id){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var c=cmpList().filter(function(x){return x.id===id;})[0];if(!c)return;
+    var g=function(k){var e=document.getElementById(k);return e?e.value:"";};
+    var nome=(g("rc_n")||c.item||"").trim();var qty=Number(g("rc_q"))||0;var pc=Number(g("rc_pc"))||0;var loc=(g("rc_l")||"Armazém").trim();
+    if(qty<=0){toastSafe("Indica a quantidade recebida.");return;}
+    var match=invList().filter(function(i){return String(i.nome||"").trim().toLowerCase()===nome.toLowerCase();})[0];
+    if(match){match.qtd=(Number(match.qtd)||0)+qty;if(pc>0)match.precoCusto=pc;if(match.estado!=="stock")match.estado="stock";if(loc&&!match.localizacao)match.localizacao=loc;}
+    else invList().push({id:uid(),nome:nome,categoria:"hw",qtd:qty,estado:"stock",localizacao:loc,serial:"",precoCusto:pc,precoVenda:0,foto:"",notas:"Da compra "+(c.fornecedor||""),createdAt:todayISO()});
+    c.estado="recebido";c.recebidoEm=todayISO();c.recebidoQtd=qty;
+    if(typeof logAct==="function")logAct("Inventário","Compra recebida — "+nome+" (+"+qty+(match?", somado ao stock":", novo artigo")+")");
+    save();clM();ren();toastSafe("Receção confirmada — stock atualizado.","ok");
   };
   function clientAT(cid){var at=(D.clientSpecs||[]).some(function(s){return s.clientId===cid&&s.at;});var cl=(D.clients||[]).filter(function(c){return c.id===cid;})[0]||{};return {at:at,saas:!!cl.saas};}
   function tkAtBadge(cid){if(!cid)return '<span style="font-size:11px;color:#a89d8d">Sem cliente associado.</span>';var s=clientAT(cid);return 'Contrato: '+(s.at?bdg("AT ativa",GRN):bdg("Sem AT",SL))+' '+(s.saas?bdg("SaaS ativo",BLU):bdg("Sem SaaS",SL));}
