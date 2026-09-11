@@ -2500,7 +2500,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // aplica o gating depois de cada render; encaminha a aba Logs; acordeão onde faz sentido
   // ===================== ADMINISTRAÇÃO · COLABORADORES & PERFIS =====================
-  function colabDepts(){var seen={},out=[];var LBL={direcao:"Direção",financeiro:"Financeiro",orcamento:"Orçamento & ARR",comercial:"Comercial",projectos:"Projetos",integracoes:"Integração",desenvolvimento:"Desenvolvimento",rh:"Recursos Humanos",vencimentos:"Vencimentos"};function add(d,fb){if(d&&d!=="admin"&&d!=="eu"&&!seen[d]){seen[d]=1;out.push([d,LBL[d]||fb||d]);}}(typeof DEPT_GROUPS!=="undefined"?DEPT_GROUPS:[]).forEach(function(g){if(!g.always)add(g.dept,g.group);(g.items||[]).forEach(function(it){if(it.dept&&!it.always)add(it.dept,it.l);});});if(!out.length)out=[["direcao","Direção"],["financeiro","Financeiro"],["comercial","Comercial"],["projectos","Projetos"]];return out;}
+  function colabDepts(){var seen={},out=[];var LBL={direcao:"Direção",financeiro:"Financeiro",orcamento:"Orçamento & ARR",comercial:"Comercial",projectos:"Projetos",integracoes:"Integração",desenvolvimento:"Desenvolvimento",bolsahoras:"Bolsa de horas",rh:"Recursos Humanos",vencimentos:"Vencimentos"};function add(d,fb){if(d&&d!=="admin"&&d!=="eu"&&!seen[d]){seen[d]=1;out.push([d,LBL[d]||fb||d]);}}(typeof DEPT_GROUPS!=="undefined"?DEPT_GROUPS:[]).forEach(function(g){if(!g.always)add(g.dept,g.group);(g.items||[]).forEach(function(it){if(it.dept&&!it.always)add(it.dept,it.l);});});if(!out.length)out=[["direcao","Direção"],["financeiro","Financeiro"],["comercial","Comercial"],["projectos","Projetos"]];return out;}
   function selStyle(){return 'border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#fff;color:#3a352e';}
   var APP_STATE_SQL=[
     "-- Estado partilhado da app: leitura e escrita para qualquer utilizador autenticado",
@@ -8212,7 +8212,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   function subDeals(){return (D.deals||[]).filter(function(d){return isWon(d)&&isSubDeal(d);});}
   function subRenewDays(d){if(!d||!d.renewDate)return null;return Math.round((new Date(d.renewDate)-new Date(todayISO()))/86400000);}
   window.subDeals=subDeals;
-  window.subSetRenew=function(id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;d.renewDate=v||"";if(typeof logAct==="function")logAct("Comercial","Renovação atualizada — "+cn(d.clientId)+(v?" ("+fmtD(v)+")":""));save();ren();};
+  window.subSetRenew=function(id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;d.renewDate=v||"";if(typeof logAct==="function")logAct("Comercial","Renovação atualizada — "+cn(d.clientId)+(v?" ("+fmtD(v)+")":""));save();try{if(typeof updateBell==="function")updateBell();}catch(e){}};
   function renderSubscricoes(){
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
@@ -8564,7 +8564,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     {group:"Orçamento & ARR",i:"🎯",dept:"orcamento",items:[
       {id:"orc2027",l:"Orçamento próximo ano"},{id:"arr",l:"ARR"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
-      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"bolsahoras",l:"Bolsa de horas"},{id:"subscricoes",l:"Subscrições/AT"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
+      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"subscricoes",l:"Subscrições/AT"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Diretório"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Região & Carteira"},{id:"mapa",l:"Mapa"}]},
     {group:"Projetos",i:"🛠️",dept:"projectos",items:[
@@ -8573,6 +8573,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       {id:"integracao",l:"Interfaces & Integração"}]},
     {group:"Desenvolvimento",i:"💻",dept:"desenvolvimento",items:[
       {id:"desenvolvimento",l:"Desenvolvimento (Jira)"}]},
+    {group:"Bolsa de horas",i:"⏳",dept:"bolsahoras",items:[
+      {id:"bolsahoras",l:"Bolsa de horas"}]},
     {group:"Pessoas",i:"👥",dept:"rh",always:true,items:[
       {id:"rh",l:"Equipa / RH",dept:"rh"},{id:"reembolsos",l:"Reembolsos",dept:"rh"},
       {id:"horas",l:"Registar horas",dept:"horas",always:true},{id:"horasTodas",l:"Todas as horas",dept:"horas",always:true},{id:"horasCustos",l:"Custos por projeto",dept:"horas",always:true},
