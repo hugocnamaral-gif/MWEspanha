@@ -2496,7 +2496,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 
   // aplica o gating depois de cada render; encaminha a aba Logs; acordeão onde faz sentido
   // ===================== ADMINISTRAÇÃO · COLABORADORES & PERFIS =====================
-  function colabDepts(){var seen={},out=[];var LBL={direcao:"Direção",financeiro:"Financeiro",orcamento:"Orçamento & ARR",comercial:"Comercial",projectos:"Projetos",rh:"Recursos Humanos",vencimentos:"Vencimentos"};function add(d,fb){if(d&&d!=="admin"&&d!=="eu"&&!seen[d]){seen[d]=1;out.push([d,LBL[d]||fb||d]);}}(typeof DEPT_GROUPS!=="undefined"?DEPT_GROUPS:[]).forEach(function(g){if(!g.always)add(g.dept,g.group);(g.items||[]).forEach(function(it){if(it.dept&&!it.always)add(it.dept,it.l);});});if(!out.length)out=[["direcao","Direção"],["financeiro","Financeiro"],["comercial","Comercial"],["projectos","Projetos"]];return out;}
+  function colabDepts(){var seen={},out=[];var LBL={direcao:"Direção",financeiro:"Financeiro",orcamento:"Orçamento & ARR",comercial:"Comercial",projectos:"Projetos",integracoes:"Integração",desenvolvimento:"Desenvolvimento",rh:"Recursos Humanos",vencimentos:"Vencimentos"};function add(d,fb){if(d&&d!=="admin"&&d!=="eu"&&!seen[d]){seen[d]=1;out.push([d,LBL[d]||fb||d]);}}(typeof DEPT_GROUPS!=="undefined"?DEPT_GROUPS:[]).forEach(function(g){if(!g.always)add(g.dept,g.group);(g.items||[]).forEach(function(it){if(it.dept&&!it.always)add(it.dept,it.l);});});if(!out.length)out=[["direcao","Direção"],["financeiro","Financeiro"],["comercial","Comercial"],["projectos","Projetos"]];return out;}
   function selStyle(){return 'border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#fff;color:#3a352e';}
   var APP_STATE_SQL=[
     "-- Estado partilhado da app: leitura e escrita para qualquer utilizador autenticado",
@@ -6864,6 +6864,8 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
           h+='<div style="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px"><div class="ct2" style="margin-bottom:8px">⏱️ Horas &amp; 🤝 reuniões</div><div style="font-size:12.5px;margin-bottom:6px">Horas registadas para o cliente: <b>'+fmtHM(horasCli)+'</b> · reuniões: <b>'+reuCli.length+'</b></div>';
           if(reuCli.length)h+='<div style="max-height:120px;overflow:auto">'+reuCli.slice(0,4).map(function(x){return '<div style="font-size:11.5px;color:#7a7268;padding:3px 0;border-bottom:1px solid #f8f7f5">'+(x.data?fmtD(x.data):"—")+' · '+esc(String(x.assunto||((typeof reuTipoLbl==="function")?reuTipoLbl(x.tipo):"reunião")).slice(0,44))+'</div>';}).join("")+'</div>';
           h+='</div>';
+          h+='<div style="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px"><div class="ch" style="margin-bottom:6px"><div class="ct2">🔐 Portal do cliente (MYMW)</div>'+(!isReadOnlyNow()?'<button class="btn bs" style="background:'+BLU+'" onclick="clM();sTab(\'portalacessos\')">Gerir acessos</button>':'')+'</div>'+(D.mymwUrl?'<div style="font-size:12px;margin-bottom:6px">Portal: <a href="'+esc(D.mymwUrl)+'" target="_blank" style="color:'+R+'">'+esc(D.mymwUrl)+'</a></div>':'<div style="font-size:11.5px;color:#a89d8d;margin-bottom:6px">Define o endereço do portal em Definições › Acessos ao portal.</div>')+'<div id="cli360portal" style="font-size:12px;color:#a89d8d">A carregar acessos…</div></div>';
+          setTimeout(function(){try{var el=document.getElementById("cli360portal");if(!el)return;if(typeof sb==="undefined"||!sb){el.textContent="";return;}sb.from("client_users").select("email").eq("client_id",clientId).then(function(r){var e2=document.getElementById("cli360portal");if(!e2)return;if(r&&r.error){e2.textContent="";return;}var rows=(r&&r.data)||[];e2.innerHTML=rows.length?('<b>Acessos ('+rows.length+'):</b> '+rows.map(function(u){return esc(u.email);}).join(", ")):'Sem acessos ao portal para este cliente.';}).catch(function(){});}catch(e){}},0);
         }catch(e){}
         mdl.insertAdjacentHTML("beforeend",h);
       }catch(e){}
@@ -8028,6 +8030,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     var app=document.getElementById("app");if(!app)return;var canEdit=!isReadOnlyNow();
     var h=pgHead("🔐","Acessos ao portal (MYMW)");
     h+='<div class="cd"><div style="font-size:12.5px;color:#7a7268;line-height:1.6">Dá acesso ao <b>portal do cliente (MYMW)</b> às pessoas dos teus clientes. Escreve o email e escolhe o cliente — a pessoa passa a entrar no portal com esse email (<b>link mágico, sem password</b>) e vê apenas os dados desse cliente. A conta cria-se sozinha na 1.ª vez que ela pede o link.</div></div>';
+      h+='<div class="cd"><div class="ch"><div class="ct2">Endereço do portal</div></div><div class="r2">'+fld("URL do portal (para partilhares e para a ficha do cliente)",'<input id="pa_url" value="'+esc(D.mymwUrl||"")+'" placeholder="https://my.mobilwave.es">')+'<div style="display:flex;align-items:flex-end"><button class="btn bs" style="background:'+SL+'" onclick="paSetUrl()">Guardar URL</button></div></div>'+(D.mymwUrl?'<div style="font-size:12px;margin-top:6px">Link atual: <a href="'+esc(D.mymwUrl)+'" target="_blank" style="color:'+R+'">'+esc(D.mymwUrl)+'</a></div>':'')+'</div>';
     if(canEdit){
       h+='<div class="cd"><div class="ch"><div class="ct2">Dar acesso</div></div>';
       h+='<div class="r2">'+fld("Email da pessoa",'<input id="pa_email" placeholder="pessoa@cliente.es" autocomplete="off">')+fld("Cliente",'<input id="pa_cli" list="pa_clis" autocomplete="off" placeholder="escreve para procurar…"><datalist id="pa_clis">'+(D.clients||[]).map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="pa_cliid">')+'</div>';
@@ -8039,6 +8042,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     setTimeout(paLoad,0);
   }
   window.renderPortalAcessos=renderPortalAcessos;
+  window.paSetUrl=function(){if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}D.mymwUrl=(document.getElementById("pa_url").value||"").trim();if(typeof logAct==="function")logAct("Portal","URL do portal definido");save();ren();toastSafe("Endereço do portal guardado.","ok");};
   window.paLoad=async function(){
     var box=document.getElementById("paList");if(!box)return;
     if(typeof sb==="undefined"||!sb){box.innerHTML='<div style="font-size:12.5px;color:#a89d8d">Sem ligação ao Supabase.</div>';return;}
@@ -8461,7 +8465,11 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Diretório"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Região & Carteira"},{id:"mapa",l:"Mapa"}]},
     {group:"Projetos",i:"🛠️",dept:"projectos",items:[
-      {id:"projetos",l:"Projetos"},{id:"reunioesp",l:"Visitas & Reuniões"},{id:"integracao",l:"Integração"},{id:"desenvolvimento",l:"Desenvolvimento"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"},{id:"rentabilidade",l:"Rentabilidade"},{id:"vendasproj",l:"Vendas ↔ Projetos"}]},
+      {id:"projetos",l:"Projetos"},{id:"reunioesp",l:"Visitas & Reuniões"},{id:"cronograma",l:"Cronograma"},{id:"comparacao",l:"Comparação"},{id:"rentabilidade",l:"Rentabilidade"},{id:"vendasproj",l:"Vendas ↔ Projetos"}]},
+    {group:"Integração",i:"🔌",dept:"integracoes",items:[
+      {id:"integracao",l:"Interfaces & Integração"}]},
+    {group:"Desenvolvimento",i:"💻",dept:"desenvolvimento",items:[
+      {id:"desenvolvimento",l:"Desenvolvimento (Jira)"}]},
     {group:"Pessoas",i:"👥",dept:"rh",always:true,items:[
       {id:"rh",l:"Equipa / RH",dept:"rh"},{id:"reembolsos",l:"Reembolsos",dept:"rh"},
       {id:"horas",l:"Registar horas",dept:"horas",always:true},{id:"horasTodas",l:"Todas as horas",dept:"horas",always:true},{id:"horasCustos",l:"Custos por projeto",dept:"horas",always:true},
