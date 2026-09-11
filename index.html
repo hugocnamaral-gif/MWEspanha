@@ -201,6 +201,8 @@ function fmtD(d){return d?new Date(d).toLocaleDateString("pt-PT",{day:"numeric",
 function pc(a,b){return b>0?((a/b)*100).toFixed(1):"0"}
 function cn(id){var c=D.clients.find(function(x){return x.id===id});return c?c.name:"—"}
 function isWon(d){return d.stage==="ganho"||d.stage==="projeto"||d.stage==="concluido"}
+function isSubDeal(d){return !!(d&&(d.type==="AT"||d.type==="SUB"))}
+try{window.isSubDeal=isSubDeal;}catch(e){}
 function isClosed(d){return d.stage==="ganho"||d.stage==="projeto"||d.stage==="concluido"||d.stage==="perdido"}
 function rgba(hex,a){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return"rgba("+r+","+g+","+b+","+a+")"}
 function bdg(t,c){return'<span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;background:'+rgba(c,.1)+';color:'+c+'">'+t+'</span>'}
@@ -849,7 +851,7 @@ if(cTab==="dashboard"){
   h+='</div></div>';
 } else if(cTab==="pl"){
   var _pess=(typeof window.tsPessoalAno==="function")?window.tsPessoalAno():0;var _res=S.inv-S.exp-_pess;
-  h=pgHead("📈","P&L "+yearLabel(),yearPicker())+'<div class="kr">'+kpi("Proveitos",fmt(S.inv),"",GRN,GRN)+kpi("Despesas","-"+fmt(S.exp),"",R,R)+kpi("Pessoal (horas)","-"+fmt(_pess),"horas × valor-hora",R,R)+kpi("Resultado",fmt(_res),"",_res<0?R:GRN,_res<0?R:GRN)+'</div><div class="g2"><div class="cd"><div class="ct2" style="margin-bottom:12px">RECEITAS POR CLIENTE</div>';
+  h=pgHead("📈","P&L "+yearLabel(),yearPicker()+' <button class="btn bs" style="background:'+SL+'" onclick="relatorioMensal()">📄 Relatório</button>')+'<div class="kr">'+kpi("Proveitos",fmt(S.inv),"",GRN,GRN)+kpi("Despesas","-"+fmt(S.exp),"",R,R)+kpi("Pessoal (horas)","-"+fmt(_pess),"horas × valor-hora",R,R)+kpi("Resultado",fmt(_res),"",_res<0?R:GRN,_res<0?R:GRN)+'</div><div class="g2"><div class="cd"><div class="ct2" style="margin-bottom:12px">RECEITAS POR CLIENTE</div>';
   var byC={};D.invoices.forEach(function(i){if(beforeYear(i.date))return;var d=D.deals.find(function(x){return x.id===i.dealId});if(d){var n=cn(d.clientId);byC[n]=(byC[n]||0)+i.amount}});
   Object.entries(byC).sort(function(a,b){return b[1]-a[1]}).forEach(function(e){h+=barH(e[0],e[1],S.inv,GRN)});
   h+='</div><div class="cd"><div class="ct2" style="margin-bottom:12px">CUSTOS POR DESTINO</div>';
@@ -868,7 +870,7 @@ if(cTab==="dashboard"){
       if(dl.nextAction||dl.nextDate){var ov=isOverdue(dl);h+='<div onclick="quickNext(\''+dl.id+'\')" title="Editar próxima acção" style="cursor:pointer;font-size:10px;padding:4px 7px;border-radius:6px;margin-bottom:6px;background:'+(ov?"#fdf2f3":"#f4f0e8")+';color:'+(ov?R:"#7a7268")+'">'+(ov?"⚠ ":"→ ")+(dl.nextAction||"follow-up")+(dl.nextDate?' <b>'+fmtD(dl.nextDate)+'</b>'+(ov?" ("+daysLate(dl)+"d)":""):"")+'</div>'}
       else if(dl.stage!=="ganho"&&dl.stage!=="perdido"){h+='<div onclick="quickNext(\''+dl.id+'\')" title="Definir próxima acção" style="cursor:pointer;font-size:10px;padding:4px 7px;border-radius:6px;margin-bottom:6px;background:#faf8f4;color:#b8ae9e;border:1px dashed #e5e0da">+ próxima acção</div>'}
       h+='<div style="display:flex;gap:3px;flex-wrap:wrap">';
-      STAGES.forEach(function(s){if(s!==sg)h+='<button style="background:'+rgba(SC[s],.08)+';color:'+SC[s]+';border:1px solid '+rgba(SC[s],.2)+';border-radius:5px;padding:2px 6px;font-size:9px;font-weight:600;cursor:pointer" onclick="mvDl(\''+dl.id+"','"+s+"')\">→"+SL2[s]+"</button>"});
+      STAGES.forEach(function(s){if(s!==sg&&!(s==="projeto"&&typeof isSubDeal==="function"&&isSubDeal(dl)))h+='<button style="background:'+rgba(SC[s],.08)+';color:'+SC[s]+';border:1px solid '+rgba(SC[s],.2)+';border-radius:5px;padding:2px 6px;font-size:9px;font-weight:600;cursor:pointer" onclick="mvDl(\''+dl.id+"','"+s+"')\">→"+SL2[s]+"</button>"});
       h+='<button style="background:#f0f4ff;color:#4a6ab0;border:none;border-radius:5px;padding:2px 6px;font-size:9px;cursor:pointer" onclick="editDl(\''+dl.id+'\')">✎ Editar cliente</button>';
       var npa=dealAtts(dl.id).length;
       h+='<button style="background:'+rgba(BLU,.1)+';color:'+BLU+';border:none;border-radius:5px;padding:2px 6px;font-size:9px;cursor:pointer" onclick="openAttM(\''+dl.id+'\',\'proposta\')" title="Anexar proposta ou ficheiro">📎 Proposta'+(npa?' ('+npa+')':'')+'</button>';
@@ -1037,7 +1039,7 @@ if(cTab==="dashboard"){
     h+='</div>';
   } else if(finSub==="despesas"){
   h+='<div class="cd"><div class="ch"><div class="ct2">Despesas</div><div style="display:flex;gap:6px;align-items:center"><label class="btn bs" style="background:'+SL+';cursor:pointer;margin:0">📄 Importar Excel<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="impDespesasXlsx(this)"></label><button class="btn bs" style="background:'+R+'" onclick="openEM(\'\')">+ Despesa</button></div></div><div style="font-size:11px;color:#a89d8d;margin-bottom:8px">Clica numa despesa para editar, atribuir a projeto/cliente ou eliminar. Importar Excel: colunas <b>data</b>, <b>a que se refere</b>, <b>valor</b>, <b>tipo</b>.</div>'+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><select onchange="window.__expAloc=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Alocação: todas</option><option value="sim"'+(window.__expAloc==="sim"?" selected":"")+'>Alocadas a projeto</option><option value="nao"'+(window.__expAloc==="nao"?" selected":"")+'>Não alocadas a projeto</option></select></div>'+'<div style="max-height:560px;overflow:auto">';
-  D.expenses.filter(function(e){var al=!!e.projetoId;if(window.__expAloc==="sim"&&!al)return false;if(window.__expAloc==="nao"&&al)return false;return true;}).slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){var _pj=e.projetoId?((D.deals||[]).find(function(x){return x.id===e.projetoId})||null):null;var _tag=[e.type,(_pj?cn(_pj.clientId):""),e.client].filter(Boolean).join(" · ");h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f7f5;cursor:pointer" onclick="openEM(\''+e.id+'\')"><div><div style="font-size:12px;font-weight:500">'+esc(e.desc||"—")+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(e.date)+(e.bank?" · "+esc(e.bank):"")+(_tag?" · "+esc(_tag):"")+'</div></div><div style="display:flex;align-items:center;gap:6px">'+(e.projetoId?'<span style="font-size:9px;font-weight:600;color:'+GRN+';border:1px solid '+rgba(GRN,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">alocado</span>':'')+'<span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button class="btn bs" style="background:'+SL+'" onclick="event.stopPropagation();openEM(\''+e.id+'\')">Editar</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="event.stopPropagation();delEx(\''+e.id+'\')">✕</button></div></div>'});
+  D.expenses.filter(function(e){var al=!!e.projetoId;if(window.__expAloc==="sim"&&!al)return false;if(window.__expAloc==="nao"&&al)return false;return true;}).slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){var _pj=e.projetoId?((D.deals||[]).find(function(x){return x.id===e.projetoId})||null):null;var _tag=[e.type,(_pj?cn(_pj.clientId):""),e.client].filter(Boolean).join(" · ");h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f7f5;cursor:pointer" onclick="openEM(\''+e.id+'\')"><div><div style="font-size:12px;font-weight:500">'+esc(e.desc||"—")+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(e.date)+(e.bank?" · "+esc(e.bank):"")+(_tag?" · "+esc(_tag):"")+'</div></div><div style="display:flex;align-items:center;gap:6px">'+(e.reembolsoId?'<span style="font-size:9px;font-weight:600;color:'+BLU+';border:1px solid '+rgba(BLU,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">reembolso</span>':'')+(e.projetoId?'<span style="font-size:9px;font-weight:600;color:'+GRN+';border:1px solid '+rgba(GRN,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">alocado</span>':'')+'<span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button class="btn bs" style="background:'+SL+'" onclick="event.stopPropagation();openEM(\''+e.id+'\')">Editar</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="event.stopPropagation();delEx(\''+e.id+'\')">✕</button></div></div>'});
   h+='</div></div>';
   } else {
   var _movPend=!!window.__movPend;var _ylab=(typeof _yearSel!=="undefined"&&_yearSel==="all")?"(todos os anos)":activeYear();var _dd=function(a,b){return (b.date||"").localeCompare(a.date||"")};
@@ -1270,7 +1272,7 @@ function mWrap(t,b){return'<div class="mbg" onclick="clM()"><div class="mdl" onc
 function fld(l,h){return'<div class="fld"><label>'+l+'</label>'+h+'</div>'}
 function sel(id,opts,v){var h='<select id="'+id+'">';opts.forEach(function(o){var val=typeof o==="object"?o.v:o,txt=typeof o==="object"?o.t:o;h+='<option value="'+val+'"'+(val===v?" selected":"")+'>'+txt+'</option>'});return h+'</select>'}
 
-function openDM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.clientId;var dl=editId?D.deals.find(function(x){return x.id===editId}):null;var cs=D.clients.map(function(c){return{v:c.id,t:c.name}});var stageKeys=STAGES.slice();["perdido","concluido"].forEach(function(s){if(stageKeys.indexOf(s)<0)stageKeys.push(s);});if(dl&&dl.stage&&stageKeys.indexOf(dl.stage)<0)stageKeys.push(dl.stage);var sg=stageKeys.map(function(s){return{v:s,t:SL2[s]||s}});document.getElementById("mArea").innerHTML=mWrap(dl?"Editar Deal":(preClient?"Nova Especialidade — "+cn(preClient):"Novo Deal"),fld("Cliente",'<input id="f1t" list="dl_clis" autocomplete="off" placeholder="escreve para procurar…" value="'+esc(dl?cn(dl.clientId):(preClient?cn(preClient):""))+'"><datalist id="dl_clis">'+D.clients.map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="f1" value="'+(dl?dl.clientId:(preClient||""))+'">')+fld("Produto",'<input id="f2" value="'+(dl?dl.product.replace(/"/g,"&quot;"):"")+'">')+'<div class="r2">'+fld("Especialidade",sel("f3",SPECS,dl?dl.specialty:"Gastro"))+fld("Tipo",sel("f4",["NV","AT","SV"],dl?dl.type:"NV"))+'</div><div class="r2">'+fld("Valor €",'<input type="number" id="f5" value="'+(dl?dl.value:0)+'">')+fld("ARR €",'<input type="number" id="f6" value="'+(dl?dl.arr:0)+'">')+'</div>'+fld("Etapa",sel("f7",sg,dl?dl.stage:"lead"))+fld("Data",'<input type="date" id="f8" value="'+(dl?dl.date:new Date().toISOString().slice(0,10))+'">')+'<div class="r2">'+fld("Próxima ação",'<input id="f9" placeholder="ex.: ligar ao Dr. Elvira" value="'+(dl&&dl.nextAction?String(dl.nextAction).replace(/"/g,"&quot;"):"")+'">')+fld("Data follow-up",'<input type="date" id="f10" value="'+(dl&&dl.nextDate?dl.nextDate:"")+'">')+'</div>'+fld("Data perdida (só se perdido)",'<input type="date" id="f11" value="'+(dl&&dl.lostDate?dl.lostDate:"")+'">')+fld("Razão da perda (só se perdido)",'<input id="f12" value="'+(dl&&dl.lostReason?String(dl.lostReason).replace(/"/g,"&quot;"):"")+'">')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svDl(\''+(editId||"")+'\')">Guardar</button>')}
+function openDM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.clientId;var dl=editId?D.deals.find(function(x){return x.id===editId}):null;var cs=D.clients.map(function(c){return{v:c.id,t:c.name}});var stageKeys=STAGES.slice();["perdido","concluido"].forEach(function(s){if(stageKeys.indexOf(s)<0)stageKeys.push(s);});if(dl&&dl.stage&&stageKeys.indexOf(dl.stage)<0)stageKeys.push(dl.stage);var sg=stageKeys.map(function(s){return{v:s,t:SL2[s]||s}});document.getElementById("mArea").innerHTML=mWrap(dl?"Editar Deal":(preClient?"Nova Especialidade — "+cn(preClient):"Novo Deal"),fld("Cliente",'<input id="f1t" list="dl_clis" autocomplete="off" placeholder="escreve para procurar…" value="'+esc(dl?cn(dl.clientId):(preClient?cn(preClient):""))+'"><datalist id="dl_clis">'+D.clients.map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="f1" value="'+(dl?dl.clientId:(preClient||""))+'">')+fld("Produto",'<input id="f2" value="'+(dl?dl.product.replace(/"/g,"&quot;"):"")+'">')+'<div class="r2">'+fld("Especialidade",sel("f3",SPECS,dl?dl.specialty:"Gastro"))+fld("Tipo",sel("f4",["NV","AT","SUB","SV"],dl?dl.type:"NV"))+'</div><div class="r2">'+fld("Valor €",'<input type="number" id="f5" value="'+(dl?dl.value:0)+'">')+fld("ARR €",'<input type="number" id="f6" value="'+(dl?dl.arr:0)+'">')+'</div>'+fld("Etapa",sel("f7",sg,dl?dl.stage:"lead"))+fld("Data",'<input type="date" id="f8" value="'+(dl?dl.date:new Date().toISOString().slice(0,10))+'">')+'<div class="r2">'+fld("Próxima ação",'<input id="f9" placeholder="ex.: ligar ao Dr. Elvira" value="'+(dl&&dl.nextAction?String(dl.nextAction).replace(/"/g,"&quot;"):"")+'">')+fld("Data follow-up",'<input type="date" id="f10" value="'+(dl&&dl.nextDate?dl.nextDate:"")+'">')+'</div>'+fld("Data perdida (só se perdido)",'<input type="date" id="f11" value="'+(dl&&dl.lostDate?dl.lostDate:"")+'">')+fld("Razão da perda (só se perdido)",'<input id="f12" value="'+(dl&&dl.lostReason?String(dl.lostReason).replace(/"/g,"&quot;"):"")+'">')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svDl(\''+(editId||"")+'\')">Guardar</button>')}
 function editDl(id){openDM({editId:id})}
 function editARR(id){var d=D.deals.find(function(x){return x.id===id});if(!d)return;promptM("ARR anual (€) para "+cn(d.clientId)+"\n"+d.product.slice(0,50)+"\n\nValor recorrente por ano (12× a mensalidade):",function(v){var n=Number(String(v).replace(",","."));if(isNaN(n)||n<0){toast("Valor inválido.",{type:"error"});return}var old=d.arr||0;d.arr=n;logAct("Nota","ARR actualizado: "+cn(d.clientId)+" — "+fmt(old)+" → "+fmt(n)+"/ano");save();ren()},{default:String(d.arr||0),okLabel:"Guardar ARR"})}
 function addSpecialty(clientId){openDM({clientId:clientId})}
@@ -2427,6 +2429,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function renderReminders(){
     var r=computeReminders();var body="";
     try{var _ar=asgRowsHTML();if(_ar)body+='<div class="ct2" style="color:'+PUR+';margin:2px 0 8px">Atribu\u00eddas a ti ('+myAssignments().total+')</div>'+_ar;}catch(e){}
+    try{var _er=extraRemRowsHTML();if(_er)body+='<div class="ct2" style="color:'+GD+';margin:14px 0 8px">Avisos e prazos ('+extraReminders().length+')</div>'+_er;}catch(e){}
     if(r.overdue.length)body+='<div class="ct2" style="color:'+R+';margin:2px 0 8px">Em atraso ('+r.overdue.length+')</div>'+r.overdue.map(function(d){return reminderRow(d,"over");}).join("");
     if(r.today.length)body+='<div class="ct2" style="color:'+GD+';margin:14px 0 8px">Hoje ('+r.today.length+')</div>'+r.today.map(function(d){return reminderRow(d,"today");}).join("");
     if(r.upcoming.length)body+='<div class="ct2" style="margin:14px 0 8px">Próximos 7 dias ('+r.upcoming.length+')</div>'+r.upcoming.map(function(d){return reminderRow(d,"up");}).join("");
@@ -2455,10 +2458,39 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     a.tickets.forEach(function(o){var t=o.item;out+=asgRowHTML("suporte","",t.id,"🎫 "+(t.titulo||"(ticket)"),(t.clientId?cn(t.clientId):"suporte"),asgTkEstLbl(t.estado),(typeof TK_ESTADO_COL!=="undefined"&&TK_ESTADO_COL[t.estado])||BLU);});
     return out;}
   window.goToAssign=function(kind,dealId,itemId){if(typeof clM==="function")clM();if(kind==="suporte"){if(typeof sTab==="function")sTab("suporte");setTimeout(function(){try{if(typeof openTicketM==="function")openTicketM(itemId);}catch(e){}},50);return;}if(typeof sTab==="function")sTab("projetos");setTimeout(function(){try{if(typeof openProj==="function")openProj(dealId);}catch(e){}},50);};
+  // ===================== SINO CENTRAL — avisos transversais (C2) =====================
+  function extraReminders(){
+    var out=[];var today=todayISO();
+    var dDays=function(dt){if(!dt)return null;return Math.round((new Date(dt+"T00:00:00")-new Date(today+"T00:00:00"))/86400000);};
+    // Renovações de subscrições / AT (≤30 dias ou em atraso)
+    try{(typeof subDeals==="function"?subDeals():[]).forEach(function(d){var dd=(typeof subRenewDays==="function")?subRenewDays(d):dDays(d.renewDate);if(dd!=null&&dd<=30){out.push({kind:"sub",id:d.id,label:cn(d.clientId)+" · renovação",sub:String(d.product||"subscrição").slice(0,36)+" — "+(dd<0?"em atraso "+(-dd)+"d":"faltam "+dd+"d"),over:dd<0});}});}catch(e){}
+    // Contratos / licenças a terminar (≤30 dias ou terminados)
+    try{(D.contratos||[]).forEach(function(c){var dd=dDays(c.fim);if(dd!=null&&dd<=30){out.push({kind:"ctr",id:c.id,label:cn(c.clientId)+" · contrato termina",sub:String(c.descricao||"contrato").slice(0,36)+" — "+(dd<0?"terminou há "+(-dd)+"d":"faltam "+dd+"d"),over:dd<0});}});}catch(e){}
+    // Validade de documentos de colaboradores (≤30 dias ou expirados)
+    try{Object.keys(D.hrPeople||{}).forEach(function(em){var pp=D.hrPeople[em]||{};(pp.documentos||[]).forEach(function(dc){var dd=dDays(dc.validade);if(dd!=null&&dd<=30){out.push({kind:"doc",id:em,label:(pp.nome||em)+" · documento",sub:String(dc.nome||"documento").slice(0,36)+" — "+(dd<0?"expirado há "+(-dd)+"d":"expira em "+dd+"d"),over:dd<0});}});});}catch(e){}
+    // Bolsas de horas esgotadas ou quase
+    try{(typeof bolsaList==="function"?bolsaList():[]).forEach(function(b){var st=(typeof bolsaEstado==="function")?bolsaEstado(b):null;if(st&&(st.k==="esgotada"||st.k==="quase")){out.push({kind:"bolsa",id:b.id,label:cn(b.clientId)+" · bolsa de horas",sub:st.l+" — saldo "+fmtHM((typeof bolsaSaldo==="function")?bolsaSaldo(b):0),over:st.k==="esgotada"});}});}catch(e){}
+    // Tickets com SLA a vencer (≤3 dias) ou em atraso
+    try{(D.tickets||[]).forEach(function(t){if(t.estado==="resolvido"||t.estado==="fechado")return;var dd=dDays(t.dueDate);if(dd!=null&&dd<=3){out.push({kind:"tk",id:t.id,label:cn(t.clientId)+" · SLA de suporte",sub:String(t.titulo||"ticket").slice(0,36)+" — "+(dd<0?"em atraso "+(-dd)+"d":"faltam "+dd+"d"),over:dd<0});}});}catch(e){}
+    out.sort(function(a,b){return (a.over===b.over)?0:(a.over?-1:1);});
+    return out;
+  }
+  window.extraReminders=extraReminders;
+  function extraRemRowsHTML(){
+    var ex=extraReminders();if(!ex.length)return "";
+    var IC={sub:"🔁",ctr:"📄",doc:"🪪",bolsa:"⏳",tk:"🎧"};
+    return ex.map(function(r){var col=r.over?R:GD;return '<div onclick="mwGoRem(\''+r.kind+'\',\''+String(r.id).replace(/'/g,"")+'\')" style="cursor:pointer;padding:9px 11px;border:1px solid #ece6dc;border-left:3px solid '+col+';border-radius:9px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;color:#1a1713;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(IC[r.kind]||"•")+' '+esc(r.label)+'</div><div style="font-size:10.5px;color:#a89d8d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px">'+esc(r.sub)+'</div></div><span style="font-size:10px;font-weight:700;color:'+col+';white-space:nowrap">'+(r.over?"⚠":"•")+'</span></div>';}).join("");
+  }
+  window.mwGoRem=function(kind,id){
+    if(typeof clM==="function")clM();
+    if(kind==="tk"){if(typeof sTab==="function")sTab("suporte");setTimeout(function(){try{if(typeof openTicketM==="function")openTicketM(id);}catch(e){}},50);return;}
+    var map={sub:"subscricoes",ctr:"contratos",doc:"rh",bolsa:"bolsahoras"};
+    if(map[kind]&&typeof sTab==="function")sTab(map[kind]);
+  };
   function updateBell(){
     ensureBell();
     var badge=document.getElementById("mwBellCount");if(!badge)return;
-    var r=computeReminders();var _asgN=0;try{_asgN=myAssignments().total;}catch(e){}var n=r.overdue.length+r.today.length+_asgN;
+    var r=computeReminders();var _asgN=0;try{_asgN=myAssignments().total;}catch(e){}var _exN=0;try{_exN=extraReminders().length;}catch(e){}var n=r.overdue.length+r.today.length+_asgN+_exN;
     if(n>0){badge.textContent=n>99?"99+":String(n);badge.style.display="inline-flex";}else{badge.style.display="none";}
   }
 
@@ -2742,7 +2774,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(projView){var dl=(D.deals||[]).filter(function(d){return d.id===projView;})[0];if(dl)return renderProjWorkspace(projView);projView=null;}
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!isReadOnlyNow();
-    var allProj=(D.deals||[]).filter(function(d){return (d.stage==="projeto"||d.stage==="concluido"||(D.projectos||[]).some(function(p){return p.dealId===d.id;}))&&!dealLinkedTo(d.id);});
+    var allProj=(D.deals||[]).filter(function(d){return (d.stage==="projeto"||d.stage==="concluido"||(D.projectos||[]).some(function(p){return p.dealId===d.id;}))&&!dealLinkedTo(d.id)&&!(typeof isSubDeal==="function"&&isSubDeal(d));});
     allProj.forEach(function(d){projRec(d.id);});
     var PSTLBL={projeto:"Em curso",concluido:"Concluído",ganho:"Ganho",proposta:"Proposta",lead:"Lead",perdido:"Perdido"};
     var PSTCOL={projeto:BLU,concluido:GRN,ganho:GD,proposta:PUR,lead:SL,perdido:R};
@@ -3033,7 +3065,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='<div class="cd"><div class="ch"><div class="ct2">Horas &amp; custo</div>'+'<div style="display:flex;gap:6px">'+(canEdit?'<button class="btn bs" style="background:'+GD+'" onclick="openCustoAvulso(\''+dealId+'\')">+ Custo avulso</button>':'')+(canEdit?'<button class="btn bs" style="background:'+SL+'" onclick="openDespFat(\''+dealId+'\')">+ Da faturação</button>':'')+(canLogHours()?'<button class="btn bs" style="background:'+BLU+'" onclick="openHoras(\''+dealId+'\')">+ Registar horas</button>':'')+'</div>'+'</div>';
     h+='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Horas registadas</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif">'+totH+'h</div></div>'+
-       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo estimado</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(custo)+'</div><div style="font-size:10px;color:#a89d8d">mão de obra '+fmt(projMaoObra(r))+' + avulsos '+fmt(projAvulsos(r))+'</div></div>'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo estimado</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(custo)+'</div><div style="font-size:10px;color:#a89d8d">mão de obra '+fmt(projMaoObra(r))+' · manuais '+fmt((r.custosAvulsos||[]).reduce(function(a,x){return a+(Number(x.valor)||0);},0))+' · faturação '+fmt(projDespesasFat(r).reduce(function(a,e){return a+(Number(e.amount)||0);},0))+' · reuniões '+fmt((typeof reuCustosProj==="function")?reuCustosProj(r):0)+'</div></div>'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Valor do projeto</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif">'+fmt(valor)+'</div></div>'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Margem</div><div style="font-size:19px;font-weight:700;font-family:\'Fraunces\',serif;color:'+(margem>=0?GRN:R)+'">'+fmt(margem)+(valor>0?' · '+Math.round(margem/valor*100)+'%':'')+'</div></div>'+
        '<div style="margin-left:auto"><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Custo / hora</div>'+(canEdit?'<input type="number" id="pjRate" value="'+hrRate()+'" style="width:80px;border:1px solid #e5e0da;border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit" onchange="setHrRate(this.value)">':'<div style="font-weight:700">'+fmt(hrRate())+'</div>')+'</div>'+
@@ -3043,16 +3075,16 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       _av.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(c){h+='<tr><td style="font-size:12px">'+(c.data?fmtD(c.data):"—")+'</td><td style="font-size:12px">'+esc(c.desc||"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(c.valor)+'</td><td>'+bdg("Manual",GD)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delCustoAvulso(\''+dealId+'\',\''+c.id+'\')" title="Remover">×</button></td>':'')+'</tr>';});
       _fat.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).forEach(function(e){h+='<tr><td style="font-size:12px">'+(e.date?fmtD(e.date):"—")+'</td><td style="font-size:12px">'+esc(e.desc||"—")+(e.type?' <span style="font-size:10px;color:#a89d8d">· '+esc(e.type)+'</span>':'')+'</td><td style="text-align:right;font-weight:700">'+fmt(e.amount)+'</td><td>'+bdg("Faturação",SL)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#fff;color:'+SL+';border:1px solid '+rgba(SL,.35)+'" onclick="unlinkDespFat(\''+dealId+'\',\''+e.id+'\')" title="Desassociar (mantém-se na faturação)">⤫</button></td>':'')+'</tr>';});
       h+='</tbody></table></div><div style="font-size:10.5px;color:#a89d8d;margin-top:4px">As linhas «Faturação» vêm de Faturação &amp; Cobranças e continuam lá para o P&amp;L. Desassociar (⤫) só as retira deste projeto.</div></div>';}
-    var regs=(r.horas||[]).slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");});
+    var regs=(r.horas||[]).map(function(x){return {data:x.data,colaborador:x.colaborador||(typeof emailToNome==="function"?emailToNome(x.email):"")||"—",tarefaId:x.tarefaId,horas:x.horas,valorHora:x.valorHora,nota:x.nota,_src:"proj",id:x.id};});(D.timesheets||[]).filter(function(t){return t.dealId===r.dealId;}).forEach(function(t){regs.push({data:t.data,colaborador:(t.nome||(typeof emailToNome==="function"?emailToNome(t.email):t.email))||"—",tarefaId:t.taskId,horas:t.horas,valorHora:t.valorHora,nota:t.descricao||"",_src:"ts",id:t.id});});regs.sort(function(a,b){return (b.data||"").localeCompare(a.data||"");});
     if(regs.length){
       h+='<div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Colaborador</th><th>Tarefa</th><th style="text-align:right">Horas</th><th style="text-align:right">Valor/h</th><th>Nota</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
       regs.forEach(function(x){
         var tk=(r.tarefas||[]).filter(function(t){return t.id===x.tarefaId;})[0];
-        h+='<tr><td style="font-size:12px">'+(x.data?fmtD(x.data):"—")+'</td><td style="font-weight:600">'+esc(x.colaborador||"—")+'</td>'+
+        h+='<tr><td style="font-size:12px">'+(x.data?fmtD(x.data):"—")+'</td><td style="font-weight:600">'+esc(x.colaborador||"—")+(x._src==="ts"?' <span style="font-size:9px;color:#a89d8d;border:1px solid #ece6dc;border-radius:5px;padding:1px 5px">registo central</span>':'')+'</td>'+
            '<td style="font-size:11.5px;color:#7a7268">'+esc(tk?tk.titulo:"—")+'</td><td style="text-align:right;font-weight:700">'+fmtHM(x.horas)+'</td>'+
            '<td style="text-align:right;font-size:11.5px;color:#7a7268">'+fmt((x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):hrRate())+'</td>'+
            '<td style="font-size:11.5px;color:#7a7268;max-width:200px">'+esc(x.nota||"")+'</td>'+
-           (canEdit?'<td style="text-align:right;white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="editHoraLinha(\'proj\',\''+x.id+'\',\''+dealId+'\')">Editar</button> <button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delHoras(\''+dealId+'\',\''+x.id+'\')">×</button></td>':'')+'</tr>';
+           (canEdit?(x._src==="ts"?'<td style="text-align:right;font-size:10.5px;color:#a89d8d;white-space:nowrap">registo central</td>':'<td style="text-align:right;white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="editHoraLinha(\'proj\',\''+x.id+'\',\''+dealId+'\')">Editar</button> <button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delHoras(\''+dealId+'\',\''+x.id+'\')">×</button></td>'):'')+'</tr>';
       });
       h+='</tbody></table></div>';
     }else h+='<div style="font-size:12.5px;color:#a89d8d">Sem horas registadas. As horas alimentam o custo com pessoal e a margem do projeto.</div>';
@@ -3180,7 +3212,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var r=projRec(dealId);var horas=parseHM(document.getElementById("hr_h").value);
     if(horas<=0){toastSafe("Indica as horas.");return;}
     var _col=(document.getElementById("hr_c").value||"").trim();var _vh=Number((document.getElementById("hr_vh")||{}).value);if(!(_vh>=0))_vh=hrRate();if(_col)hrRates()[_col]=_vh;
-    r.horas.push({id:uid(),colaborador:_col,email:(typeof nomeToEmail==="function"?nomeToEmail(_col):""),data:document.getElementById("hr_d").value||todayISO(),horas:horas,tarefaId:document.getElementById("hr_t").value||"",valorHora:_vh,nota:(document.getElementById("hr_n").value||"").trim()});
+    if(!Array.isArray(D.timesheets))D.timesheets=[];D.timesheets.push({id:uid(),dealId:dealId,email:(typeof nomeToEmail==="function"?nomeToEmail(_col):"")||"",nome:_col,data:document.getElementById("hr_d").value||todayISO(),horas:horas,taskId:document.getElementById("hr_t").value||"",valorHora:_vh,descricao:(document.getElementById("hr_n").value||"").trim()});
     if(typeof logAct==="function")logAct("Projectos","Horas registadas — "+horas+"h · "+cn(((D.deals||[]).filter(function(x){return x.id===dealId;})[0]||{}).clientId));
     window.__selfSave=true;save();clM();ren();toastSafe("Horas registadas.","ok");
   };
@@ -4222,6 +4254,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='<div class="kr">'+
       (typeof kpi==="function"?(kpi("Documentos "+y,""+ano.length,"emitidos",PUR,PUR)+kpi("Base tributável",fmt(base),"sem IVA",BLU,BLU)+kpi("IVA liquidado",fmt(ivaT),"a entregar ao Estado",GD,GD)+kpi("Total faturado",fmt(totT),"com IVA",GRN,GRN)):"")+
       '</div>';
+    h+=(function(){var invAno=(D.invoices||[]).filter(function(i){return (i.date||"").slice(0,4)===String(y);});var totMov=invAno.reduce(function(a,i){return a+(Number(i.amount)||0);},0);var porConc=emit.filter(function(f){return !(f.invoiceId&&(D.invoices||[]).some(function(i){return i.id===f.invoiceId;}));});var dif=totT-totMov;var s='<div class="cd" style="border-left:3px solid '+(porConc.length?GD:GRN)+'"><div class="ch"><div class="ct2">Conciliação com movimentos de gestão</div><span style="font-size:11px;color:#a89d8d">'+(emit.length-porConc.length)+' de '+emit.length+' faturas ligadas</span></div>';s+='<div style="font-size:12.5px;color:#7a7268;margin:2px 0 8px">Faturado legalmente <b>'+fmt(totT)+'</b> · em movimentos de gestão <b>'+fmt(totMov)+'</b> · diferença <b style="color:'+(Math.abs(dif)<1?GRN:GD)+'">'+fmt(dif)+'</b>. Liga cada fatura ao respetivo movimento no formulário, para o P&L e a faturação legal baterem certo.</div>';if(porConc.length)s+='<div style="font-size:12px;color:#5a5347">Por conciliar: '+porConc.slice(0,6).map(function(f){return esc(f.clienteNome||cn(f.clienteId)||"—")+' · '+fmt(Math.abs(f.total||0));}).join(" · ")+(porConc.length>6?" · +"+(porConc.length-6):"")+'</div>';s+='</div>';return s;})();
 
     // exportações
     var temPT=docs.some(function(x){return x.pais==="PT";}),temES=docs.some(function(x){return x.pais==="ES";});
@@ -4283,6 +4316,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var serieOpts=series.length?series.map(function(s){return '<option value="'+s.id+'"'+(d.serieId===s.id?' selected':'')+'>'+esc(s.tipo+" "+s.nome)+(s.codValidacao?"":" (sem ATCUD)")+'</option>';}).join(""):'<option value="">— sem séries '+d.pais+' —</option>';
     var tipoOpts=fatTipos(d.pais).map(function(t){return '<option value="'+t[0]+'"'+(d.tipo===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join("");
     var cliOpts='<option value="">— cliente manual —</option>'+(D.clients||[]).map(function(c){return '<option value="'+c.id+'"'+(d.clienteId===c.id?' selected':'')+'>'+esc(c.name||c.nome||c.id)+'</option>';}).join("");
+var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoices||[]).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).map(function(i){var dd=(D.deals||[]).filter(function(x){return x.id===i.dealId;})[0];var nm=dd?cn(dd.clientId):(i.clienteNome||"movimento");return '<option value="'+i.id+'"'+(d.invoiceId===i.id?' selected':'')+'>'+esc(nm+" · "+fmt(i.amount)+" · "+(i.date||""))+'</option>';}).join("");
     var body='';
     body+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
       fld("País",'<select id="fa_pais" onchange="faturaSetPais(this.value)">'+paisOpts+'</select>')+
@@ -4292,6 +4326,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     body+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
       fld("Cliente (carteira)",'<select id="fa_cli" onchange="faturaPickCli(this.value)">'+cliOpts+'</select>')+
       fld("Vencimento",'<input type="date" id="fa_venc" value="'+(d.dataVenc||"")+'">')+'</div>';
+    body+=fld("Movimento de gestão associado (conciliação)",'<select id="fa_inv">'+invOpts+'</select>');
     body+='<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px">'+
       fld("Nome do cliente",'<input id="fa_cnome" value="'+esc(d.clienteNome||"")+'">')+
       fld("NIF/NIF-IVA",'<input id="fa_cnif" value="'+esc(d.clienteNIF||"")+'">')+
@@ -4315,7 +4350,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var g=function(id){var el=document.getElementById(id);return el?el.value:"";};
     d.serieId=g("fa_serie");d.tipo=g("fa_tipo");d.data=g("fa_data");d.dataVenc=g("fa_venc");
     d.clienteNome=g("fa_cnome");d.clienteNIF=g("fa_cnif");d.clientePais=(g("fa_cpais")||"").toUpperCase();d.clienteMorada=g("fa_cmor");
-    d.retPct=Number(g("fa_ret"))||0;d.notas=g("fa_notas");
+    d.retPct=Number(g("fa_ret"))||0;d.notas=g("fa_notas");d.invoiceId=g("fa_inv");
     var rows=document.querySelectorAll("#fa_linhas [data-li]");
     var arr=[];rows.forEach(function(row){var i=row.getAttribute("data-li");arr.push({desc:document.getElementById("fl_desc_"+i).value,qtd:Number(document.getElementById("fl_qtd_"+i).value)||0,preco:Number(document.getElementById("fl_preco_"+i).value)||0,taxaIVA:Number(document.getElementById("fl_iva_"+i).value)||0});});
     if(arr.length)d.linhas=arr;
@@ -4884,7 +4919,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function allHours(){
     var out=[];
     (Array.isArray(D.timesheets)?D.timesheets:[]).forEach(function(t){
-      var _em=t.email||"";var _nm=(typeof emailToNome==="function"?emailToNome(_em):"")||_em;out.push({_src:"ts",_id:t.id,_deal:t.dealId||"",data:t.data||"",horas:Number(t.horas)||0,vh:tsRate(t),pessoa:_nm||_em||"—",_email:_em,_nome:_nm,cliente:tsCliente(t),projeto:tsProjeto(t),tarefa:tsTarefa(t),_client:(function(){var d=tsDeal(t);if(d)return d.clientId||"";if(t.ticketId){var tk=(D.tickets||[]).filter(function(x){return x.id===t.ticketId;})[0];return tk?(tk.clientId||""):"";}return "";})()});
+      var _em=t.email||"";var _nm=t.nome||(typeof emailToNome==="function"?emailToNome(_em):"")||_em;out.push({_src:"ts",_id:t.id,_deal:t.dealId||"",data:t.data||"",horas:Number(t.horas)||0,vh:tsRate(t),pessoa:_nm||_em||"—",_email:_em,_nome:_nm,cliente:tsCliente(t),projeto:tsProjeto(t),tarefa:tsTarefa(t),_client:(function(){var d=tsDeal(t);if(d)return d.clientId||"";if(t.ticketId){var tk=(D.tickets||[]).filter(function(x){return x.id===t.ticketId;})[0];return tk?(tk.clientId||""):"";}return "";})()});
     });
     (Array.isArray(D.projectos)?D.projectos:[]).forEach(function(p){
       var dl=(D.deals||[]).filter(function(d){return d.id===p.dealId;})[0]||null;
@@ -5703,6 +5738,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         if(appr&&r.estado==="submetido")acts='<button class="btn bs" style="background:'+GRN+'" onclick="reAprovar(\''+r.id+'\',1)">Aprovar</button> <button class="btn bs" style="background:'+R+'" onclick="reAprovar(\''+r.id+'\',0)">Recusar</button>';
         else if(appr&&r.estado==="aprovado")acts='<button class="btn bs" style="background:'+BLU+'" onclick="rePagar(\''+r.id+'\')">Marcar pago</button>';
         else if(mine&&r.estado==="submetido")acts='<button class="btn bs" style="background:'+SL+'" onclick="openReembolso(\''+r.id+'\')">Editar</button>';
+        if(appr&&(r.estado==="aprovado"||r.estado==="pago")){var _lk=r.expenseId&&(D.expenses||[]).some(function(x){return x.id===r.expenseId;});acts+=(_lk?' <span style="font-size:10px;font-weight:600;color:'+GRN+'">🔗 banco</span> <button class="btn bs" style="background:#fff;color:'+SL+';border:1px solid #e5e0da" onclick="reDesconciliar(\''+r.id+'\')" title="Desconciliar">✕</button>':' <button class="btn bs" style="background:'+SL+'" onclick="reConciliar(\''+r.id+'\')">🔗 Conciliar</button>');}
         h+='<tr><td style="font-size:12px">'+esc(r.data?(fmtD?fmtD(r.data):r.data):"—")+'</td>'+(reSeeAll()?'<td style="font-size:11.5px">'+esc(r.email||"—")+'</td>':'')+'<td>'+bdg(reCatLbl(r.categoria),SL)+'</td><td style="font-size:12px;color:#7a7268">'+esc(r.descricao||"")+(r.comprovativo?' <span title="'+esc(r.comprovativo)+'">📎</span>':'')+'</td><td style="text-align:right;font-weight:700">'+fmt(r.valor)+'</td><td>'+bdg(reEstLbl(r.estado),reEstCor(r.estado))+'</td><td style="white-space:nowrap">'+acts+'</td></tr>';});
       h+='</tbody></table></div></div>';}
     app.innerHTML=h;
@@ -6307,7 +6343,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var DESP_EST_COL={pendente:GD,aprovado:GRN,rejeitado:R,pago:BLU};
   function despCatLbl(v){var m=DESP_CAT.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
   function despEstLbl(v){var m=DESP_EST.filter(function(x){return x[0]===v;})[0];return m?m[1]:v;}
-  function myDespesas(){var pp=(D.hrPeople||{})[myEmail()]||{};return pp.despesas||[];}
+  function myDespesas(){var me=(typeof myEmail==="function"?myEmail():"")||"";return (typeof reList==="function"?reList():(D.reembolsos||[])).filter(function(r){return r.email===me;});}
   function allDespesasPend(){var out=[];Object.keys(D.hrPeople||{}).forEach(function(em){(D.hrPeople[em].despesas||[]).forEach(function(x){if(x.estado==="pendente")out.push({em:em,d:x});});});return out;}
 
   function renderManual(){
@@ -6393,7 +6429,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     // saldos
     h+='<div class="kr">'+kpi("Férias "+y,hrFeriasAno(me)+" / "+(pp.diasAno||22),"dias gozados",GRN,GRN)+kpi("Banco de horas",(saldoHoras(me)>=0?"+":"")+saldoHoras(me)+"h","saldo",PUR,PUR)+kpi("Próximas férias",proxFer?fmtD(proxFer.start):"—",proxFer?"aprovadas":"nada agendado",BLU,BLU)+kpi("Despesas por reembolsar",fmt(myDespesas().filter(function(x){return x.estado==="aprovado";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0)),"aprovadas",GD,GD)+'</div>';
     // ações
-    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Adicionar</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" style="background:'+GRN+'" onclick="openPedidoM(\'ferias\')">🌴 Férias / ausência</button><button class="btn" style="background:'+PUR+'" onclick="openPedidoM(\'baixa\')">🤒 Baixa médica</button><button class="btn" style="background:'+GD+'" onclick="openDespesa()">💶 Nova despesa</button><button class="btn" style="background:'+BLU+'" onclick="openMeuDoc()">📄 Documento</button></div></div>';
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Adicionar</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" style="background:'+GRN+'" onclick="openPedidoM(\'ferias\')">🌴 Férias / ausência</button><button class="btn" style="background:'+PUR+'" onclick="openPedidoM(\'baixa\')">🤒 Baixa médica</button><button class="btn" style="background:'+GD+'" onclick="openReembolso(\'\')">💶 Nova despesa</button><button class="btn" style="background:'+BLU+'" onclick="openMeuDoc()">📄 Documento</button></div></div>';
     // as minhas atribuições (#3) — tarefas / mitigações de risco / suporte atribuídos a mim
     var _asg=(typeof myAssignments==="function"?myAssignments():{total:0});
     h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">As minhas atribui\u00e7\u00f5es ('+_asg.total+')</div>';
@@ -6447,13 +6483,13 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     // as minhas despesas
     var mine=myDespesas();
     var _dPago=mine.filter(function(x){return x.estado==="pago";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0);
-    var _dPend=mine.filter(function(x){return x.estado!=="pago"&&x.estado!=="rejeitado";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0);
+    var _dPend=mine.filter(function(x){return x.estado!=="pago"&&x.estado!=="recusado";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0);
     h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">As minhas despesas ('+mine.length+')</div><div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">Reembolsado: <b style="color:'+GRN+'">'+fmt(_dPago)+'</b> · por reembolsar: <b style="color:'+GD+'">'+fmt(_dPend)+'</b>. Estado de cada despesa na coluna à direita.</div>';
     if(!mine.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem despesas. Usa “Nova despesa” para pedir um reembolso.</div>';
     else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th style="text-align:right">Valor</th><th>Estado</th>'+(canReq?'<th></th>':'')+'</tr></thead><tbody>';
       mine.slice().sort(function(a,b){return (b.data||"").localeCompare(a.data||"");}).forEach(function(x){
-        h+='<tr><td style="font-weight:600">'+esc(x.descricao||"—")+'</td><td>'+bdg(despCatLbl(x.categoria),SL)+'</td><td style="font-size:12px">'+(x.data?fmtD(x.data):"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(x.valor||0)+'</td><td>'+bdg(despEstLbl(x.estado),DESP_EST_COL[x.estado]||SL)+'</td>'+
-           (canReq?'<td style="text-align:right">'+(x.estado==="pendente"?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="cancelDespesa(\''+x.id+'\')">Cancelar</button>':'')+'</td>':'')+'</tr>';
+        h+='<tr><td style="font-weight:600">'+esc(x.descricao||"—")+'</td><td>'+bdg(reCatLbl(x.categoria),SL)+'</td><td style="font-size:12px">'+(x.data?fmtD(x.data):"—")+'</td><td style="text-align:right;font-weight:700">'+fmt(x.valor||0)+'</td><td>'+bdg(reEstLbl(x.estado),reEstCor(x.estado))+'</td>'+
+           (canReq?'<td style="text-align:right">'+(x.estado==="submetido"?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="delReembolso(\''+x.id+'\')">Cancelar</button>':'')+'</td>':'')+'</tr>';
       });
       h+='</tbody></table></div>';}
     h+='</div>';
@@ -6488,7 +6524,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     save();clM();ren();toastSafe("Guardado.","ok");
   };
   window.delMeuDoc=function(id){var doIt=function(){D.meusDocs=(D.meusDocs||[]).filter(function(d){return d.id!==id;});save();clM();ren();toastSafe("Eliminado.","ok");};if(typeof confirmM==="function")confirmM("Eliminar este documento?",doIt,{yesLabel:"Eliminar"});else doIt();};
-  window.openDespesa=function(){
+  window.openDespesa=function(){if(typeof openReembolso==="function")return openReembolso("");
     if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var body=fld("Descrição",'<input id="dp_d" placeholder="ex.: Portagens visita IMED Valencia">')
       +'<div class="r2">'+fld("Categoria",sel("dp_c",DESP_CAT.map(function(o){return {v:o[0],t:o[1]};}),"deslocacao"))+fld("Valor €",'<input type="number" step="0.01" id="dp_v" value="0">')+'</div>'
@@ -6809,6 +6845,26 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
           tl.slice(0,20).forEach(function(e){h+='<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid #f8f7f5"><div style="font-size:14px;width:18px;text-align:center">'+e.ic+'</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:#3a352e;line-height:1.4">'+esc(e.t)+'</div><div style="font-size:10px;color:#a89d8d">'+fmtD(e.d)+'</div></div></div>';});
           h+='</div>';}
         h+='</div>';
+        // Ficha 360 (C3): recorrência, contratos, bolsa, horas e reuniões do cliente
+        try{
+          var subsCli=(D.deals||[]).filter(function(d){return d.clientId===clientId&&isSubDeal(d)&&isWon(d);});
+          var arrCli=subsCli.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+          var ctrCli=(D.contratos||[]).filter(function(c){return c.clientId===clientId;});
+          var bolsasCli=(typeof bolsaList==="function"?bolsaList():[]).filter(function(b){return b.clientId===clientId;});
+          var horasCli=(typeof allHours==="function"?allHours():[]).filter(function(e){return e._client===clientId;}).reduce(function(a,e){return a+(Number(e.horas)||0);},0);
+          var reuCli=(typeof reuList==="function"?reuList():[]).filter(function(x){return x.clientId===clientId;}).sort(function(a,b){return (b.data||"").localeCompare(a.data||"");});
+          h+='<div style="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px"><div class="ct2" style="margin-bottom:8px">🔁 Recorrência &amp; contratos</div>';
+          if(!subsCli.length&&!ctrCli.length&&!bolsasCli.length)h+='<div style="font-size:12px;color:#a89d8d">Sem subscrições, contratos ou bolsas de horas.</div>';
+          else{
+            if(subsCli.length){var soon=subsCli.filter(function(d){var dd=(typeof subRenewDays==="function")?subRenewDays(d):null;return dd!=null&&dd<=60;});h+='<div style="font-size:12.5px;margin-bottom:4px">'+subsCli.length+' subscrição/AT · ARR <b>'+fmt(arrCli)+'</b>'+(soon.length?' · <span style="color:'+GD+'">'+soon.length+' a renovar (60d)</span>':'')+'</div>';}
+            if(ctrCli.length){var fc=ctrCli.filter(function(c){return c.fim;}).sort(function(a,b){return (a.fim||"").localeCompare(b.fim||"");})[0];h+='<div style="font-size:12.5px;margin-bottom:4px">'+ctrCli.length+' contrato(s)/licença(s)'+(fc?' · próximo fim '+fmtD(fc.fim):'')+'</div>';}
+            bolsasCli.forEach(function(b){var sal=(typeof bolsaSaldo==="function")?bolsaSaldo(b):0;h+='<div style="font-size:12.5px;margin-bottom:4px">Bolsa de horas: saldo <b style="color:'+(sal<=0?R:GRN)+'">'+fmtHM(sal)+'</b> de '+fmtHM(Number(b.horas)||0)+'</div>';});
+          }
+          h+='</div>';
+          h+='<div style="border-top:1px solid #f4f0e8;padding-top:12px;margin-top:12px"><div class="ct2" style="margin-bottom:8px">⏱️ Horas &amp; 🤝 reuniões</div><div style="font-size:12.5px;margin-bottom:6px">Horas registadas para o cliente: <b>'+fmtHM(horasCli)+'</b> · reuniões: <b>'+reuCli.length+'</b></div>';
+          if(reuCli.length)h+='<div style="max-height:120px;overflow:auto">'+reuCli.slice(0,4).map(function(x){return '<div style="font-size:11.5px;color:#7a7268;padding:3px 0;border-bottom:1px solid #f8f7f5">'+(x.data?fmtD(x.data):"—")+' · '+esc(String(x.assunto||((typeof reuTipoLbl==="function")?reuTipoLbl(x.tipo):"reunião")).slice(0,44))+'</div>';}).join("")+'</div>';
+          h+='</div>';
+        }catch(e){}
         mdl.insertAdjacentHTML("beforeend",h);
       }catch(e){}
     };
@@ -7472,6 +7528,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       _mvDlP(id,sg);
       if(sg==="projeto"){try{
         var dl=(D.deals||[]).filter(function(d){return d.id===id;})[0];
+        if(dl&&typeof isSubDeal==="function"&&isSubDeal(dl)){dl.stage="ganho";if(typeof logAct==="function")logAct("Comercial","Subscrição/AT — não gera projeto ("+cn(dl.clientId)+")");if(typeof save==="function")save();if(typeof toastSafe==="function")toastSafe("Subscrição/AT não gera projeto — vê em Comercial › Subscrições/AT.","ok");else if(typeof toast==="function")toast("Subscrição/AT não gera projeto.");if(typeof ren==="function")ren();return;}
         if(dl){
           if(dl.value>0&&!D.invoices.find(function(i){return i.dealId===id;})){D.invoices.push({id:uid(),dealId:id,amount:dl.value,date:new Date().toISOString().slice(0,10),collected:false,collDate:""});if(typeof logAct==="function")logAct("Factura","Factura criada automaticamente — "+cn(dl.clientId)+" "+fmt(dl.value));}
           if(!Array.isArray(D.projectos))D.projectos=[];
@@ -7488,7 +7545,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var REU_MODOS=[["presencial","Presencial"],["online","Online"],["telefone","Telefónica"]];
   var REU_DESP_CAT=[["combustivel","Combustível"],["portagens","Portagens"],["refeicao","Refeição"],["alojamento","Alojamento"],["material","Material"],["telecom","Telecomunicações"],["outro","Outro"]];
   function reuCusto(r){if(!r)return 0;var km=(Number(r.km)||0)*((r.valorKm!=null&&r.valorKm!=="")?Number(r.valorKm):0.40);var hh=(Number(r.horas)||0)*((r.valorHora!=null&&r.valorHora!=="")?Number(r.valorHora):0);var ex=Number(r.despesaExtra)||0;return Math.round((km+hh+ex)*100)/100;}
-  function reuCustosProj(r){if(!r||!r.dealId)return 0;return reuList().filter(function(x){return x.custoAlocado&&x.dealId===r.dealId;}).reduce(function(a,x){return a+reuCusto(x);},0);}
+  function reuCustosProj(r){if(!r||!r.dealId)return 0;return reuList().filter(function(x){return x.custoAlocado&&!x.custoNoBanco&&x.dealId===r.dealId;}).reduce(function(a,x){return a+reuCusto(x);},0);}
   window.reuCusto=reuCusto;window.reuCustosProj=reuCustosProj;
   window.reuCostPrev=function(){var g=function(i){var e=document.getElementById(i);return e?(Number(e.value)||0):0;};var t=g("ru_km")*g("ru_vkm")+g("ru_horas")*g("ru_vh")+g("ru_despv");var el=document.getElementById("ru_costprev");if(el)el.innerHTML=t>0?("Custo total estimado da visita: <b>"+fmt(Math.round(t*100)/100)+"</b>"):"";};
   function reuTipoLbl(v){var m=REU_TIPOS.filter(function(x){return x[0]===v;})[0];return m?m[1]:(v||"Reunião");}
@@ -7535,7 +7592,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         if(r.acta)h+='<div style="font-size:12px;color:#7a7268;margin-top:4px;white-space:pre-wrap;max-height:66px;overflow:hidden">'+esc(String(r.acta).slice(0,240))+(String(r.acta).length>240?"…":"")+'</div>';
         var pp=[];if(r.participantes)pp.push("Nós: "+r.participantes);if(r.participantesCliente)pp.push("Cliente: "+r.participantesCliente);
         if(pp.length)h+='<div style="font-size:11px;color:#a89d8d;margin-top:5px">'+esc(pp.join("  ·  "))+'</div>';
-        var _rc=reuCusto(r);if(_rc>0)h+='<div style="margin-top:6px">'+bdg("Custo "+fmt(_rc),PUR)+(r.custoAlocado&&r.dealId?' '+bdg("Alocado a projeto",GRN):' '+bdg("Comercial",SL))+'</div>';
+        var _rc=reuCusto(r);if(_rc>0)h+='<div style="margin-top:6px">'+bdg("Custo "+fmt(_rc),PUR)+(r.custoAlocado&&r.dealId?' '+bdg("Alocado a projeto",GRN):' '+bdg("Comercial",SL))+(r.custoNoBanco?' '+bdg("já no banco",SL):'')+'</div>';
         h+='<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn bs" style="background:'+SL+'" onclick="openReuniao(\''+r.id+'\')">'+(canEdit?"Abrir / editar":"Ver")+'</button><button class="btn bs" style="background:'+BLU+'" onclick="printActa(\''+r.id+'\')">📄 Acta</button>'+(canEdit?'<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delReuniao(\''+r.id+'\')">×</button>':'')+'</div>';
         h+='</div>';
       });
@@ -7576,7 +7633,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       +'<div class="r2">'+fld("Participantes (nossa equipa)",'<input id="ru_pnos" value="'+(r?esc(r.participantes||""):esc(meNome))+'">')+fld("Participantes (cliente)",'<input id="ru_pcli" value="'+(r?esc(r.participantesCliente||""):"")+'" placeholder="nomes / cargos">')+'</div>'
       +fld("Acta / notas importantes",'<textarea id="ru_acta" rows="7" style="resize:vertical" placeholder="Pontos discutidos, decisões, informação relevante…">'+(r?esc(r.acta||""):"")+'</textarea>')
       +fld("Próximos passos (opcional)",'<textarea id="ru_pp" rows="3" style="resize:vertical" placeholder="Ações, responsáveis e prazos…">'+(r?esc(r.proximosPassos||""):"")+'</textarea>')
-      +'<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;background:#faf8f4;cursor:pointer;margin-bottom:8px"><input type="checkbox" id="ru_part" '+(r&&r.partilhaCliente?"checked":"")+' style="width:17px;height:17px;flex:0 0 auto"><span style="font-size:12.5px"><b>Partilhar com o cliente</b> — a acta fica marcada como visível ao cliente. Se desmarcado, é <b>só interna</b>.</span></label>'+'<div style="border:1px solid #ece6dc;border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#5a5347;margin-bottom:7px">Custos da visita <span style="font-weight:400;color:#a89d8d">— opcional (deslocação e tempo)</span></div>'+'<div class="r2">'+fld("Km percorridos",'<input type="number" id="ru_km" step="1" value="'+(r?(r.km||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("&euro; / km",'<input type="number" id="ru_vkm" step="0.01" value="'+(r&&r.valorKm!=null&&r.valorKm!==""?r.valorKm:"0.40")+'" oninput="reuCostPrev()">')+'</div>'+'<div class="r2">'+fld("Horas dedicadas",'<input type="number" id="ru_horas" step="0.5" value="'+(r?(r.horas||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("&euro; / hora",'<input type="number" id="ru_vh" step="0.01" value="'+(r&&r.valorHora!=null&&r.valorHora!==""?r.valorHora:String((typeof horasCfg==="function"?horasCfg().valorHora:0)||0))+'" oninput="reuCostPrev()">')+'</div>'+'<div class="r2">'+fld("Outra despesa &euro;",'<input type="number" id="ru_despv" step="0.01" value="'+(r?(r.despesaExtra||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("Categoria",sel("ru_despc",REU_DESP_CAT.map(function(o){return {v:o[0],t:o[1]};}),r?(r.despesaCat||"combustivel"):"combustivel"))+'</div>'+'<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:3px 0"><input type="checkbox" id="ru_aloc" '+(r&&r.custoAlocado?"checked":"")+'> Alocar este custo ao projeto selecionado (entra na rentabilidade do projeto)</label>'+'<div id="ru_costprev" style="font-size:11.5px;color:'+PUR+';font-weight:600;margin-top:4px"></div></div>';
+      +'<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;background:#faf8f4;cursor:pointer;margin-bottom:8px"><input type="checkbox" id="ru_part" '+(r&&r.partilhaCliente?"checked":"")+' style="width:17px;height:17px;flex:0 0 auto"><span style="font-size:12.5px"><b>Partilhar com o cliente</b> — a acta fica marcada como visível ao cliente. Se desmarcado, é <b>só interna</b>.</span></label>'+'<div style="border:1px solid #ece6dc;border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#5a5347;margin-bottom:7px">Custos da visita <span style="font-weight:400;color:#a89d8d">— opcional (deslocação e tempo)</span></div>'+'<div class="r2">'+fld("Km percorridos",'<input type="number" id="ru_km" step="1" value="'+(r?(r.km||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("&euro; / km",'<input type="number" id="ru_vkm" step="0.01" value="'+(r&&r.valorKm!=null&&r.valorKm!==""?r.valorKm:"0.40")+'" oninput="reuCostPrev()">')+'</div>'+'<div class="r2">'+fld("Horas dedicadas",'<input type="number" id="ru_horas" step="0.5" value="'+(r?(r.horas||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("&euro; / hora",'<input type="number" id="ru_vh" step="0.01" value="'+(r&&r.valorHora!=null&&r.valorHora!==""?r.valorHora:String((typeof horasCfg==="function"?horasCfg().valorHora:0)||0))+'" oninput="reuCostPrev()">')+'</div>'+'<div class="r2">'+fld("Outra despesa &euro;",'<input type="number" id="ru_despv" step="0.01" value="'+(r?(r.despesaExtra||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("Categoria",sel("ru_despc",REU_DESP_CAT.map(function(o){return {v:o[0],t:o[1]};}),r?(r.despesaCat||"combustivel"):"combustivel"))+'</div>'+'<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:3px 0"><input type="checkbox" id="ru_aloc" '+(r&&r.custoAlocado?"checked":"")+'> Alocar este custo ao projeto selecionado (entra na rentabilidade do projeto)</label>'+'<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:3px 0"><input type="checkbox" id="ru_nobanco" '+(r&&r.custoNoBanco?"checked":"")+'> Este custo já está lançado como despesa de banco (não voltar a somar à rentabilidade)</label>'+'<div id="ru_costprev" style="font-size:11.5px;color:'+PUR+';font-weight:600;margin-top:4px"></div></div>';
     if(!ro)body+='<div style="display:flex;gap:8px;margin-top:4px">'+(id?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delReuniao(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';flex:1" onclick="svReuniao(\''+(id||"")+'\')">Guardar</button></div>';
     else body+='<div style="font-size:11.5px;color:#a89d8d">Sem permissão para editar.</div>';
     document.getElementById("mArea").innerHTML=mWrap(id?"Reunião / visita":"Nova reunião / visita",body);
@@ -7591,7 +7648,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var rec=id?reuList().filter(function(x){return x.id===id;})[0]:null;
     var isNew=!rec;if(isNew)rec={id:uid(),createdBy:(typeof myEmail==="function"?myEmail():"")||"",createdAt:todayISO()};
     rec.clientId=cliId;rec.tipo=g("ru_tipo");rec.modo=g("ru_modo");rec.data=g("ru_data")||todayISO();rec.hora=g("ru_hora");rec.dealId=g("ru_deal");rec.local=g("ru_local");rec.assunto=g("ru_ass");rec.participantes=g("ru_pnos");rec.participantesCliente=g("ru_pcli");rec.acta=g("ru_acta");rec.proximosPassos=g("ru_pp");
-    var pc=document.getElementById("ru_part");rec.partilhaCliente=!!(pc&&pc.checked);rec.updatedAt=todayISO();rec.km=Number(g("ru_km"))||0;rec.valorKm=(g("ru_vkm")===""?"":Number(g("ru_vkm"))||0);rec.horas=Number(g("ru_horas"))||0;rec.valorHora=(g("ru_vh")===""?"":Number(g("ru_vh"))||0);rec.despesaExtra=Number(g("ru_despv"))||0;rec.despesaCat=g("ru_despc");var _ac=document.getElementById("ru_aloc");rec.custoAlocado=!!(_ac&&_ac.checked);
+    var pc=document.getElementById("ru_part");rec.partilhaCliente=!!(pc&&pc.checked);rec.updatedAt=todayISO();rec.km=Number(g("ru_km"))||0;rec.valorKm=(g("ru_vkm")===""?"":Number(g("ru_vkm"))||0);rec.horas=Number(g("ru_horas"))||0;rec.valorHora=(g("ru_vh")===""?"":Number(g("ru_vh"))||0);rec.despesaExtra=Number(g("ru_despv"))||0;rec.despesaCat=g("ru_despc");var _ac=document.getElementById("ru_aloc");rec.custoAlocado=!!(_ac&&_ac.checked);var _nb=document.getElementById("ru_nobanco");rec.custoNoBanco=!!(_nb&&_nb.checked);
     if(isNew)reuList().push(rec);
     if(typeof logAct==="function")logAct("Comercial",(isNew?"Reunião registada":"Reunião atualizada")+" — "+cn(cliId)+(rec.assunto?" · "+String(rec.assunto).slice(0,30):""));
     save();clM();ren();toastSafe("Reunião guardada.","ok");
@@ -7669,6 +7726,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       maps.forEach(function(m){h+='<tr><td style="font-weight:600">'+esc(m.nome||"—")+'</td><td style="font-size:12px">'+esc(m.de||"—")+'</td><td style="font-size:12px">'+esc(m.para||"—")+'</td><td style="font-size:12px;color:#7a7268">'+esc(m.descricao||"")+'</td>'+(canEdit?'<td style="text-align:right;white-space:nowrap"><button class="btn bs" style="background:'+SL+'" onclick="openMapeamento(\''+m.id+'\')">Editar</button> <button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delMapeamento(\''+m.id+'\')">×</button></td>':'')+'</tr>';});
       h+='</tbody></table></div>';}
     h+='</div>';
+    h+=(function(){var pint=[];(D.projectos||[]).forEach(function(p){(p.integracoes||[]).forEach(function(it){pint.push({p:p,it:it});});});if(!pint.length)return "";var byP={};pint.forEach(function(o){var d=(D.deals||[]).filter(function(x){return x.id===o.p.dealId;})[0]||{};var k=cn(d.clientId)||"projeto";byP[k]=(byP[k]||0)+1;});return '<div class="cd" style="border-left:3px solid '+GD+'"><div class="ct2" style="margin-bottom:6px">Integrações registadas dentro de projetos ('+pint.length+')</div><div style="font-size:12.5px;color:#7a7268">Estas integrações estão nos workspaces dos projetos, fora do catálogo acima. Para teres uma fonte única, regista-as também aqui como interfaces. Por cliente: '+Object.keys(byP).sort(function(a,b){return byP[b]-byP[a];}).map(function(k){return esc(k)+" <b>"+byP[k]+"</b>";}).join(" · ")+'</div></div>';})();
     h+='<div class="cd" style="border-left:3px solid '+BLU+'"><div style="font-size:12.5px;color:#3a352e"><b>Monitorização de canais (fase 2).</b> A leitura em tempo real do estado dos canais do motor de interfaces (ex.: Mirth Connect) far-se-á por uma Edge Function do Supabase, só de leitura — os segredos ficam no Vault, nunca no frontend.</div></div>';
     app.innerHTML=h;
   }
@@ -8129,9 +8187,132 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var doIt=function(){D.bolsas=bolsaList().filter(function(x){return x.id!==id;});if(typeof logAct==="function")logAct("Comercial","Bolsa de horas eliminada");save();clM();ren();toastSafe("Eliminada.","ok");};
     if(typeof confirmM==="function")confirmM("Eliminar esta bolsa de horas?",doIt,{yesLabel:"Eliminar"});else doIt();
   };
+  // ===================== SUBSCRIÇÕES / AT (Comercial — não geram projeto) =====================
+  function subDeals(){return (D.deals||[]).filter(function(d){return isWon(d)&&isSubDeal(d);});}
+  function subRenewDays(d){if(!d||!d.renewDate)return null;return Math.round((new Date(d.renewDate)-new Date(todayISO()))/86400000);}
+  window.subDeals=subDeals;
+  window.subSetRenew=function(id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;d.renewDate=v||"";if(typeof logAct==="function")logAct("Comercial","Renovação atualizada — "+cn(d.clientId)+(v?" ("+fmtD(v)+")":""));save();ren();};
+  function renderSubscricoes(){
+    var app=document.getElementById("app");if(!app)return;
+    var canEdit=!(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
+    var all=subDeals();
+    var fCli=window.__subCli||"";
+    var list=all.filter(function(d){return !fCli||d.clientId===fCli;});
+    list.sort(function(a,b){var ra=a.renewDate||"9999-99",rb=b.renewDate||"9999-99";return ra.localeCompare(rb);});
+    var arrTot=all.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+    var valTot=all.reduce(function(a,d){return a+(Number(d.value)||0);},0);
+    var soon=all.filter(function(d){var dd=subRenewDays(d);return dd!=null&&dd<=60;});
+    var h=pgHead("🔁","Subscrições / AT");
+    h+='<div style="font-size:12px;color:#7a7268;margin:-4px 0 12px">Negócios do tipo <b>AT</b> e <b>Subscrição</b> já ganhos. <b>Não geram projeto</b> — a gestão do serviço e das renovações faz-se aqui.</div>';
+    h+='<div class="kr">'+kpi("Subscrições",String(all.length),"AT + Subscrição",PUR,PUR)+kpi("ARR total",fmt(arrTot),"receita recorrente/ano",GRN,GRN)+kpi("Valor total",fmt(valTot),"contratado",BLU,BLU)+kpi("A renovar (60d)",String(soon.length),"próximas renovações",soon.length?GD:SL,soon.length?GD:SL)+'</div>';
+    if(soon.length){
+      h+='<div style="background:'+rgba(GD,.1)+';border:1px solid '+rgba(GD,.35)+';border-radius:10px;padding:11px 13px;margin-bottom:12px"><div style="font-weight:700;font-size:12.5px;color:#8a6d1a;margin-bottom:5px">⏰ Renovações nos próximos 60 dias ('+soon.length+')</div>';
+      soon.slice().sort(function(a,b){return (a.renewDate||"").localeCompare(b.renewDate||"");}).forEach(function(d){var dd=subRenewDays(d);h+='<div style="font-size:12px;color:#5a5347;padding:2px 0">'+esc(cn(d.clientId))+' — '+esc(String(d.product||"").slice(0,44))+' · <b>'+fmtD(d.renewDate)+'</b> '+(dd<0?'<span style="color:'+R+'">(em atraso '+(-dd)+'d)</span>':'<span style="color:#8a6d1a">(faltam '+dd+'d)</span>')+'</div>';});
+      h+='</div>';
+    }
+    var clis={};all.forEach(function(d){if(d.clientId)clis[d.clientId]=1;});
+    h+='<div class="cd"><div class="ch"><div class="ct2">Subscrições ('+list.length+')</div>'+(Object.keys(clis).length>1?'<select onchange="window.__subCli=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os clientes</option>'+Object.keys(clis).map(function(c){return '<option value="'+esc(c)+'"'+(fCli===c?" selected":"")+'>'+esc(cn(c))+'</option>';}).join("")+'</select>':'')+'</div>';
+    if(!list.length)h+='<div style="font-size:12.5px;color:#a89d8d;margin-top:8px">Sem subscrições. Um negócio do tipo <b>AT</b> ou <b>Subscrição</b>, quando ganho, aparece aqui automaticamente — em vez de criar projeto.</div>';
+    else{
+      h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Produto</th><th>Tipo</th><th style="text-align:right">Valor</th><th style="text-align:right">ARR</th><th>Início</th><th>Renovação</th><th>Estado</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      list.forEach(function(d){
+        var dd=subRenewDays(d);var rcol=dd==null?"#a89d8d":(dd<0?R:(dd<=60?GD:GRN));
+        var estLbl=d.stage==="concluido"?"Encerrada":"Ativa";var estCol=d.stage==="concluido"?SL:GRN;
+        h+='<tr>'+
+          '<td style="font-weight:600">'+esc(cn(d.clientId))+'</td>'+
+          '<td style="color:#3a352e;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.product||"—")+'</td>'+
+          '<td>'+bdg(d.type==="AT"?"AT":"SUB",d.type==="AT"?TEAL:PUR)+'</td>'+
+          '<td style="text-align:right;font-weight:700">'+fmt(d.value||0)+'</td>'+
+          '<td style="text-align:right;color:'+(d.arr>0?PUR:"#c9c1b4")+';font-weight:600">'+(d.arr>0?fmt(d.arr):"—")+'</td>'+
+          '<td style="font-size:12px;color:#7a7268">'+(d.date?fmtD(d.date):"—")+'</td>'+
+          '<td>'+(canEdit?'<input type="date" value="'+(d.renewDate||"")+'" onchange="subSetRenew(\''+d.id+'\',this.value)" style="border:1px solid #e5e0da;border-radius:7px;padding:4px 7px;font-size:11.5px;font-family:inherit;color:'+rcol+'">':(d.renewDate?'<span style="color:'+rcol+';font-weight:600">'+fmtD(d.renewDate)+'</span>':'—'))+'</td>'+
+          '<td>'+bdg(estLbl,estCol)+'</td>'+
+          (canEdit?'<td style="text-align:right;white-space:nowrap"><button class="btn bs" style="background:'+GRN+'" onclick="subFaturar(\''+d.id+'\')">＋ Faturar</button> <button class="btn bs" style="background:'+SL+'" onclick="editDl(\''+d.id+'\')">Editar</button></td>':'')+
+        '</tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</div>';
+    app.innerHTML=h;
+  }
+  window.renderSubscricoes=renderSubscricoes;
+window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;var amt=Number(d.arr)||Number(d.value)||0;if(amt<=0){toastSafe("Sem valor/ARR para faturar.");return;}var doIt=function(){if(!Array.isArray(D.invoices))D.invoices=[];D.invoices.push({id:uid(),dealId:d.id,amount:amt,date:todayISO(),collected:false,collDate:"",subFatura:true});if(d.renewDate){var nd=new Date(d.renewDate+"T00:00:00");nd.setFullYear(nd.getFullYear()+1);d.renewDate=nd.toISOString().slice(0,10);}if(typeof logAct==="function")logAct("Faturação","Fatura de subscrição — "+cn(d.clientId)+" "+fmt(amt));save();if(typeof clM==="function")clM();ren();toastSafe("Fatura criada"+(d.renewDate?" · renovação para "+fmtD(d.renewDate):"")+".","ok");};if(typeof confirmM==="function")confirmM("Criar fatura de <b>"+fmt(amt)+"</b> para <b>"+esc(cn(d.clientId))+"</b>?"+(d.renewDate?"<br>A data de renovação avança 1 ano.":""),doIt,{yesLabel:"Faturar"});else doIt();};
+  // ===================== RELATÓRIO MENSAL / EXECUTIVO (C8) =====================
+  window.relatorioMensal=function(){
+    var S2=(typeof S!=="undefined"&&S)?S:((typeof st==="function")?st():{inv:0,exp:0,col:0,cf2:0});
+    var pess=(typeof tsPessoalAno==="function")?tsPessoalAno():0;
+    var res=(Number(S2.inv)||0)-(Number(S2.exp)||0)-(Number(pess)||0);
+    var yr=(typeof activeYear==="function")?activeYear():"2026";
+    var e2=function(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");};
+    // horas por cliente (ano ativo)
+    var byCli={};(typeof allHours==="function"?allHours():[]).forEach(function(x){if(typeof inYear==="function"&&!inYear(x.data))return;var k=x._client?cn(x._client):(x.cliente||"—");byCli[k]=(byCli[k]||0)+(Number(x.horas)||0);});
+    var cliRows=Object.keys(byCli).sort(function(a,b){return byCli[b]-byCli[a];});
+    // subscrições a renovar (90 dias)
+    var subs=(typeof subDeals==="function"?subDeals():[]).map(function(d){return {n:cn(d.clientId),p:d.product||"",arr:Number(d.arr)||0,dd:(typeof subRenewDays==="function")?subRenewDays(d):null};}).filter(function(s){return s.dd!=null&&s.dd<=90;}).sort(function(a,b){return a.dd-b.dd;});
+    var arrTot=(typeof subDeals==="function"?subDeals():[]).reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+    // bolsas de horas
+    var bols=(typeof bolsaList==="function"?bolsaList():[]).map(function(b){return {n:cn(b.clientId),h:Number(b.horas)||0,s:(typeof bolsaSaldo==="function")?bolsaSaldo(b):0};});
+    var fmtH=function(n){return (typeof fmtHM==="function")?fmtHM(n):(Math.round(n*10)/10+"h");};
+    var win=window.open("","_blank");if(!win){toastSafe&&toastSafe("Permite pop-ups para abrir o relatório.");return;}
+    var row=function(l,v,c){return '<tr><td>'+e2(l)+'</td><td style="text-align:right;font-weight:700'+(c?';color:'+c:'')+'">'+e2(v)+'</td></tr>';};
+    var html='<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Relatório — '+e2(yr)+'</title>'
+      +'<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#2b2620;max-width:800px;margin:30px auto;padding:0 22px;line-height:1.5}h1{font-size:22px;margin:0 0 2px}.sub{color:#8a8072;font-size:13px;margin-bottom:20px}h2{font-size:14px;margin:22px 0 6px;border-bottom:2px solid #AB2331;padding-bottom:4px;color:#AB2331}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:6px}td,th{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8072}.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}.k{flex:1;min-width:120px;border:1px solid #eee;border-radius:10px;padding:10px 12px}.k .n{font-size:20px;font-weight:700}.k .l{font-size:11px;color:#8a8072}.foot{margin-top:26px;font-size:11px;color:#a89d8d;border-top:1px solid #eee;padding-top:8px}@media print{.noprint{display:none}}</style></head><body>'
+      +'<h1>Relatório executivo Mobilwave</h1><div class="sub">Ano '+e2(yr)+' · gerado em '+e2((typeof fmtD==="function")?fmtD(todayISO()):todayISO())+'</div>'
+      +'<h2>Resumo financeiro</h2><div class="kpis">'
+      +'<div class="k"><div class="n">'+e2(fmt(S2.inv||0))+'</div><div class="l">Faturado</div></div>'
+      +'<div class="k"><div class="n">'+e2(fmt(S2.col||0))+'</div><div class="l">Cobrado</div></div>'
+      +'<div class="k"><div class="n" style="color:#AB2331">-'+e2(fmt((S2.exp||0)+pess))+'</div><div class="l">Custos (despesas + pessoal)</div></div>'
+      +'<div class="k"><div class="n" style="color:'+(res<0?"#AB2331":"#1a7f4b")+'">'+e2(fmt(res))+'</div><div class="l">Resultado</div></div></div>'
+      +'<table>'+row("Faturação",fmt(S2.inv||0))+row("Despesas diretas",fmt(S2.exp||0),"#AB2331")+row("Custo de pessoal (horas)",fmt(pess),"#AB2331")+row("ARR contratado (subscrições/AT)",fmt(arrTot),"#1a7f4b")+'</table>'
+      +'<h2>Horas por cliente ('+e2(yr)+')</h2>';
+    if(!cliRows.length)html+='<div style="font-size:12px;color:#a89d8d">Sem horas registadas.</div>';
+    else{html+='<table><thead><tr><th>Cliente</th><th style="text-align:right">Horas</th></tr></thead><tbody>';cliRows.forEach(function(k){html+='<tr><td>'+e2(k)+'</td><td style="text-align:right;font-weight:700">'+e2(fmtH(byCli[k]))+'</td></tr>';});html+='</tbody></table>';}
+    html+='<h2>Subscrições a renovar (90 dias)</h2>';
+    if(!subs.length)html+='<div style="font-size:12px;color:#a89d8d">Nenhuma renovação nos próximos 90 dias.</div>';
+    else{html+='<table><thead><tr><th>Cliente</th><th>Produto</th><th style="text-align:right">ARR</th><th style="text-align:right">Renova em</th></tr></thead><tbody>';subs.forEach(function(s){html+='<tr><td>'+e2(s.n)+'</td><td>'+e2(s.p)+'</td><td style="text-align:right">'+e2(fmt(s.arr))+'</td><td style="text-align:right'+(s.dd<0?";color:#AB2331":"")+'">'+(s.dd<0?"atraso "+(-s.dd)+"d":s.dd+"d")+'</td></tr>';});html+='</tbody></table>';}
+    html+='<h2>Bolsas de horas</h2>';
+    if(!bols.length)html+='<div style="font-size:12px;color:#a89d8d">Sem bolsas de horas.</div>';
+    else{html+='<table><thead><tr><th>Cliente</th><th style="text-align:right">Contratadas</th><th style="text-align:right">Saldo</th></tr></thead><tbody>';bols.forEach(function(b){html+='<tr><td>'+e2(b.n)+'</td><td style="text-align:right">'+e2(fmtH(b.h))+'</td><td style="text-align:right;font-weight:700'+(b.s<=0?";color:#AB2331":"")+'">'+e2(fmtH(b.s))+'</td></tr>';});html+='</tbody></table>';}
+    html+='<div class="foot">Mobilwave · DOCbase ERP · relatório gerado automaticamente. Valores do ano '+e2(yr)+'.</div>'
+      +'<div class="noprint" style="margin-top:18px"><button onclick="window.print()" style="background:#AB2331;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">Imprimir / PDF</button></div>'
+      +'</body></html>';
+    win.document.write(html);win.document.close();
+  };
+  function migDespReemb(){
+    if(D._migDespReembV1)return;
+    if(!Array.isArray(D.reembolsos))D.reembolsos=[];
+    var stMap={pendente:"submetido",aprovado:"aprovado",pago:"pago",rejeitado:"recusado"};
+    try{Object.keys(D.hrPeople||{}).forEach(function(em){var pp=D.hrPeople[em];if(!pp||!Array.isArray(pp.despesas)||!pp.despesas.length)return;pp.despesas.forEach(function(d){D.reembolsos.push({id:(typeof reuid==="function"?reuid():("r"+Math.random().toString(36).slice(2))),email:em,data:d.data||todayISO(),categoria:d.categoria||"outro",valor:Number(d.valor)||0,descricao:d.descricao||d.nota||"",comprovativo:"",estado:stMap[d.estado]||"submetido",_fromHR:true,createdAt:d.createdAt||todayISO()});});pp._despesasArquivo=(pp._despesasArquivo||[]).concat(pp.despesas);pp.despesas=[];});}catch(e){}
+    D._migDespReembV1=true;try{if(typeof save==="function")save();}catch(e){}
+  }
+  // ===================== C5 · CONCILIAÇÃO REEMBOLSOS ↔ BANCO =====================
+  window.reConciliar=function(id){
+    if(typeof reCanApprove==="function"&&!reCanApprove()){toastSafe("Sem permissão.");return;}
+    var r=reList().filter(function(x){return x.id===id;})[0];if(!r)return;
+    var avail=(D.expenses||[]).filter(function(e){return !e.reembolsoId;}).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+    var opts=avail.map(function(e){return '<option value="'+e.id+'">'+esc((e.date||"")+" · "+(e.desc||"")+" · "+fmt(e.amount)+(e.bank?" ("+e.bank+")":""))+'</option>';}).join("");
+    var body=fld("Movimento de banco correspondente",'<select id="rc_exp"><option value="">— escolher —</option>'+opts+'</select>')
+      +'<div style="font-size:11.5px;color:#a89d8d;margin:2px 0 10px">Liga este reembolso ('+fmt(r.valor)+') à transferência que aparece no extrato do banco, para o pagamento não contar duas vezes.</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="reConcSave(\''+id+'\')">Conciliar</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Conciliar reembolso com o banco",body);
+  };
+  window.reConcSave=function(id){
+    var r=reList().filter(function(x){return x.id===id;})[0];if(!r)return;
+    var eid=(document.getElementById("rc_exp")||{}).value||"";if(!eid){toastSafe("Escolhe o movimento de banco.");return;}
+    r.expenseId=eid;var e=(D.expenses||[]).filter(function(x){return x.id===eid;})[0];if(e)e.reembolsoId=id;
+    if(typeof logAct==="function")logAct("Reembolso","Conciliado com movimento de banco — "+fmt(r.valor));
+    save();clM();ren();toastSafe("Reembolso conciliado com o banco.","ok");
+  };
+  window.reDesconciliar=function(id){
+    var r=reList().filter(function(x){return x.id===id;})[0];if(!r)return;
+    var e=(D.expenses||[]).filter(function(x){return x.id===r.expenseId;})[0];if(e)delete e.reembolsoId;
+    delete r.expenseId;if(typeof logAct==="function")logAct("Reembolso","Desconciliado do banco");save();ren();toastSafe("Desconciliado.","ok");
+  };
   if(typeof rPnl==="function"){
     var _r=rPnl;
     rPnl=function(){
+      try{if(typeof migDespReemb==="function")migDespReemb();}catch(e){}
+      try{if(typeof updateBell==="function")updateBell();}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="__home"){try{var _hel=document.getElementById("app");if(_hel&&typeof renderHome==="function")_hel.innerHTML=renderHome();}catch(e){}return;}
       try{if(typeof cTab!=="undefined"&&typeof syncBlockToTab==="function"&&cTab!=="__home")syncBlockToTab();}catch(e){}
       try{if(typeof cTab!=="undefined"&&cTab!=="projetos"&&typeof projView!=="undefined")projView=null;}catch(e){}
@@ -8174,6 +8355,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&cTab==="desenvolvimento"){try{renderDesenvolvimento();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="portalacessos"){try{renderPortalAcessos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="bolsahoras"){try{renderBolsas();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="subscricoes"){try{renderSubscricoes();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="dashboard"){try{injectExecPanel();}catch(e){}}
       if(typeof cTab!=="undefined"&&cTab==="financeiro"){if(finSub==="faturas"){try{injectRecurringCard();}catch(e){}}if(finSub==="orcamento"){try{injectScenariosCard();}catch(e){}}}
@@ -8275,7 +8457,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"Orçamento & ARR",i:"🎯",dept:"orcamento",items:[
       {id:"orc2027",l:"Orçamento próximo ano"},{id:"arr",l:"ARR"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
-      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"bolsahoras",l:"Bolsa de horas"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
+      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"bolsahoras",l:"Bolsa de horas"},{id:"subscricoes",l:"Subscrições/AT"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Diretório"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Região & Carteira"},{id:"mapa",l:"Mapa"}]},
     {group:"Projetos",i:"🛠️",dept:"projectos",items:[
