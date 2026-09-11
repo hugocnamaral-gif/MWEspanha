@@ -1036,8 +1036,8 @@ if(cTab==="dashboard"){
     if(S.pendPrev>0)h+='<div style="font-size:11px;color:#7a7268;margin-top:6px">Das quais <b>'+fmt(S.pendPrev)+'</b> são facturas anteriores a '+activeYear()+' (incluído no total acima, não é adicional).</div>';
     h+='</div>';
   } else if(finSub==="despesas"){
-  h+='<div class="cd"><div class="ch"><div class="ct2">Despesas</div><div style="display:flex;gap:6px;align-items:center"><label class="btn bs" style="background:'+SL+';cursor:pointer;margin:0">📄 Importar Excel<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="impDespesasXlsx(this)"></label><button class="btn bs" style="background:'+R+'" onclick="openEM(\'\')">+ Despesa</button></div></div><div style="font-size:11px;color:#a89d8d;margin-bottom:8px">Clica numa despesa para editar, atribuir a projeto/cliente ou eliminar. Importar Excel: colunas <b>data</b>, <b>a que se refere</b>, <b>valor</b>, <b>tipo</b>.</div><div style="max-height:560px;overflow:auto">';
-  D.expenses.slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){var _pj=e.projetoId?((D.deals||[]).find(function(x){return x.id===e.projetoId})||null):null;var _tag=[e.type,(_pj?cn(_pj.clientId):""),e.client].filter(Boolean).join(" · ");h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f7f5;cursor:pointer" onclick="openEM(\''+e.id+'\')"><div><div style="font-size:12px;font-weight:500">'+esc(e.desc||"—")+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(e.date)+(e.bank?" · "+esc(e.bank):"")+(_tag?" · "+esc(_tag):"")+'</div></div><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button class="btn bs" style="background:'+SL+'" onclick="event.stopPropagation();openEM(\''+e.id+'\')">Editar</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="event.stopPropagation();delEx(\''+e.id+'\')">✕</button></div></div>'});
+  h+='<div class="cd"><div class="ch"><div class="ct2">Despesas</div><div style="display:flex;gap:6px;align-items:center"><label class="btn bs" style="background:'+SL+';cursor:pointer;margin:0">📄 Importar Excel<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="impDespesasXlsx(this)"></label><button class="btn bs" style="background:'+R+'" onclick="openEM(\'\')">+ Despesa</button></div></div><div style="font-size:11px;color:#a89d8d;margin-bottom:8px">Clica numa despesa para editar, atribuir a projeto/cliente ou eliminar. Importar Excel: colunas <b>data</b>, <b>a que se refere</b>, <b>valor</b>, <b>tipo</b>.</div>'+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><select onchange="window.__expAloc=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Alocação: todas</option><option value="sim"'+(window.__expAloc==="sim"?" selected":"")+'>Alocadas a projeto</option><option value="nao"'+(window.__expAloc==="nao"?" selected":"")+'>Não alocadas a projeto</option></select></div>'+'<div style="max-height:560px;overflow:auto">';
+  D.expenses.filter(function(e){var al=!!e.projetoId;if(window.__expAloc==="sim"&&!al)return false;if(window.__expAloc==="nao"&&al)return false;return true;}).slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){var _pj=e.projetoId?((D.deals||[]).find(function(x){return x.id===e.projetoId})||null):null;var _tag=[e.type,(_pj?cn(_pj.clientId):""),e.client].filter(Boolean).join(" · ");h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f7f5;cursor:pointer" onclick="openEM(\''+e.id+'\')"><div><div style="font-size:12px;font-weight:500">'+esc(e.desc||"—")+'</div><div style="font-size:10px;color:#7a7268">'+fmtD(e.date)+(e.bank?" · "+esc(e.bank):"")+(_tag?" · "+esc(_tag):"")+'</div></div><div style="display:flex;align-items:center;gap:6px">'+(e.projetoId?'<span style="font-size:9px;font-weight:600;color:'+GRN+';border:1px solid '+rgba(GRN,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">alocado</span>':'')+'<span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button class="btn bs" style="background:'+SL+'" onclick="event.stopPropagation();openEM(\''+e.id+'\')">Editar</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="event.stopPropagation();delEx(\''+e.id+'\')">✕</button></div></div>'});
   h+='</div></div>';
   } else {
   var _movPend=!!window.__movPend;var _ylab=(typeof _yearSel!=="undefined"&&_yearSel==="all")?"(todos os anos)":activeYear();var _dd=function(a,b){return (b.date||"").localeCompare(a.date||"")};
@@ -1279,7 +1279,7 @@ function editSpec(id){openSpecM({editId:id})}
 function svSpec(editId){var data={clientId:document.getElementById("f1").value,specialty:document.getElementById("f2").value,at:document.getElementById("f3").value==="1"};if(editId){var sp=D.clientSpecs.find(function(x){return x.id===editId});if(sp){Object.assign(sp,data);logAct("Cliente","Especialidade actualizada: "+cn(data.clientId)+" — "+data.specialty+(data.at?" (AT activa)":""))}}else{data.id=uid();D.clientSpecs.push(data);logAct("Cliente","Especialidade adicionada: "+cn(data.clientId)+" — "+data.specialty)}save();clM();ren()}
 function delSpec(id){confirmM("Remover esta especialidade do registo?",function(){tombDel("spec",id);D.clientSpecs=D.clientSpecs.filter(function(s){return s.id!==id});save();ren()},{yesLabel:"Remover"})}
 function svDl(editId){var _ct=document.getElementById("f1t");var _cid=(document.getElementById("f1")||{}).value||"";if(_ct){var _nm=(_ct.value||"").trim().toLowerCase();var _m=D.clients.filter(function(c){return (c.name||"").toLowerCase()===_nm;})[0];if(_m)_cid=_m.id;}if(!_cid){if(typeof toast==="function")toast("Escolhe um cliente da lista.",{type:"error"});return}var data={clientId:_cid,product:document.getElementById("f2").value,specialty:document.getElementById("f3").value,type:document.getElementById("f4").value,stage:document.getElementById("f7").value,value:Number(document.getElementById("f5").value),arr:Number(document.getElementById("f6").value),date:document.getElementById("f8").value,nextAction:(document.getElementById("f9")||{}).value||"",nextDate:(document.getElementById("f10")||{}).value||"",lostDate:(document.getElementById("f11")||{}).value||"",lostReason:(document.getElementById("f12")||{}).value||""};if(editId){var dl=D.deals.find(function(x){return x.id===editId});if(dl){Object.assign(dl,data);logAct("Pipeline","Deal editado: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}}else{data.id=uid();D.deals.push(data);logAct(data.stage==="proposta"?"Proposta":"Pipeline","Novo deal ["+SL2[data.stage]+"]: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}save();clM();ren()}
-function openEM(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var projs=[{v:"",t:"— sem projeto —"}].concat((D.projectos||[]).map(function(p){var d=(D.deals||[]).find(function(x){return x.id===p.dealId})||{};return {v:p.dealId,t:cn(d.clientId)+" · "+String(d.product||p.nome||"").slice(0,26)};}));document.getElementById("mArea").innerHTML=mWrap(e?"Editar Despesa":"Nova Despesa",fld("Descrição / a que se refere",'<input id="f1" value="'+esc(e?(e.desc||""):"")+'">')+'<div class="r2">'+fld("Valor €",'<input type="number" step="0.01" id="f2" value="'+(e?e.amount:0)+'">')+fld("Data",'<input type="date" id="f3" value="'+(e?e.date:new Date().toISOString().slice(0,10))+'">')+'</div><div class="r2">'+fld("Banco",sel("f4",["Santander","CGD",""],e?(e.bank||""):"Santander"))+fld("Tipo",sel("f5",["Viagem","Marketing","Software","Serviços","Equipamento","Outro"],e?(e.type||"Outro"):"Viagem"))+'</div><div class="r2">'+fld("Projeto (opcional)",sel("f7",projs,e?(e.projetoId||""):""))+fld("Cliente (opcional)",'<input id="f6" value="'+esc(e?(e.client||""):"")+'">')+'</div>'+(id?'<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+';width:100%;margin-bottom:6px" onclick="delEx(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svEx(\''+(id||"")+'\')">Guardar</button>')}
+function openEM(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var projs=[{v:"",t:"— sem projeto —"}].concat((D.projectos||[]).map(function(p){var d=(D.deals||[]).find(function(x){return x.id===p.dealId})||{};return {v:p.dealId,t:cn(d.clientId)+" · "+String(d.product||p.nome||"").slice(0,26)};}));document.getElementById("mArea").innerHTML=mWrap(e?"Editar Despesa":"Nova Despesa",fld("Descrição / a que se refere",'<input id="f1" value="'+esc(e?(e.desc||""):"")+'">')+'<div class="r2">'+fld("Valor €",'<input type="number" step="0.01" id="f2" value="'+(e?e.amount:0)+'">')+fld("Data",'<input type="date" id="f3" value="'+(e?e.date:new Date().toISOString().slice(0,10))+'">')+'</div><div class="r2">'+fld("Banco",sel("f4",["Santander","CGD",""],e?(e.bank||""):"Santander"))+fld("Tipo",sel("f5",["Viagem","Combustível","Telecomunicações","Eletricidade","Software","Serviços","Marketing","Equipamento","Stock","Outro"],e?(e.type||"Outro"):"Viagem"))+'</div><div class="r2">'+fld("Projeto (opcional)",sel("f7",projs,e?(e.projetoId||""):""))+fld("Cliente (opcional)",'<input id="f6" value="'+esc(e?(e.client||""):"")+'">')+'</div>'+(id?'<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+';width:100%;margin-bottom:6px" onclick="delEx(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svEx(\''+(id||"")+'\')">Guardar</button>')}
 function svEx(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var rec=e||{id:uid()};rec.desc=document.getElementById("f1").value;rec.amount=Number(document.getElementById("f2").value)||0;rec.date=document.getElementById("f3").value;rec.bank=document.getElementById("f4").value;rec.type=document.getElementById("f5").value;rec.client=document.getElementById("f6").value;rec.projetoId=document.getElementById("f7").value;if(!e){D.expenses.push(rec);logAct("Despesa",(rec.desc||"").slice(0,40)+" — "+fmt(rec.amount));}else{logAct("Despesa","Despesa editada — "+(rec.desc||"").slice(0,40));}save();clM();ren()}
 function _despNum(v){var s=String(v==null?"":v).trim();if(!s)return NaN;if(s.indexOf(",")>=0&&s.indexOf(".")>=0)s=s.replace(/\./g,"").replace(",",".");else if(s.indexOf(",")>=0)s=s.replace(",",".");return parseFloat(s);}function _despDate(v){if(v==null||v==="")return "";var s=String(v).trim();var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);if(m){var dd=("0"+m[1]).slice(-2),mm=("0"+m[2]).slice(-2),yy=m[3].length===2?"20"+m[3]:m[3];if(+mm>=1&&+mm<=12&&+dd>=1&&+dd<=31)return yy+"-"+mm+"-"+dd;}var m2=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);if(m2)return m2[1]+"-"+("0"+m2[2]).slice(-2)+"-"+("0"+m2[3]).slice(-2);var d=new Date(s);if(!isNaN(d)&&d.getFullYear()>2000)return d.toISOString().slice(0,10);return s.slice(0,10);}
 function impDespesasXlsx(input){var file=input.files&&input.files[0];if(!file){return;}readFileWB(file).then(function(wb){var ws=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});var hr=findHdrRow(rows,["data","valor"]);if(hr<0)hr=0;var hdr=rows[hr]||[];var iD=colIdx(hdr,"data"),iV=colIdx(hdr,"valor"),iT=colIdx(hdr,"tipo");var iR=colIdx(hdr,"refere");if(iR<0)iR=colIdx(hdr,"descri");if(iR<0)iR=colIdx(hdr,"que se");if(iD<0||iV<0){toast("Não encontrei as colunas Data e Valor no ficheiro.");input.value="";return;}var added=0,skip=0;for(var r=hr+1;r<rows.length;r++){var row=rows[r];if(!row||row[iV]===undefined||row[iV]==="")continue;var amt=Math.abs(_despNum(row[iV]));if(isNaN(amt)||amt===0)continue;var dt=_despDate(row[iD]);var desc=String(iR>=0?(row[iR]||""):"").trim()||"Despesa importada";var tipo=String(iT>=0?(row[iT]||""):"").trim()||"Outro";var dup=(D.expenses||[]).some(function(x){return x.date===dt&&Math.abs(x.amount-amt)<0.01&&(x.desc||"")===desc;});if(dup){skip++;continue;}D.expenses.push({id:uid(),date:dt,desc:desc,amount:Math.round(amt*100)/100,bank:"",type:tipo,client:"",projetoId:""});added++;}if(added){logAct("Despesa",added+" despesa(s) importada(s) de Excel");save();ren();toast(added+" despesa(s) importada(s)"+(skip?" · "+skip+" repetida(s) ignorada(s)":"")+".",{type:"ok"});}else toast("Nenhuma despesa nova encontrada"+(skip?" ("+skip+" já existiam)":"")+".");input.value="";}).catch(function(err){toast("Erro a ler o Excel: "+((err&&err.message)||err));input.value="";});}
@@ -1899,8 +1899,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     D.invoices.forEach(function(i){if(inYear(i.date)){fatM[new Date(i.date).getMonth()]+=i.amount;}});
     var types={};
     D.expenses.forEach(function(e){if(!inYear(e.date))return;var k=e.type||"Outros";if(!types[k])types[k]=new Array(12).fill(0);types[k][new Date(e.date).getMonth()]+=e.amount;});
-    var LBL={Viagem:"Viagens",Marketing:"Marketing",Outro:"Outros",Outros:"Outros"};
-    var order=["Viagem","Marketing","Outro","Outros"];
+    var LBL={Viagem:"Viagens",Combustível:"Combustível",Telecomunicações:"Telecomunicações",Eletricidade:"Eletricidade",Software:"Software",Serviços:"Serviços",Marketing:"Marketing",Equipamento:"Equipamento",Stock:"Stock / Inventário",Outro:"Outros",Outros:"Outros"};
+    var order=["Viagem","Combustível","Telecomunicações","Eletricidade","Software","Serviços","Marketing","Equipamento","Stock","Outro","Outros"];
     var tkeys=Object.keys(types).sort(function(a,b){var ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
     var costM=new Array(12).fill(0);tkeys.forEach(function(k){for(var m=0;m<12;m++)costM[m]+=types[k][m];});
     var pessoalM=(typeof tsPessoalMes==="function")?tsPessoalMes():new Array(12).fill(0);for(var mp=0;mp<12;mp++)costM[mp]+=pessoalM[mp];
@@ -2182,7 +2182,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(d==="clientesg")return currentRole==="viewer"; // Clientes: acesso geral de leitura+edição para todos
     if(d==="suporte")return currentRole==="viewer"; // Suporte: todos podem registar/gerir pedidos (viewer só lê)
     if(!d||d==="admin")return true;
-    return userLevel(d)!=="edit";
+    if(currentRole==="viewer")return true;
+    return !userLevel(d);
   }
 
   // substitui o save() local por gravação na nuvem (com atraso para juntar edições)
@@ -2193,6 +2194,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
   function canLogHours(){return typeof currentRole!=="undefined"&&currentRole!=="viewer";}
   window.canLogHours=canLogHours;
+  function canLogForOthers(){if(typeof currentRole!=="undefined"&&currentRole==="admin")return true;try{return userLevel("direcao")==="edit"||userLevel("projectos")==="edit"||userLevel("rh")==="edit";}catch(e){return false;}}
+  window.canLogForOthers=canLogForOthers;
   function showSaveBlocked(){
     try{
       var idb="saveBlockedBar";if(document.getElementById(idb))return;
@@ -2423,6 +2426,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   }
   function renderReminders(){
     var r=computeReminders();var body="";
+    try{var _ar=asgRowsHTML();if(_ar)body+='<div class="ct2" style="color:'+PUR+';margin:2px 0 8px">Atribu\u00eddas a ti ('+myAssignments().total+')</div>'+_ar;}catch(e){}
     if(r.overdue.length)body+='<div class="ct2" style="color:'+R+';margin:2px 0 8px">Em atraso ('+r.overdue.length+')</div>'+r.overdue.map(function(d){return reminderRow(d,"over");}).join("");
     if(r.today.length)body+='<div class="ct2" style="color:'+GD+';margin:14px 0 8px">Hoje ('+r.today.length+')</div>'+r.today.map(function(d){return reminderRow(d,"today");}).join("");
     if(r.upcoming.length)body+='<div class="ct2" style="margin:14px 0 8px">Próximos 7 dias ('+r.upcoming.length+')</div>'+r.upcoming.map(function(d){return reminderRow(d,"up");}).join("");
@@ -2437,10 +2441,24 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     right.insertBefore(wrap,right.firstChild);
     wrap.querySelector("button").onclick=function(){renderReminders();};
   }
+  function myNames(){var out=[];var me=String((typeof myEmail==="function"?myEmail():currentEmail)||"").toLowerCase();if(me)out.push(me);try{var n1=ferName(me);if(n1)out.push(String(n1).toLowerCase());}catch(e){}try{var n2=emailToNome(me);if(n2)out.push(String(n2).toLowerCase());}catch(e){}return out;}
+  function nameIsMine(v){if(!v)return false;var s=String(v).trim().toLowerCase();if(!s)return false;var me=String((typeof myEmail==="function"?myEmail():currentEmail)||"").toLowerCase();var names=myNames();for(var i=0;i<names.length;i++){if(names[i]&&names[i]===s)return true;}if(me&&s===me)return true;try{var em=String(nomeToEmail(v)||"").toLowerCase();if(em&&me&&em===me)return true;}catch(e){}return false;}
+  function myAssignments(){var tasks=[],risks=[],tks=[];(D.projectos||[]).forEach(function(p){(p.tarefas||[]).forEach(function(t){if(t.estado==="feita")return;if(nameIsMine(t.responsavel))tasks.push({dealId:p.dealId,item:t});});(p.riscos||[]).forEach(function(x){if(x.estado==="fechado")return;if(nameIsMine(x.dono))risks.push({dealId:p.dealId,item:x});});});(D.tickets||[]).forEach(function(t){if(t.estado==="resolvido"||t.estado==="fechado")return;if(nameIsMine(t.assignee))tks.push({item:t});});return {tasks:tasks,risks:risks,tickets:tks,total:tasks.length+risks.length+tks.length};}
+  window.myAssignments=myAssignments;window.nameIsMine=nameIsMine;
+  function asgTaskEstLbl(e){for(var i=0;i<TK_EST.length;i++)if(TK_EST[i][0]===e)return TK_EST[i][1];return e||"—";}
+  function asgRiskEstLbl(e){for(var i=0;i<RK_EST.length;i++)if(RK_EST[i][0]===e)return RK_EST[i][1];return e||"—";}
+  function asgTkEstLbl(e){try{for(var i=0;i<TK_ESTADO.length;i++)if(TK_ESTADO[i][0]===e)return TK_ESTADO[i][1];}catch(x){}return e||"—";}
+  function asgRowHTML(kind,dealId,itemId,title,sub,stLbl,stCol){return '<div onclick="goToAssign(\''+kind+'\',\''+dealId+'\',\''+itemId+'\')" style="cursor:pointer;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;color:#1a1713;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div><div style="font-size:10.5px;color:#a89d8d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px">'+esc(sub)+'</div></div><div style="text-align:right;white-space:nowrap">'+bdg(stLbl,stCol)+'</div></div>';}
+  function asgRowsHTML(){var a=myAssignments();var out="";var _tec={a_fazer:SL,em_curso:BLU,bloqueada:R,feita:GRN};var _rec={aberto:R,mitigado:GD,fechado:SL};
+    a.tasks.forEach(function(o){var d=(D.deals||[]).filter(function(z){return z.id===o.dealId;})[0]||{};var pn=projName(null,d)+(d.clientId?" · "+cn(d.clientId):"");out+=asgRowHTML("tarefa",o.dealId,o.item.id,"📋 "+(o.item.titulo||"(tarefa)"),pn,asgTaskEstLbl(o.item.estado),_tec[o.item.estado]||SL);});
+    a.risks.forEach(function(o){var d=(D.deals||[]).filter(function(z){return z.id===o.dealId;})[0]||{};var pn=projName(null,d)+(d.clientId?" · "+cn(d.clientId):"");out+=asgRowHTML("risco",o.dealId,o.item.id,"⚠️ "+(o.item.descricao||"(risco)"),(o.item.mitigacao?"Plano: "+o.item.mitigacao:pn),asgRiskEstLbl(o.item.estado),_rec[o.item.estado]||GD);});
+    a.tickets.forEach(function(o){var t=o.item;out+=asgRowHTML("suporte","",t.id,"🎫 "+(t.titulo||"(ticket)"),(t.clientId?cn(t.clientId):"suporte"),asgTkEstLbl(t.estado),(typeof TK_ESTADO_COL!=="undefined"&&TK_ESTADO_COL[t.estado])||BLU);});
+    return out;}
+  window.goToAssign=function(kind,dealId,itemId){if(typeof clM==="function")clM();if(kind==="suporte"){if(typeof sTab==="function")sTab("suporte");setTimeout(function(){try{if(typeof openTicketM==="function")openTicketM(itemId);}catch(e){}},50);return;}if(typeof sTab==="function")sTab("projetos");setTimeout(function(){try{if(typeof openProj==="function")openProj(dealId);}catch(e){}},50);};
   function updateBell(){
     ensureBell();
     var badge=document.getElementById("mwBellCount");if(!badge)return;
-    var r=computeReminders();var n=r.overdue.length+r.today.length;
+    var r=computeReminders();var _asgN=0;try{_asgN=myAssignments().total;}catch(e){}var n=r.overdue.length+r.today.length+_asgN;
     if(n>0){badge.textContent=n>99?"99+":String(n);badge.style.display="inline-flex";}else{badge.style.display="none";}
   }
 
@@ -2596,7 +2614,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     }
     if(r.template==null)r.template=r.tipo==="integracao"?"integracao":"implementacao";
     if(r.nome==null)r.nome="";
-    if(r.gestor==null)r.gestor="";
+    if(r.gestor==null)r.gestor="";if(r.gestorConta==null)r.gestorConta="";
     if(r.inicio==null)r.inicio=r.createdAt||todayISO();
     if(r.fimPrev==null)r.fimPrev="";
     if(!Array.isArray(r.tarefas))r.tarefas=[];
@@ -2643,18 +2661,20 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function projHoras(r){return Math.round(((r.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0)+projTsHoras(r))*100)/100;}
   function projMaoObra(r){return (r.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0)*((x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):hrRate());},0)+projTsCusto(r);}
   function projDespesasFat(r){return (D.expenses||[]).filter(function(e){return r&&e.projetoId&&e.projetoId===r.dealId;});}
-  function projAvulsos(r){return (r.custosAvulsos||[]).reduce(function(a,x){return a+(Number(x.valor)||0);},0)+projDespesasFat(r).reduce(function(a,e){return a+(Number(e.amount)||0);},0);}
+  function projAvulsos(r){return (r.custosAvulsos||[]).reduce(function(a,x){return a+(Number(x.valor)||0);},0)+projDespesasFat(r).reduce(function(a,e){return a+(Number(e.amount)||0);},0)+(typeof reuCustosProj==="function"?reuCustosProj(r):0);}
   function projCusto(r){return projMaoObra(r)+projAvulsos(r);}
+  function taskProcs(t){var a=(t&&Array.isArray(t.procedencias))?t.procedencias.slice():[];if(!a.length&&t&&t.seguimentoDe)a=[t.seguimentoDe];return a;}
   function projReschedule(r){
     if(!r||!Array.isArray(r.tarefas))return;
     var byId={};r.tarefas.forEach(function(t){byId[t.id]=t;});
     var guard=0,changed=true;
     while(changed&&guard<60){changed=false;guard++;
       r.tarefas.forEach(function(t){
-        if(!t.seguimentoDe)return;var p=byId[t.seguimentoDe];if(!p)return;
-        var pend=p.fimReal||p.dataFim||p.dataInicio;if(!pend)return;
+        var procs=taskProcs(t);if(!procs.length)return;
+        var latest="";procs.forEach(function(pid){var p=byId[pid];if(!p)return;var pend=p.fimReal||p.dataFim||p.dataInicio;if(pend&&(!latest||pend>latest))latest=pend;});
+        if(!latest)return;
         var dur=(t.dataInicio&&t.dataFim)?Math.max(0,Math.round((new Date(t.dataFim)-new Date(t.dataInicio))/86400000)):(Number(t.horasEst)>0?Math.max(1,Math.round(t.horasEst/8)):5);
-        if(t.dataInicio!==pend){t.dataInicio=pend;t.dataFim=addDays(pend,dur);t.dataPrev=t.dataFim;changed=true;}
+        if(t.dataInicio!==latest){t.dataInicio=latest;t.dataFim=addDays(latest,dur);t.dataPrev=t.dataFim;changed=true;}
       });
     }
   }
@@ -2678,13 +2698,13 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     ts.forEach(function(t){
       var col=t.estado==="feita"?GRN:(t.estado==="bloqueada"?R:(t.estado==="em_curso"?PUR:SL));
       var rr=taskRealRange(t);var hasP=!!(t.dataInicio||t.dataFim);
-      h+='<div style="display:flex;align-items:center;min-height:30px;margin-bottom:3px"><div style="width:180px;flex:0 0 180px;padding-right:8px;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(t.titulo||"")+'">'+(t.seguimentoDe?'<span style="color:#a89d8d">↳ </span>':'')+esc(t.titulo||"")+'</div><div style="flex:1;position:relative;height:22px">';
+      h+='<div style="display:flex;align-items:center;min-height:30px;margin-bottom:3px"><div style="width:180px;flex:0 0 180px;padding-right:8px;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(t.titulo||"")+'">'+((t.seguimentoDe||(t.procedencias&&t.procedencias.length))?'<span style="color:#a89d8d">↳ </span>':'')+esc(t.titulo||"")+'</div><div style="flex:1;position:relative;height:22px">';
       if(hasP){var ps=pos(t.dataInicio||t.dataFim),pe=pos(t.dataFim||t.dataInicio);var pw=Math.max(1.5,pe-ps);var pTop=rr?12:2,pH=rr?7:9,pOp=rr?.28:.9;h+='<div style="position:absolute;left:'+ps+'%;width:'+pw+'%;top:'+pTop+'px;height:'+pH+'px;background:'+col+';opacity:'+pOp+';border-radius:4px" title="Previsto '+esc(fmtD(t.dataInicio||t.dataFim))+' → '+esc(fmtD(t.dataFim||t.dataInicio))+'"></div>';}
       if(rr){var rs=pos(rr.s),re=pos(rr.e);var rw=Math.max(1.5,re-rs);h+='<div style="position:absolute;left:'+rs+'%;width:'+rw+'%;top:2px;height:9px;background:'+col+';opacity:.92;border-radius:4px" title="Real '+esc(fmtD(rr.s))+' → '+esc(fmtD(rr.e))+'"></div>';}
       h+='</div></div>';
     });
     var tp=pos(today);h+='<div style="position:absolute;left:calc(180px + '+tp+'% * (100% - 180px)/100);top:18px;bottom:0;width:2px;background:'+R+';opacity:.4"></div>';
-    h+='</div></div><div style="font-size:10.5px;color:#a89d8d;margin-top:6px">Barra sólida = datas reais (registo de horas) · barra ténue = previsto · ↳ tarefa de seguimento · linha vermelha = hoje.</div>';
+    h+='</div></div><div style="font-size:10.5px;color:#a89d8d;margin-top:6px">Barra sólida = datas reais (registo de horas) · barra ténue = previsto · ↳ com procedência · linha vermelha = hoje.</div>';
     return h;
   }
   window.svProjReport=function(dealId){
@@ -2904,6 +2924,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='</div>';
     h+='<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px">'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Gestor</div><div style="font-weight:600">'+esc(r.gestor||"—")+'</div></div>'+
+       '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Gestor de conta</div><div style="font-weight:600">'+esc(r.gestorConta||"—")+'</div></div>'+
        ((r.equipa&&r.equipa.length)?'<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Equipa</div><div style="font-weight:600;font-size:12px">'+esc(r.equipa.join(", "))+'</div></div>':'')+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Início</div><div style="font-weight:600">'+(r.inicio?fmtD(r.inicio):"—")+'</div></div>'+
        '<div><div style="font-size:10px;color:#a89d8d;text-transform:uppercase;letter-spacing:.4px">Fim previsto</div><div style="font-weight:600;color:'+((r.fimPrev&&r.fimPrev<todayISO()&&!projDone(r))?R:"#3a352e")+'">'+(r.fimPrev?fmtD(r.fimPrev):"—")+'</div></div>'+
@@ -2940,7 +2961,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     // ---- Tarefas (kanban) ----
     h+='<div class="cd"><div class="ch"><div class="ct2">Tarefas</div>'+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openTask(\''+dealId+'\')">+ Tarefa</button>':'')+'</div>';
     h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" class="pj-kb">';
-    TK_EST.forEach(function(col){
+    TK_EST.forEach(function(col,ci){
       var list=(r.tarefas||[]).filter(function(t){return (t.estado||"a_fazer")===col[0];});
       h+='<div style="background:#faf8f4;border:1px solid #efe9df;border-radius:9px;padding:7px;min-width:0">';
       h+='<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span style="width:7px;height:7px;border-radius:50%;background:'+TK_COL[col[0]]+'"></span><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#8a8072">'+col[1]+'</span><span style="font-size:10px;color:#b8ae9e;margin-left:auto">'+list.length+'</span></div>';
@@ -2952,7 +2973,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
            '<span style="font-size:9px;color:#a89d8d">'+esc(faseLbl(r,t.faseId))+'</span>'+
            (t.responsavel?'<span style="font-size:9px;background:#f0ece3;color:#7a7268;border-radius:5px;padding:1px 5px">'+esc(t.responsavel)+'</span>':'')+
            (t.horasEst?'<span style="font-size:9px;color:#7a7268;margin-left:auto">'+t.horasEst+'h</span>':'')+
-           '</div></div>';
+           '</div>'+(canEdit?'<div style="display:flex;justify-content:space-between;margin-top:5px" onclick="event.stopPropagation()">'+(ci>0?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268;padding:0 7px;font-size:13px;line-height:1.5" title="Recuar" onclick="taskMove(\''+dealId+'\',\''+t.id+'\',-1)">‹</button>':'<span></span>')+(ci<TK_EST.length-1?'<button class="btn bs" style="background:'+TK_COL[TK_EST[ci+1][0]]+';color:#fff;padding:0 7px;font-size:13px;line-height:1.5" title="Avançar" onclick="taskMove(\''+dealId+'\',\''+t.id+'\',1)">›</button>':'<span></span>')+'</div>':'')+'</div>';
       });
       if(canEdit)h+='<button class="btn bs" style="background:#fff;color:#a89d8d;border:1px dashed #e0d8ca;width:100%;font-size:10.5px;padding:4px" onclick="openTask(\''+dealId+'\',\'\',\''+col[0]+'\')">+</button>';
       h+='</div>';
@@ -3106,8 +3127,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       +'<div class="r2">'+fld("Fase",sel("tk_f",faseOpts,t?t.faseId:(cur?cur.id:(faseOpts[0]||{}).v)))+fld("Estado",sel("tk_e",TK_EST.map(function(o){return {v:o[0],t:o[1]};}),t?t.estado:(estado||"a_fazer")))+'</div>'
       +'<div class="r2">'+fld("Responsável",'<input id="tk_r" list="tk_rlist" value="'+(t?esc(t.responsavel||""):"")+'" placeholder="colaborador">'+dlist("tk_rlist",collabNomes()))+fld("Horas estimadas",'<input type="number" id="tk_h" value="'+(t?(t.horasEst||""):"")+'" step="0.5">')+'</div>'
       +'<div class="r2">'+fld("Início previsto",'<input type="date" id="tk_di" value="'+(t?(t.dataInicio||t.dataPrev||""):"")+'">')+fld("Fim previsto",'<input type="date" id="tk_df" value="'+(t?(t.dataFim||t.dataPrev||""):"")+'">')+'</div>'
-      +'<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin:2px 0 8px;cursor:pointer"><input type="checkbox" id="tk_seg" '+(t&&t.seguimentoDe?"checked":"")+' onchange="var w=document.getElementById(\'tk_segw\');if(w)w.style.display=this.checked?\'\':\'none\'"> Tarefa de seguimento (começa quando outra acaba)</label>'
-      +'<div id="tk_segw" style="'+(t&&t.seguimentoDe?"":"display:none")+'">'+fld("Depende de (predecessora)",sel("tk_segsel",[{v:"",t:"— escolher —"}].concat((r.tarefas||[]).filter(function(z){return !taskId||z.id!==taskId;}).map(function(z){return {v:z.id,t:z.titulo};})),t?(t.seguimentoDe||""):""))+'</div>'
+      +(function(){var _procs=t?((Array.isArray(t.procedencias)&&t.procedencias.length)?t.procedencias:(t.seguimentoDe?[t.seguimentoDe]:[])):[];var _oth=(r.tarefas||[]).filter(function(z){return !taskId||z.id!==taskId;});return '<div style="margin:4px 0 10px"><div style="font-size:12px;font-weight:600;color:#5a5347;margin-bottom:4px">Procedências <span style="font-weight:400;color:#a89d8d">— a tarefa começa depois de todas estas acabarem</span></div>'+(_oth.length?'<div style="max-height:150px;overflow:auto;border:1px solid #ece6dc;border-radius:8px;padding:6px 10px">'+_oth.map(function(z){var ck=_procs.indexOf(z.id)>=0?" checked":"";return '<label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12.5px;cursor:pointer"><input type="checkbox" class="tk_proc" value="'+z.id+'"'+ck+'> '+esc(z.titulo||"(tarefa)")+'</label>';}).join("")+'</div>':'<div style="font-size:12px;color:#a89d8d">Sem outras tarefas para depender.</div>')+'</div>';})()
       +'<div class="r2">'+fld("Início real (opcional)",'<input type="date" id="tk_ir" value="'+(t?(t.inicioReal||""):"")+'">')+fld("Fim real (opcional)",'<input type="date" id="tk_fr" value="'+(t?(t.fimReal||""):"")+'">')+'</div>'
       +'<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin:2px 0 8px;cursor:pointer"><input type="checkbox" id="tk_eq" '+(t&&t.equipamento?"checked":"")+'> Tarefa de equipamento (cria/liga um ticket de equipamento)</label>' 
       +'<div style="display:flex;gap:8px;margin-top:6px">'+(t?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delTask(\''+dealId+'\',\''+t.id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svTask(\''+dealId+'\',\''+(taskId||"")+'\')">Guardar</button></div>';
@@ -3118,8 +3138,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var r=projRec(dealId);var titulo=(document.getElementById("tk_t").value||"").trim();
     if(!titulo){toastSafe("Indica o título da tarefa.");return;}
     var _di=document.getElementById("tk_di").value,_df=document.getElementById("tk_df").value;
-    var _seg=(document.getElementById("tk_seg")&&document.getElementById("tk_seg").checked)?((document.getElementById("tk_segsel")||{}).value||""):"";
-    var data={titulo:titulo,faseId:document.getElementById("tk_f").value,estado:document.getElementById("tk_e").value,responsavel:(document.getElementById("tk_r").value||"").trim(),horasEst:Number(document.getElementById("tk_h").value)||0,dataInicio:_di,dataFim:_df,dataPrev:_df||_di,seguimentoDe:_seg,inicioReal:document.getElementById("tk_ir").value,fimReal:document.getElementById("tk_fr").value,equipamento:!!(document.getElementById("tk_eq")&&document.getElementById("tk_eq").checked)};
+    var _procs=[];try{Array.prototype.forEach.call(document.querySelectorAll(".tk_proc"),function(el){if(el.checked)_procs.push(el.value);});}catch(e){}
+    var data={titulo:titulo,faseId:document.getElementById("tk_f").value,estado:document.getElementById("tk_e").value,responsavel:(document.getElementById("tk_r").value||"").trim(),horasEst:Number(document.getElementById("tk_h").value)||0,dataInicio:_di,dataFim:_df,dataPrev:_df||_di,procedencias:_procs,seguimentoDe:(_procs[0]||""),inicioReal:document.getElementById("tk_ir").value,fimReal:document.getElementById("tk_fr").value,equipamento:!!(document.getElementById("tk_eq")&&document.getElementById("tk_eq").checked)};
     var t=taskId?(r.tarefas||[]).filter(function(x){return x.id===taskId;})[0]:null;
     if(t){Object.assign(t,data);}else{data.id=uid();data.createdAt=todayISO();r.tarefas.push(data);}
     try{projReschedule(r);}catch(e){}
@@ -3133,12 +3153,22 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(typeof logAct==="function")logAct("Projectos","Tarefa eliminada");
     save();clM();ren();
   };
+  window.taskMove=function(dealId,taskId,dir){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var r=projRec(dealId);var t=(r.tarefas||[]).filter(function(x){return x.id===taskId;})[0];if(!t)return;
+    var order=TK_EST.map(function(e){return e[0];});var idx=order.indexOf(t.estado||"a_fazer");if(idx<0)idx=0;
+    idx=Math.max(0,Math.min(order.length-1,idx+dir));t.estado=order[idx];
+    if(t.estado!=="a_fazer"&&!t.inicioReal)t.inicioReal=todayISO();
+    if(t.estado==="feita"&&!t.fimReal)t.fimReal=todayISO();
+    if(typeof logAct==="function")logAct("Projectos","Tarefa → "+tkEstLbl(t.estado)+" — "+String(t.titulo||"").slice(0,30));
+    save();ren();
+  };
   window.openHoras=function(dealId){
     if(!canLogHours()){toastSafe("Sem permissão.");return;}
     var r=projRec(dealId);
     var tkOpts=[{v:"",t:"— sem tarefa —"}].concat((r.tarefas||[]).map(function(t){return {v:t.id,t:t.titulo};}));
     var meNome=(typeof ferName==="function"?ferName(currentEmail):"")||currentEmail||"";
-    var body=fld("Colaborador",'<input id="hr_c" list="hr_clist" value="'+esc(meNome)+'" onchange="var e=document.getElementById(\'hr_vh\'),d=document.getElementById(\'hr_d\');if(e)e.value=hrRateFor(this.value,d&&d.value);">'+dlist("hr_clist",collabNomes()))
+    var body=fld("Colaborador",canLogForOthers()?('<input id="hr_c" list="hr_clist" value="'+esc(meNome)+'" onchange="var e=document.getElementById(\'hr_vh\'),d=document.getElementById(\'hr_d\');if(e)e.value=hrRateFor(this.value,d&&d.value);">'+dlist("hr_clist",collabNomes())):('<input id="hr_c" value="'+esc(meNome)+'" readonly style="background:#f4f0e8;color:#7a7268">'))
       +'<div class="r2">'+fld("Data",'<input type="date" id="hr_d" value="'+todayISO()+'" onchange="var c=document.getElementById(\'hr_c\'),e=document.getElementById(\'hr_vh\');if(c&&e)e.value=hrRateFor(c.value,this.value);">')+fld("Tempo (h:mm)",'<input type="text" id="hr_h" placeholder="0:30" value="0:00">')+'</div>'
       +'<div class="r2">'+fld("Tarefa (opcional)",sel("hr_t",tkOpts,""))+fld("Valor / hora (€)",'<input type="number" id="hr_vh" step="1" min="0" value="'+hrRateFor(meNome,todayISO())+'">')+'</div>'
       +fld("Nota (opcional)",'<input id="hr_n" placeholder="ex.: instalação servidor">')
@@ -3397,6 +3427,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var tpls=Object.keys(PROJ_TPL).map(function(k){return {v:k,t:PROJ_TPL[k].l};});
     var body='<div class="r2">'+fld("Nome do projeto",'<input id="pe_n" value="'+esc(r.nome||d.product||"")+'">')+fld("Cliente",'<select id="pe_cli">'+(D.clients||[]).slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}).map(function(c){return '<option value="'+c.id+'"'+(c.id===d.clientId?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select>')+'</div>'
       +'<div class="r2">'+fld("Gestor responsável",'<input id="pe_g" list="pe_glist" value="'+esc(r.gestor||"")+'" placeholder="colaborador">'+dlist("pe_glist",collabNomes()))+fld("Tipo",sel("pe_t",PROJ_TIPO.map(function(o){return {v:o[0],t:o[1]};}),r.tipo))+'</div>'
+      +fld("Gestor de conta (comercial)",'<input id="pe_gc" list="pe_glist" value="'+esc(r.gestorConta||"")+'" placeholder="comercial">')
       +fld("Equipa afeta ao projeto",'<select id="pe_eq" multiple size="'+Math.min(6,Math.max(3,collabNomes().length))+'" style="width:100%;border:1px solid #e5e0da;border-radius:8px;padding:6px;font-size:12.5px;font-family:inherit">'+collabNomes().map(function(n){return '<option value="'+esc(n)+'"'+(((r.equipa||[]).indexOf(n)>=0)?" selected":"")+'>'+esc(n)+'</option>';}).join("")+'</select>')
       +'<div class="r2">'+fld("Início",'<input type="date" id="pe_i" value="'+(r.inicio||"")+'">')+fld("Fim previsto",'<input type="date" id="pe_f" value="'+(r.fimPrev||"")+'">')+'</div>'
       +fld("Template de fases",sel("pe_tpl",tpls,r.template))
@@ -3409,7 +3440,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var r=projRec(dealId);
     r.nome=(document.getElementById("pe_n").value||"").trim();
     var _pc=document.getElementById("pe_cli");if(_pc&&_pc.value){var _dl=(D.deals||[]).filter(function(x){return x.id===dealId;})[0];if(_dl&&_dl.clientId!==_pc.value){_dl.clientId=_pc.value;}}
-    r.gestor=(document.getElementById("pe_g").value||"").trim();
+    r.gestor=(document.getElementById("pe_g").value||"").trim();r.gestorConta=((document.getElementById("pe_gc")||{}).value||"").trim();
     var _eqs=document.getElementById("pe_eq");if(_eqs){r.equipa=Array.prototype.slice.call(_eqs.selectedOptions||[]).map(function(o){return o.value;});}
     r.tipo=document.getElementById("pe_t").value;
     r.inicio=document.getElementById("pe_i").value;r.fimPrev=document.getElementById("pe_f").value;
@@ -4853,14 +4884,14 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function allHours(){
     var out=[];
     (Array.isArray(D.timesheets)?D.timesheets:[]).forEach(function(t){
-      var _em=t.email||"";var _nm=(typeof emailToNome==="function"?emailToNome(_em):"")||_em;out.push({_src:"ts",_id:t.id,_deal:t.dealId||"",data:t.data||"",horas:Number(t.horas)||0,vh:tsRate(t),pessoa:_nm||_em||"—",_email:_em,_nome:_nm,cliente:tsCliente(t),projeto:tsProjeto(t),tarefa:tsTarefa(t)});
+      var _em=t.email||"";var _nm=(typeof emailToNome==="function"?emailToNome(_em):"")||_em;out.push({_src:"ts",_id:t.id,_deal:t.dealId||"",data:t.data||"",horas:Number(t.horas)||0,vh:tsRate(t),pessoa:_nm||_em||"—",_email:_em,_nome:_nm,cliente:tsCliente(t),projeto:tsProjeto(t),tarefa:tsTarefa(t),_client:(function(){var d=tsDeal(t);if(d)return d.clientId||"";if(t.ticketId){var tk=(D.tickets||[]).filter(function(x){return x.id===t.ticketId;})[0];return tk?(tk.clientId||""):"";}return "";})()});
     });
     (Array.isArray(D.projectos)?D.projectos:[]).forEach(function(p){
       var dl=(D.deals||[]).filter(function(d){return d.id===p.dealId;})[0]||null;
       var cli=dl?cn(dl.clientId):"—";var proj=dl?(dl.product||("Projeto "+(p.dealId||""))):"(projeto)";
       (p.horas||[]).forEach(function(x){
         var tk=(p.tarefas||[]).filter(function(tt){return tt.id===x.tarefaId;})[0];
-        var _nm2=x.colaborador||"";var _em2=x.email||(typeof nomeToEmail==="function"?nomeToEmail(_nm2):"")||"";out.push({_src:"proj",_id:x.id,_deal:p.dealId||"",data:x.data||"",horas:Number(x.horas)||0,vh:(x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):(typeof hrRate==="function"?hrRate():0),pessoa:_nm2||"—",_email:_em2,_nome:_nm2,cliente:cli,projeto:proj,tarefa:x.nota||(tk?tk.titulo:"")||"—"});
+        var _nm2=x.colaborador||"";var _em2=x.email||(typeof nomeToEmail==="function"?nomeToEmail(_nm2):"")||"";out.push({_src:"proj",_id:x.id,_deal:p.dealId||"",data:x.data||"",horas:Number(x.horas)||0,vh:(x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):(typeof hrRate==="function"?hrRate():0),pessoa:_nm2||"—",_email:_em2,_nome:_nm2,cliente:cli,projeto:proj,tarefa:x.nota||(tk?tk.titulo:"")||"—",_client:(dl?(dl.clientId||""):"")});
       });
     });
     return out;
@@ -5020,7 +5051,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var dealOpts='<option value="">— nenhum —</option>'+(D.deals||[]).slice().sort(function(a,b){return (a.clientId||"").localeCompare(b.clientId||"");}).map(function(d){return '<option value="'+d.id+'"'+(x.dealId===d.id?' selected':'')+'>'+esc(cn(d.clientId)+" — "+(d.product||d.id))+'</option>';}).join("");
     var tkOpts='<option value="">— nenhum —</option>'+(D.tickets||[]).map(function(t){return '<option value="'+t.id+'"'+(x.ticketId===t.id?' selected':'')+'>'+esc((t.titulo||t.id))+'</option>';}).join("");
     var body='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+fld("Data",'<input type="date" id="h_data" value="'+(x.data||todayISO())+'" onchange="horaRecalcVH()">')+fld("Tempo (h:mm)",'<input type="text" id="h_horas" placeholder="0:30" value="'+fmtHM(Number(x.horas)||0)+'">')+'</div>'+
-      (horasSeeAll()?fld("Colaborador (em branco = tu)",'<input id="h_email" list="h_elist" value="'+esc(x.email||"")+'" placeholder="email do colaborador" onchange="horaRecalcVH()">'+dlist("h_elist",(typeof hrRoster!=="undefined"?hrRoster:[]))):'')+
+      (canLogForOthers()?fld("Colaborador (em branco = tu)",'<input id="h_email" list="h_elist" value="'+esc(x.email||"")+'" placeholder="email do colaborador" onchange="horaRecalcVH()">'+dlist("h_elist",(typeof hrRoster!=="undefined"?hrRoster:[]))):'')+
       fld("Projeto (negócio)",'<select id="h_deal" onchange="horaFillTasks()">'+dealOpts+'</select>')+
       fld("Tarefa do projeto (opcional)",'<select id="h_task"></select>')+
       fld("Ou ticket de suporte",'<select id="h_ticket">'+tkOpts+'</select>')+
@@ -6363,6 +6394,12 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='<div class="kr">'+kpi("Férias "+y,hrFeriasAno(me)+" / "+(pp.diasAno||22),"dias gozados",GRN,GRN)+kpi("Banco de horas",(saldoHoras(me)>=0?"+":"")+saldoHoras(me)+"h","saldo",PUR,PUR)+kpi("Próximas férias",proxFer?fmtD(proxFer.start):"—",proxFer?"aprovadas":"nada agendado",BLU,BLU)+kpi("Despesas por reembolsar",fmt(myDespesas().filter(function(x){return x.estado==="aprovado";}).reduce(function(a,x){return a+(Number(x.valor)||0);},0)),"aprovadas",GD,GD)+'</div>';
     // ações
     h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Adicionar</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" style="background:'+GRN+'" onclick="openPedidoM(\'ferias\')">🌴 Férias / ausência</button><button class="btn" style="background:'+PUR+'" onclick="openPedidoM(\'baixa\')">🤒 Baixa médica</button><button class="btn" style="background:'+GD+'" onclick="openDespesa()">💶 Nova despesa</button><button class="btn" style="background:'+BLU+'" onclick="openMeuDoc()">📄 Documento</button></div></div>';
+    // as minhas atribuições (#3) — tarefas / mitigações de risco / suporte atribuídos a mim
+    var _asg=(typeof myAssignments==="function"?myAssignments():{total:0});
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">As minhas atribui\u00e7\u00f5es ('+_asg.total+')</div>';
+    if(!_asg.total)h+='<div style="font-size:12.5px;color:#a89d8d">Nada atribu\u00eddo a ti neste momento. \ud83c\udf89</div>';
+    else h+='<div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">Tarefas de projeto, mitiga\u00e7\u00f5es de risco e tickets de suporte \u00e0 tua responsabilidade. Clica para abrir.</div>'+asgRowsHTML();
+    h+='</div>';
     // a minha agenda (próximos eventos) — abre a Agenda para ver/editar/adicionar
     var _myEv=(Array.isArray(D.agenda)?D.agenda:[]).filter(function(e){return e.owner===me&&((e.end||e.date)>=todayISO());}).sort(function(a,b){return (a.date+"T"+(a.startTime||"00:00")).localeCompare(b.date+"T"+(b.startTime||"00:00"));});
     h+='<div class="cd"><div class="ch"><div class="ct2">A minha agenda</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bs" style="background:'+BLU+'" onclick="cTab=\'agenda\';rPnl()">📅 Abrir agenda</button><button class="btn bs" style="background:'+R+'" onclick="cTab=\'agenda\';rPnl();openAgEdit(\'\')">+ Novo evento</button></div></div>';
@@ -7449,6 +7486,11 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   function reuList(){return Array.isArray(D.reunioes)?D.reunioes:(D.reunioes=[]);}
   var REU_TIPOS=[["visita","Visita"],["reuniao","Reunião"],["call","Chamada"],["demo","Demonstração"],["formacao","Formação"],["outro","Outro"]];
   var REU_MODOS=[["presencial","Presencial"],["online","Online"],["telefone","Telefónica"]];
+  var REU_DESP_CAT=[["combustivel","Combustível"],["portagens","Portagens"],["refeicao","Refeição"],["alojamento","Alojamento"],["material","Material"],["telecom","Telecomunicações"],["outro","Outro"]];
+  function reuCusto(r){if(!r)return 0;var km=(Number(r.km)||0)*((r.valorKm!=null&&r.valorKm!=="")?Number(r.valorKm):0.40);var hh=(Number(r.horas)||0)*((r.valorHora!=null&&r.valorHora!=="")?Number(r.valorHora):0);var ex=Number(r.despesaExtra)||0;return Math.round((km+hh+ex)*100)/100;}
+  function reuCustosProj(r){if(!r||!r.dealId)return 0;return reuList().filter(function(x){return x.custoAlocado&&x.dealId===r.dealId;}).reduce(function(a,x){return a+reuCusto(x);},0);}
+  window.reuCusto=reuCusto;window.reuCustosProj=reuCustosProj;
+  window.reuCostPrev=function(){var g=function(i){var e=document.getElementById(i);return e?(Number(e.value)||0):0;};var t=g("ru_km")*g("ru_vkm")+g("ru_horas")*g("ru_vh")+g("ru_despv");var el=document.getElementById("ru_costprev");if(el)el.innerHTML=t>0?("Custo total estimado da visita: <b>"+fmt(Math.round(t*100)/100)+"</b>"):"";};
   function reuTipoLbl(v){var m=REU_TIPOS.filter(function(x){return x[0]===v;})[0];return m?m[1]:(v||"Reunião");}
   function reuTipoCol(v){return v==="visita"?BLU:(v==="reuniao"?PUR:(v==="demo"?TEAL:(v==="formacao"?GD:SL)));}
   function reuModoLbl(v){var m=REU_MODOS.filter(function(x){return x[0]===v;})[0];return m?m[1]:"";}
@@ -7458,24 +7500,28 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
     var all=reuList().slice().sort(function(a,b){return ((b.data||"")+(b.hora||"")).localeCompare((a.data||"")+(a.hora||""));});
-    var fCli=window.__ruCli||"",fTipo=window.__ruTipo||"",fPart=window.__ruPart||"";
+    var fCli=window.__ruCli||"",fTipo=window.__ruTipo||"",fPart=window.__ruPart||"";var fCusto=window.__ruCusto||"";
     var list=all.filter(function(r){
       if(fCli&&r.clientId!==fCli)return false;
       if(fTipo&&r.tipo!==fTipo)return false;
       if(fPart==="cliente"&&!r.partilhaCliente)return false;
       if(fPart==="interno"&&r.partilhaCliente)return false;
+      if(fCusto==="com"&&reuCusto(r)<=0)return false;
+      if(fCusto==="aloc"&&!(r.custoAlocado&&r.dealId&&reuCusto(r)>0))return false;
       return true;});
     var ym=todayISO().slice(0,7);
     var nMes=all.filter(function(r){return (r.data||"").slice(0,7)===ym;}).length;
     var nPart=all.filter(function(r){return r.partilhaCliente;}).length;
+    var custoMesReu=all.filter(function(r){return (r.data||"").slice(0,7)===ym;}).reduce(function(a,r){return a+reuCusto(r);},0);
     var h=pgHead("🤝","Visitas & Reuniões",canEdit?'<button class="btn" style="background:'+R+'" onclick="openReuniao()">+ Nova reunião</button>':"");
-    h+='<div class="kr">'+kpi("Reuniões",String(all.length),"registadas",BLU,BLU)+kpi("Este mês",String(nMes),ym,PUR,PUR)+kpi("Partilhadas c/ cliente",String(nPart),"visíveis ao cliente",GRN,GRN)+kpi("Internas",String(all.length-nPart),"só equipa",SL,SL)+'</div>';
+    h+='<div class="kr">'+kpi("Reuniões",String(all.length),"registadas",BLU,BLU)+kpi("Este mês",String(nMes),ym,PUR,PUR)+kpi("Partilhadas c/ cliente",String(nPart),"visíveis ao cliente",GRN,GRN)+kpi("Internas",String(all.length-nPart),"só equipa",SL,SL)+kpi("Custo visitas (mês)",fmt(custoMesReu),"deslocações + tempo",PUR,PUR)+'</div>';
     var clis={};all.forEach(function(r){if(r.clientId)clis[r.clientId]=1;});
     h+='<div class="cd"><div class="ch"><div class="ct2">Registo ('+list.length+')</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+
       '<select onchange="window.__ruCli=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os clientes</option>'+Object.keys(clis).map(function(c){return '<option value="'+esc(c)+'"'+(fCli===c?" selected":"")+'>'+esc(cn(c))+'</option>';}).join("")+'</select>'+
       '<select onchange="window.__ruTipo=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os tipos</option>'+REU_TIPOS.map(function(t){return '<option value="'+t[0]+'"'+(fTipo===t[0]?" selected":"")+'>'+t[1]+'</option>';}).join("")+'</select>'+
       '<select onchange="window.__ruPart=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todas</option><option value="cliente"'+(fPart==="cliente"?" selected":"")+'>Partilhadas c/ cliente</option><option value="interno"'+(fPart==="interno"?" selected":"")+'>Só internas</option></select>'+
-      ((fCli||fTipo||fPart)?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="window.__ruCli=\'\';window.__ruTipo=\'\';window.__ruPart=\'\';rPnl()">Limpar</button>':'')+
+      '<select onchange="window.__ruCusto=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Custo: todas</option><option value="com"'+(fCusto==="com"?" selected":"")+'>Com custo</option><option value="aloc"'+(fCusto==="aloc"?" selected":"")+'>Alocadas a projeto</option></select>'+
+      ((fCli||fTipo||fPart||fCusto)?'<button class="btn bs" style="background:#f4f0e8;color:#7a7268" onclick="window.__ruCli=\'\';window.__ruTipo=\'\';window.__ruPart=\'\';window.__ruCusto=\'\';rPnl()">Limpar</button>':'')+
       '</div></div>';
     if(!list.length)h+='<div style="font-size:12.5px;color:#a89d8d">Sem reuniões'+(all.length?" para este filtro":" registadas")+'. Usa «+ Nova reunião» para registar uma visita ou reunião com o cliente.</div>';
     else{
@@ -7489,6 +7535,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
         if(r.acta)h+='<div style="font-size:12px;color:#7a7268;margin-top:4px;white-space:pre-wrap;max-height:66px;overflow:hidden">'+esc(String(r.acta).slice(0,240))+(String(r.acta).length>240?"…":"")+'</div>';
         var pp=[];if(r.participantes)pp.push("Nós: "+r.participantes);if(r.participantesCliente)pp.push("Cliente: "+r.participantesCliente);
         if(pp.length)h+='<div style="font-size:11px;color:#a89d8d;margin-top:5px">'+esc(pp.join("  ·  "))+'</div>';
+        var _rc=reuCusto(r);if(_rc>0)h+='<div style="margin-top:6px">'+bdg("Custo "+fmt(_rc),PUR)+(r.custoAlocado&&r.dealId?' '+bdg("Alocado a projeto",GRN):' '+bdg("Comercial",SL))+'</div>';
         h+='<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn bs" style="background:'+SL+'" onclick="openReuniao(\''+r.id+'\')">'+(canEdit?"Abrir / editar":"Ver")+'</button><button class="btn bs" style="background:'+BLU+'" onclick="printActa(\''+r.id+'\')">📄 Acta</button>'+(canEdit?'<button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delReuniao(\''+r.id+'\')">×</button>':'')+'</div>';
         h+='</div>';
       });
@@ -7529,7 +7576,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       +'<div class="r2">'+fld("Participantes (nossa equipa)",'<input id="ru_pnos" value="'+(r?esc(r.participantes||""):esc(meNome))+'">')+fld("Participantes (cliente)",'<input id="ru_pcli" value="'+(r?esc(r.participantesCliente||""):"")+'" placeholder="nomes / cargos">')+'</div>'
       +fld("Acta / notas importantes",'<textarea id="ru_acta" rows="7" style="resize:vertical" placeholder="Pontos discutidos, decisões, informação relevante…">'+(r?esc(r.acta||""):"")+'</textarea>')
       +fld("Próximos passos (opcional)",'<textarea id="ru_pp" rows="3" style="resize:vertical" placeholder="Ações, responsáveis e prazos…">'+(r?esc(r.proximosPassos||""):"")+'</textarea>')
-      +'<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;background:#faf8f4;cursor:pointer;margin-bottom:8px"><input type="checkbox" id="ru_part" '+(r&&r.partilhaCliente?"checked":"")+' style="width:17px;height:17px;flex:0 0 auto"><span style="font-size:12.5px"><b>Partilhar com o cliente</b> — a acta fica marcada como visível ao cliente. Se desmarcado, é <b>só interna</b>.</span></label>';
+      +'<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #ece6dc;border-radius:9px;background:#faf8f4;cursor:pointer;margin-bottom:8px"><input type="checkbox" id="ru_part" '+(r&&r.partilhaCliente?"checked":"")+' style="width:17px;height:17px;flex:0 0 auto"><span style="font-size:12.5px"><b>Partilhar com o cliente</b> — a acta fica marcada como visível ao cliente. Se desmarcado, é <b>só interna</b>.</span></label>'+'<div style="border:1px solid #ece6dc;border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#5a5347;margin-bottom:7px">Custos da visita <span style="font-weight:400;color:#a89d8d">— opcional (deslocação e tempo)</span></div>'+'<div class="r2">'+fld("Km percorridos",'<input type="number" id="ru_km" step="1" value="'+(r?(r.km||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("&euro; / km",'<input type="number" id="ru_vkm" step="0.01" value="'+(r&&r.valorKm!=null&&r.valorKm!==""?r.valorKm:"0.40")+'" oninput="reuCostPrev()">')+'</div>'+'<div class="r2">'+fld("Horas dedicadas",'<input type="number" id="ru_horas" step="0.5" value="'+(r?(r.horas||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("&euro; / hora",'<input type="number" id="ru_vh" step="0.01" value="'+(r&&r.valorHora!=null&&r.valorHora!==""?r.valorHora:String((typeof horasCfg==="function"?horasCfg().valorHora:0)||0))+'" oninput="reuCostPrev()">')+'</div>'+'<div class="r2">'+fld("Outra despesa &euro;",'<input type="number" id="ru_despv" step="0.01" value="'+(r?(r.despesaExtra||""):"")+'" placeholder="0" oninput="reuCostPrev()">')+fld("Categoria",sel("ru_despc",REU_DESP_CAT.map(function(o){return {v:o[0],t:o[1]};}),r?(r.despesaCat||"combustivel"):"combustivel"))+'</div>'+'<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:3px 0"><input type="checkbox" id="ru_aloc" '+(r&&r.custoAlocado?"checked":"")+'> Alocar este custo ao projeto selecionado (entra na rentabilidade do projeto)</label>'+'<div id="ru_costprev" style="font-size:11.5px;color:'+PUR+';font-weight:600;margin-top:4px"></div></div>';
     if(!ro)body+='<div style="display:flex;gap:8px;margin-top:4px">'+(id?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delReuniao(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';flex:1" onclick="svReuniao(\''+(id||"")+'\')">Guardar</button></div>';
     else body+='<div style="font-size:11.5px;color:#a89d8d">Sem permissão para editar.</div>';
     document.getElementById("mArea").innerHTML=mWrap(id?"Reunião / visita":"Nova reunião / visita",body);
@@ -7544,7 +7591,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     var rec=id?reuList().filter(function(x){return x.id===id;})[0]:null;
     var isNew=!rec;if(isNew)rec={id:uid(),createdBy:(typeof myEmail==="function"?myEmail():"")||"",createdAt:todayISO()};
     rec.clientId=cliId;rec.tipo=g("ru_tipo");rec.modo=g("ru_modo");rec.data=g("ru_data")||todayISO();rec.hora=g("ru_hora");rec.dealId=g("ru_deal");rec.local=g("ru_local");rec.assunto=g("ru_ass");rec.participantes=g("ru_pnos");rec.participantesCliente=g("ru_pcli");rec.acta=g("ru_acta");rec.proximosPassos=g("ru_pp");
-    var pc=document.getElementById("ru_part");rec.partilhaCliente=!!(pc&&pc.checked);rec.updatedAt=todayISO();
+    var pc=document.getElementById("ru_part");rec.partilhaCliente=!!(pc&&pc.checked);rec.updatedAt=todayISO();rec.km=Number(g("ru_km"))||0;rec.valorKm=(g("ru_vkm")===""?"":Number(g("ru_vkm"))||0);rec.horas=Number(g("ru_horas"))||0;rec.valorHora=(g("ru_vh")===""?"":Number(g("ru_vh"))||0);rec.despesaExtra=Number(g("ru_despv"))||0;rec.despesaCat=g("ru_despc");var _ac=document.getElementById("ru_aloc");rec.custoAlocado=!!(_ac&&_ac.checked);
     if(isNew)reuList().push(rec);
     if(typeof logAct==="function")logAct("Comercial",(isNew?"Reunião registada":"Reunião atualizada")+" — "+cn(cliId)+(rec.assunto?" · "+String(rec.assunto).slice(0,30):""));
     save();clM();ren();toastSafe("Reunião guardada.","ok");
@@ -7918,6 +7965,170 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   };
 
 
+  // ===================== ACESSOS AO PORTAL MYMW (gestão) =====================
+  function renderPortalAcessos(){
+    var app=document.getElementById("app");if(!app)return;var canEdit=!isReadOnlyNow();
+    var h=pgHead("🔐","Acessos ao portal (MYMW)");
+    h+='<div class="cd"><div style="font-size:12.5px;color:#7a7268;line-height:1.6">Dá acesso ao <b>portal do cliente (MYMW)</b> às pessoas dos teus clientes. Escreve o email e escolhe o cliente — a pessoa passa a entrar no portal com esse email (<b>link mágico, sem password</b>) e vê apenas os dados desse cliente. A conta cria-se sozinha na 1.ª vez que ela pede o link.</div></div>';
+    if(canEdit){
+      h+='<div class="cd"><div class="ch"><div class="ct2">Dar acesso</div></div>';
+      h+='<div class="r2">'+fld("Email da pessoa",'<input id="pa_email" placeholder="pessoa@cliente.es" autocomplete="off">')+fld("Cliente",'<input id="pa_cli" list="pa_clis" autocomplete="off" placeholder="escreve para procurar…"><datalist id="pa_clis">'+(D.clients||[]).map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="pa_cliid">')+'</div>';
+      h+='<button class="btn" style="background:'+R+';margin-top:4px" onclick="paAdd()">+ Dar acesso</button><div id="pa_msg" style="font-size:12.5px;margin-top:8px"></div></div>';
+    }
+    h+='<div class="cd" id="paListCard"><div class="ch"><div class="ct2">Acessos ativos</div></div><div id="paList"><div class="empty" style="font-size:12.5px;color:#a89d8d">A carregar…</div></div></div>';
+    app.innerHTML=h;
+    var ci=document.getElementById("pa_cli");if(ci)ci.addEventListener("change",function(){var nm=(this.value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];var hid=document.getElementById("pa_cliid");if(hid)hid.value=m?m.id:"";});
+    setTimeout(paLoad,0);
+  }
+  window.renderPortalAcessos=renderPortalAcessos;
+  window.paLoad=async function(){
+    var box=document.getElementById("paList");if(!box)return;
+    if(typeof sb==="undefined"||!sb){box.innerHTML='<div style="font-size:12.5px;color:#a89d8d">Sem ligação ao Supabase.</div>';return;}
+    try{
+      var r=await sb.from("client_users").select("*").order("client_id");
+      if(r.error)throw r.error;
+      var rows=r.data||[];
+      if(!rows.length){box.innerHTML='<div style="font-size:12.5px;color:#a89d8d">Ainda não há acessos. Usa «Dar acesso» acima.</div>';return;}
+      var canEdit=!isReadOnlyNow();
+      var h='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Email</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
+      rows.forEach(function(u){h+='<tr><td style="font-weight:600">'+esc(cn(u.client_id)||u.nome||u.client_id)+'</td><td style="font-size:12.5px;color:#7a7268">'+esc(u.email)+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="paDel(\''+esc(u.email).replace(/'/g,"")+'\')">Remover</button></td>':'')+'</tr>';});
+      h+='</tbody></table></div><div style="font-size:11px;color:#a89d8d;margin-top:8px">'+rows.length+' pessoa(s) com acesso ao portal.</div>';
+      box.innerHTML=h;
+    }catch(e){
+      box.innerHTML='<div style="font-size:12.5px;color:#a89d8d">Não foi possível carregar. Verifica que correste o SQL do MYMW no Supabase (tabela <b>client_users</b>).<div style="font-size:11px;margin-top:4px">'+esc((e&&e.message)||e)+'</div></div>';
+    }
+  };
+  window.paAdd=async function(){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var msg=document.getElementById("pa_msg");
+    var email=(document.getElementById("pa_email").value||"").trim().toLowerCase();
+    var cliId=(document.getElementById("pa_cliid").value||"");
+    if(!cliId){var nm=(document.getElementById("pa_cli").value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];if(m)cliId=m.id;}
+    if(!email||email.indexOf("@")<0){msg.className="";msg.style.color="var(--r,#b23241)";msg.textContent="Escreve um email válido.";return;}
+    if(!cliId){msg.style.color="#b23241";msg.textContent="Escolhe um cliente da lista.";return;}
+    if(typeof sb==="undefined"||!sb){msg.style.color="#b23241";msg.textContent="Sem ligação ao Supabase.";return;}
+    var nome=cn(cliId)||"";
+    try{
+      var up=await sb.from("client_users").upsert({email:email,client_id:cliId,nome:nome});
+      if(up&&up.error)throw up.error;
+      if(typeof logAct==="function")logAct("Portal","Acesso dado a "+email+" ("+nome+")");
+      msg.style.color="#2e7d52";msg.textContent="Acesso dado a "+email+".";
+      document.getElementById("pa_email").value="";document.getElementById("pa_cli").value="";document.getElementById("pa_cliid").value="";
+      paLoad();
+    }catch(e){msg.style.color="#b23241";msg.textContent="Erro: "+((e&&e.message)||e);}
+  };
+  window.paDel=function(email){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var doIt=async function(){
+      try{var up=await sb.from("client_users").delete().eq("email",email);if(up&&up.error)throw up.error;}
+      catch(e){toastSafe("Erro a remover: "+((e&&e.message)||e));return;}
+      if(typeof logAct==="function")logAct("Portal","Acesso removido — "+email);
+      paLoad();toastSafe("Acesso removido.","ok");
+    };
+    if(typeof confirmM==="function")confirmM("Remover o acesso ao portal de <b>"+esc(email)+"</b>?",doIt,{yesLabel:"Remover"});else doIt();
+  };
+
+
+  // ===================== BOLSA DE HORAS (avença / retainer por cliente) =====================
+  function bolsaList(){return Array.isArray(D.bolsas)?D.bolsas:(D.bolsas=[]);}
+  function bolsaConsumo(b){
+    if(!b||!b.clientId)return 0;
+    var di=b.dataInicio||"",df=b.dataFim||"";
+    return (typeof allHours==="function"?allHours():[]).reduce(function(a,e){
+      if(e._client!==b.clientId)return a;
+      var d=e.data||"";
+      if(di&&d&&d<di)return a;
+      if(df&&d&&d>df)return a;
+      return a+(Number(e.horas)||0);
+    },0);
+  }
+  function bolsaSaldo(b){return (Number(b.horas)||0)-bolsaConsumo(b);}
+  function bolsaPct(b){var h=Number(b.horas)||0;if(h<=0)return 0;return Math.min(999,Math.round(bolsaConsumo(b)/h*100));}
+  function bolsaEstado(b){
+    var saldo=bolsaSaldo(b);var exp=(b.dataFim&&b.dataFim<todayISO());
+    if(saldo<=0)return {k:"esgotada",l:"Esgotada",c:R};
+    if(exp)return {k:"expirada",l:"Expirada",c:SL};
+    if(saldo<=(Number(b.horas)||0)*0.1)return {k:"quase",l:"Quase esgotada",c:GD};
+    return {k:"ativa",l:"Ativa",c:GRN};
+  }
+  function bolsaConsumoDetalhe(b){
+    var byProj={};
+    (typeof allHours==="function"?allHours():[]).forEach(function(e){
+      if(e._client!==b.clientId)return;var d=e.data||"";
+      if(b.dataInicio&&d&&d<b.dataInicio)return;if(b.dataFim&&d&&d>b.dataFim)return;
+      var k=e.projeto||e.cliente||"—";byProj[k]=(byProj[k]||0)+(Number(e.horas)||0);
+    });
+    return byProj;
+  }
+  window.bolsaConsumo=bolsaConsumo;window.bolsaSaldo=bolsaSaldo;
+  function renderBolsas(){
+    var app=document.getElementById("app");if(!app)return;
+    var canEdit=!(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
+    var all=bolsaList().slice();
+    var fCli=window.__bhCli||"";
+    var list=all.filter(function(b){return !fCli||b.clientId===fCli;});
+    list.sort(function(a,b){return bolsaSaldo(a)-bolsaSaldo(b);});
+    var totH=all.reduce(function(a,b){return a+(Number(b.horas)||0);},0);
+    var totC=all.reduce(function(a,b){return a+bolsaConsumo(b);},0);
+    var nAtivas=all.filter(function(b){var k=bolsaEstado(b).k;return k==="ativa"||k==="quase";}).length;
+    var nAlerta=all.filter(function(b){var k=bolsaEstado(b).k;return k==="esgotada"||k==="quase";}).length;
+    var h=pgHead("⏳","Bolsa de horas",canEdit?'<button class="btn" style="background:'+R+'" onclick="openBolsa()">+ Nova bolsa</button>':"");
+    h+='<div style="font-size:12px;color:#7a7268;margin:-4px 0 12px">Horas contratadas por cliente (avença/retainer). Consome automaticamente as horas registadas em projetos, suporte e integrações desse cliente, dentro do período.</div>';
+    h+='<div class="kr">'+kpi("Bolsas ativas",String(nAtivas),"de "+all.length+" no total",GRN,GRN)+kpi("Horas contratadas",fmtHM(totH),"soma de todas",BLU,BLU)+kpi("Horas consumidas",fmtHM(totC),"registadas",PUR,PUR)+kpi("A precisar de atenção",String(nAlerta),"esgotadas ou quase",nAlerta?GD:SL,nAlerta?GD:SL)+'</div>';
+    var clis={};all.forEach(function(b){if(b.clientId)clis[b.clientId]=1;});
+    h+='<div class="cd"><div class="ch"><div class="ct2">Bolsas ('+list.length+')</div>'+(Object.keys(clis).length>1?'<select onchange="window.__bhCli=this.value;rPnl()" style="border:1px solid #e5e0da;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os clientes</option>'+Object.keys(clis).map(function(c){return '<option value="'+esc(c)+'"'+(fCli===c?" selected":"")+'>'+esc(cn(c))+'</option>';}).join("")+'</select>':'')+'</div>';
+    if(!list.length)h+='<div style="font-size:12.5px;color:#a89d8d;margin-top:8px">Sem bolsas de horas. Usa «+ Nova bolsa» para registar as horas contratadas de um cliente.</div>';
+    else{
+      list.forEach(function(b){
+        var cons=bolsaConsumo(b),saldo=(Number(b.horas)||0)-cons,pct=bolsaPct(b),st=bolsaEstado(b);
+        var barCol=pct>=100?R:(pct>=90?GD:GRN);
+        h+='<div style="border:1px solid #ece6dc;border-radius:11px;padding:13px 15px;margin-bottom:10px">';
+        h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><div style="font-weight:700;font-size:14px">'+esc(cn(b.clientId))+'</div><div style="font-size:11.5px;color:#a89d8d">'+(b.dataInicio?fmtD(b.dataInicio):"—")+(b.dataFim?" → "+fmtD(b.dataFim):" → sem fim")+(b.nota?" · "+esc(b.nota):"")+'</div></div><div style="text-align:right">'+bdg(st.l,st.c)+'</div></div>';
+        h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin:9px 0 4px"><span style="color:#7a7268">Consumido <b style="color:#1a1713">'+fmtHM(cons)+'</b> de '+fmtHM(Number(b.horas)||0)+'</span><span style="font-weight:700;color:'+(saldo<=0?R:(saldo<=(Number(b.horas)||0)*0.1?GD:GRN))+'">Saldo '+fmtHM(saldo)+'</span></div>';
+        h+='<div style="height:9px;background:#f0ece3;border-radius:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+barCol+'"></div></div>';
+        h+='<div style="font-size:10.5px;color:#a89d8d;margin-top:3px">'+pct+'% utilizado'+(pct>100?" · ultrapassou o contratado":"")+(b.valorHora?" · valor/h "+fmt(b.valorHora):"")+'</div>';
+        var det=bolsaConsumoDetalhe(b);var keys=Object.keys(det).sort(function(x,y){return det[y]-det[x];});
+        if(keys.length)h+='<div style="font-size:11px;color:#7a7268;margin-top:7px;padding-top:7px;border-top:1px solid #f4f0e8">Consumo por: '+keys.slice(0,5).map(function(k){return esc(k)+" <b>"+fmtHM(det[k])+"</b>";}).join(" · ")+(keys.length>5?" · +"+(keys.length-5):"")+'</div>';
+        if(canEdit)h+='<div style="display:flex;gap:6px;margin-top:9px"><button class="btn bs" style="background:'+SL+'" onclick="openBolsa(\''+b.id+'\')">Editar</button><button class="btn bs" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.3)+'" onclick="delBolsa(\''+b.id+'\')">×</button></div>';
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+    app.innerHTML=h;
+  }
+  window.renderBolsas=renderBolsas;
+  window.openBolsa=function(id){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var b=id?bolsaList().filter(function(x){return x.id===id;})[0]:null;
+    var cliName=b?cn(b.clientId):"";var cliId=b?b.clientId:"";
+    var body=fld("Cliente",'<input id="bh_cli" list="bh_clis" autocomplete="off" value="'+esc(cliName)+'" placeholder="escreve para procurar…"><datalist id="bh_clis">'+(D.clients||[]).map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="bh_cliid" value="'+esc(cliId)+'">')
+      +'<div class="r2">'+fld("Horas contratadas",'<input type="number" id="bh_h" step="0.5" value="'+(b?(b.horas||""):"")+'" placeholder="ex.: 40">')+fld("Valor / hora (opcional)",'<input type="number" id="bh_vh" step="0.01" value="'+(b&&b.valorHora!=null&&b.valorHora!==""?b.valorHora:"")+'" placeholder="€">')+'</div>'
+      +'<div class="r2">'+fld("Início",'<input type="date" id="bh_di" value="'+(b?(b.dataInicio||todayISO()):todayISO())+'">')+fld("Fim (opcional)",'<input type="date" id="bh_df" value="'+(b?(b.dataFim||""):"")+'">')+'</div>'
+      +fld("Nota (opcional)",'<input id="bh_nota" value="'+(b?esc(b.nota||""):"")+'" placeholder="ex.: avença mensal, contrato 2026">')
+      +'<div style="font-size:11.5px;color:#a89d8d;margin:2px 0 8px">O consumo é calculado a partir das horas já registadas para este cliente (projetos, suporte, integrações) dentro do período indicado.</div>'
+      +'<div style="display:flex;gap:8px;margin-top:6px">'+(id?'<button class="btn" style="background:#fff;color:'+R+';border:1px solid '+rgba(R,.35)+';margin-right:auto" onclick="delBolsa(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:#f4f0e8;color:#7a7268" onclick="clM()">Cancelar</button><button class="btn" style="background:'+R+'" onclick="svBolsa(\''+(id||"")+'\')">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(id?"Bolsa de horas":"Nova bolsa de horas",body);
+    var ci=document.getElementById("bh_cli");if(ci)ci.addEventListener("change",function(){var nm=(this.value||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];var hid=document.getElementById("bh_cliid");if(hid)hid.value=m?m.id:"";});
+  };
+  window.svBolsa=function(id){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var g=function(i){var el=document.getElementById(i);return el?el.value:"";};
+    var cliId=g("bh_cliid");
+    if(!cliId){var nm=(g("bh_cli")||"").trim().toLowerCase();var m=(D.clients||[]).filter(function(c){return (c.name||"").toLowerCase()===nm;})[0];if(m)cliId=m.id;}
+    if(!cliId){toastSafe("Escolhe um cliente da lista.");return;}
+    var horas=Number(g("bh_h"))||0;if(horas<=0){toastSafe("Indica as horas contratadas.");return;}
+    var rec=id?bolsaList().filter(function(x){return x.id===id;})[0]:null;
+    var isNew=!rec;if(isNew)rec={id:uid(),createdAt:todayISO()};
+    rec.clientId=cliId;rec.horas=horas;rec.valorHora=(g("bh_vh")===""?"":Number(g("bh_vh"))||0);rec.dataInicio=g("bh_di")||todayISO();rec.dataFim=g("bh_df")||"";rec.nota=(g("bh_nota")||"").trim();
+    if(isNew)bolsaList().push(rec);
+    if(typeof logAct==="function")logAct("Comercial",(isNew?"Bolsa de horas criada":"Bolsa de horas atualizada")+" — "+cn(cliId)+" ("+fmtHM(horas)+")");
+    save();clM();ren();toastSafe("Bolsa guardada.","ok");
+  };
+  window.delBolsa=function(id){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var doIt=function(){D.bolsas=bolsaList().filter(function(x){return x.id!==id;});if(typeof logAct==="function")logAct("Comercial","Bolsa de horas eliminada");save();clM();ren();toastSafe("Eliminada.","ok");};
+    if(typeof confirmM==="function")confirmM("Eliminar esta bolsa de horas?",doIt,{yesLabel:"Eliminar"});else doIt();
+  };
   if(typeof rPnl==="function"){
     var _r=rPnl;
     rPnl=function(){
@@ -7961,6 +8172,8 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       if(typeof cTab!=="undefined"&&(cTab==="reunioes"||cTab==="reunioesp")){try{renderReunioes();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="integracao"){try{renderIntegracao();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       if(typeof cTab!=="undefined"&&cTab==="desenvolvimento"){try{renderDesenvolvimento();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="portalacessos"){try{renderPortalAcessos();}catch(e){}try{applyRoleGating();}catch(e){}return;}
+      if(typeof cTab!=="undefined"&&cTab==="bolsahoras"){try{renderBolsas();}catch(e){}try{applyRoleGating();}catch(e){}return;}
       var x=_r.apply(this,arguments);try{applyRoleGating();}catch(e){}
       if(typeof cTab!=="undefined"&&cTab==="dashboard"){try{injectExecPanel();}catch(e){}}
       if(typeof cTab!=="undefined"&&cTab==="financeiro"){if(finSub==="faturas"){try{injectRecurringCard();}catch(e){}}if(finSub==="orcamento"){try{injectScenariosCard();}catch(e){}}}
@@ -8062,7 +8275,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"Orçamento & ARR",i:"🎯",dept:"orcamento",items:[
       {id:"orc2027",l:"Orçamento próximo ano"},{id:"arr",l:"ARR"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
-      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
+      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"bolsahoras",l:"Bolsa de horas"},{id:"propostas",l:"Propostas"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"perdidas",l:"Perdidas"},{id:"contratos",l:"Contratos & licenças"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Diretório"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Região & Carteira"},{id:"mapa",l:"Mapa"}]},
     {group:"Projetos",i:"🛠️",dept:"projectos",items:[
@@ -8077,7 +8290,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     {group:"A minha área",i:"🙋",dept:"eu",always:true,items:[
       {id:"minhaarea",l:"Início"},{id:"agenda",l:"Agenda",dept:"agenda",always:true},{id:"pesquisa",l:"Pesquisa & avisos"},{id:"manual",l:"Manual / Ajuda"},{id:"seguranca",l:"Segurança"}]},
     {group:"Definições",i:"⚙️",dept:"admin",items:[
-      {id:"colaboradores",l:"Colaboradores & Perfis"},{id:"rgpd",l:"Proteção de dados (RGPD)"},{id:"logs",l:"Auditoria"},{id:"correcoes",l:"Definições"}]}
+      {id:"colaboradores",l:"Colaboradores & Perfis"},{id:"portalacessos",l:"Acessos ao portal"},{id:"rgpd",l:"Proteção de dados (RGPD)"},{id:"logs",l:"Auditoria"},{id:"correcoes",l:"Definições"}]}
   ];
   var TAB2DEPT={};DEPT_GROUPS.forEach(function(g){g.items.forEach(function(it){TAB2DEPT[it.id]=it.dept||g.dept;});});
   var ALWAYS_TABS={};DEPT_GROUPS.forEach(function(g){g.items.forEach(function(it){if((g.always&&!it.dept)||it.always)ALWAYS_TABS[it.id]=true;});});
