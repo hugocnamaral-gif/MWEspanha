@@ -891,28 +891,30 @@ if(cTab==="dashboard"){
   h+='<tr style="border-top:2px solid #e5e0da"><td colspan="5" style="font-weight:700;text-align:right;padding-top:10px">Total</td><td style="font-weight:700;padding-top:10px;text-align:right">'+fmt(vTotal)+'</td><td style="font-weight:700;padding-top:10px;text-align:right;color:'+PUR+'">'+fmt(vARR)+'</td><td colspan="2" style="padding-top:10px"></td></tr>';
   h+='</table></div></div>';
 } else if(cTab==="arr"){
-  var wonD=D.deals.filter(function(d){return isWon(d)});
+  var _ry=String(activeYear());
+  var _items=(typeof recurItems==="function")?recurItems(""):[];
+  var arrTotal=_items.reduce(function(a,x){return a+(Number(x.arr)||0)},0);
+  var arrAno=(typeof window.recurArrAno==="function")?window.recurArrAno(_ry):_items.filter(function(x){return (String(x.renov||"").slice(0,4)===_ry)}).reduce(function(a,x){return a+(Number(x.arr)||0)},0);
   var openD2=D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)});
-  var arrW=wonD.reduce(function(a,d){return a+(d.arr||0)},0);
   var arrO=openD2.reduce(function(a,d){return a+(d.arr||0)},0);
   h=pgHead("🔁","Receita Recorrente (ARR)");
-  h+='<div class="kr">'+kpi("ARR garantido",fmt(arrW),"vendas ganhas",GRN,GRN)+kpi("ARR em jogo",fmt(arrO),"pipeline aberto",GD,G)+kpi("ARR potencial",fmt(arrW+arrO),"se tudo fechar",PUR,PUR)+kpi("MRR garantido",fmt(arrW/12),"por mês",GRN,GRN)+'</div>';
-  h+='<div class="ins"><div style="font-size:12.5px;color:#7a7268;line-height:1.6">O ARR é a base recorrente que transita para o ano seguinte sem ser preciso vender de novo. É a métrica que determina o valor da operação: vendas pontuais valem uma vez, ARR vale um múltiplo. Introduz o ARR em cada venda na tab <b>Vendas</b> (coluna ARR, ✎).</div></div>';
-  var arrByC={};wonD.forEach(function(d){if(!(d.arr>0))return;var n=cn(d.clientId);arrByC[n]=(arrByC[n]||0)+d.arr});
-  h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">ARR GARANTIDO POR CLIENTE</div>';
-  if(!Object.keys(arrByC).length)h+='<div style="font-size:13px;color:#a89d8d;padding:10px 0">Ainda não há ARR registado em vendas ganhas. Isto significa que a operação recomeça do zero em 2027 — é o ponto mais crítico a corrigir.</div>';
+  h+='<div class="kr">'+kpi("ARR base total",fmt(arrTotal),"toda a recorrência ativa",PUR,PUR)+kpi("ARR a renovar em "+_ry,fmt(arrAno),"renovações deste ano",GRN,GRN)+kpi("ARR em jogo",fmt(arrO),"pipeline aberto",GD,G)+kpi("MRR base",fmt(arrTotal/12),"por mês",GRN,GRN)+'</div>';
+  h+='<div class="ins"><div style="font-size:12.5px;color:#7a7268;line-height:1.6">O ARR é a base recorrente que transita para o ano seguinte sem ser preciso vender de novo. <b>ARR base total</b> é toda a recorrência ativa (subscrições/AT + contratos); <b>ARR a renovar em '+_ry+'</b> conta apenas as linhas cuja renovação cai neste ano — quando unes subscrições renovadas, cada uma passa a contar só no ano em que efetivamente renova. Edita renovações e ARR em <b>Comercial › Subscrições/AT</b>.</div></div>';
+  var arrByC={};_items.forEach(function(x){if(!(Number(x.arr)>0))return;var n=cn(x.clientId);arrByC[n]=(arrByC[n]||0)+Number(x.arr)});
+  h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">ARR BASE POR CLIENTE</div>';
+  if(!Object.keys(arrByC).length)h+='<div style="font-size:13px;color:#a89d8d;padding:10px 0">Ainda não há ARR registado. Isto significa que a operação recomeça do zero — é o ponto mais crítico a corrigir.</div>';
   else{var mxA=Math.max.apply(null,Object.values(arrByC));Object.entries(arrByC).sort(function(a,b){return b[1]-a[1]}).forEach(function(e){h+=barH(e[0],e[1],mxA,GRN)})}
   h+='</div>';
-  h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">DETALHE — TODAS AS LINHAS COM ARR</div><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th>Estado</th><th style="text-align:right">Valor único</th><th style="text-align:right">ARR/ano</th><th style="text-align:right">MRR</th></tr>';
-  var allA=wonD.concat(openD2).filter(function(d){return d.arr>0}).sort(function(a,b){return b.arr-a.arr});
-  if(!allA.length)h+='<tr><td colspan="6" style="text-align:center;padding:24px;color:#a89d8d">Sem linhas com ARR definido.</td></tr>';
-  allA.forEach(function(d){h+='<tr><td style="font-weight:600">'+cn(d.clientId)+'</td><td style="color:#7a7268">'+d.product.slice(0,40)+'</td><td>'+bdg(SL2[d.stage],SC[d.stage])+'</td><td style="text-align:right">'+fmt(d.value)+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+fmt(d.arr)+'</td><td style="text-align:right;color:#7a7268">'+fmt(d.arr/12)+'</td></tr>'});
+  h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">DETALHE — TODA A RECORRÊNCIA</div><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Item</th><th>Tipo</th><th style="text-align:right">ARR/ano</th><th style="text-align:right">MRR</th><th>Renova em</th><th style="text-align:center">Renov.</th></tr>';
+  var allA=_items.filter(function(x){return Number(x.arr)>0}).sort(function(a,b){return Number(b.arr)-Number(a.arr)});
+  if(!allA.length)h+='<tr><td colspan="7" style="text-align:center;padding:24px;color:#a89d8d">Sem linhas com ARR definido.</td></tr>';
+  allA.forEach(function(x){var isY=(String(x.renov||"").slice(0,4)===_ry);var rc=Number(x.renovacoesCount)||1;h+='<tr'+(isY?' style="background:'+rgba(GRN,.06)+'"':'')+'><td style="font-weight:600">'+esc(cn(x.clientId))+'</td><td style="color:#7a7268">'+esc(String(x.nome||"").slice(0,40))+'</td><td>'+(x.kind==="sub"?bdg(x.tipo,x.tipo==="AT"?TEAL:PUR):bdg("Contrato",SL))+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+fmt(x.arr)+'</td><td style="text-align:right;color:#7a7268">'+fmt(x.arr/12)+'</td><td'+(isY?' style="font-weight:700;color:'+GRN+'"':' style="color:#7a7268"')+'>'+(x.renov?fmtD(x.renov):"—")+'</td><td style="text-align:center">'+(rc>1?'<span style="background:'+rgba(TEAL,.15)+';color:'+TEAL+';border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">🔁 '+rc+'</span>':'<span style="color:#c9c1b4">—</span>')+'</td></tr>'});
   h+='</table></div></div>';
 } else if(cTab==="orc2027"){
   var NY=(new Date().getFullYear())+1;
   var B=D.budget2027||{renew:90,newBiz:0,upsell:0,priceInc:0};
   var wonD3=D.deals.filter(function(d){return isWon(d)});
-  var arrBase=wonD3.reduce(function(a,d){return a+(d.arr||0)},0);try{arrBase+=(typeof window.ctrArrStandalone==="function"?window.ctrArrStandalone():0);}catch(e){}
+  var arrBase=0;try{arrBase=(typeof window.recurArrAno==="function")?window.recurArrAno(NY):wonD3.reduce(function(a,d){return a+(d.arr||0)},0);}catch(e){arrBase=wonD3.reduce(function(a,d){return a+(d.arr||0)},0);}
   var openD3=D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)});
   var arrPipe3=openD3.reduce(function(a,d){return a+(d.arr||0)},0);
   var WT3={projeto:0.75,proposta:0.4,lead:0.1};
@@ -930,7 +932,7 @@ if(cTab==="dashboard"){
   h+='<div><label style="font-size:10px;color:#7a7268;display:block;margin-bottom:3px">Upsell base instalada (€)</label><input type="number" id="b27up" value="'+B.upsell+'" style="border:1px solid #ece6dc;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;width:130px"></div>';
   h+='<button class="btn bs" style="background:'+R+'" onclick="save2027()">Recalcular</button></div></div>';
   h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">ORÇAMENTO '+NY+' — CONSTRUÇÃO</div><table><tr><th>Camada</th><th>Origem</th><th style="text-align:right">Valor</th></tr>';
-  h+='<tr><td style="font-weight:600">1. ARR garantido</td><td style="color:#7a7268;font-size:11px">vendas já ganhas</td><td style="text-align:right">'+fmt(arrBase)+'</td></tr>';
+  h+='<tr><td style="font-weight:600">1. ARR garantido</td><td style="color:#7a7268;font-size:11px">subscrições/AT + contratos que renovam em '+NY+'</td><td style="text-align:right">'+fmt(arrBase)+'</td></tr>';
   h+='<tr><td style="font-weight:600">2. ARR do pipeline (ponderado)</td><td style="color:#7a7268;font-size:11px">'+fmt(arrPipe3)+' em aberto × probabilidade por etapa</td><td style="text-align:right">'+fmt(arrExp)+'</td></tr>';
   h+='<tr><td style="font-weight:600">3. Menos churn ('+(100-B.renew)+'%)</td><td style="color:#7a7268;font-size:11px">taxa de renovação '+B.renew+'%</td><td style="text-align:right;color:'+R+'">-'+fmt((arrBase+arrExp)-carry)+'</td></tr>';
   h+='<tr><td style="font-weight:600">4. Aumento de preço</td><td style="color:#7a7268;font-size:11px">+'+B.priceInc+'% sobre a base renovada</td><td style="text-align:right;color:'+GRN+'">+'+fmt(withPrice-carry)+'</td></tr>';
@@ -939,13 +941,15 @@ if(cTab==="dashboard"){
   h+='<tr style="border-top:2px solid #ece6dc"><td style="font-weight:700;font-size:14px">ORÇAMENTO '+NY+'</td><td></td><td style="text-align:right;font-weight:700;font-size:16px;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(total27)+'</td></tr>';
   h+='</table></div>';
   h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">SUBSCRIÇÕES & AT — base recorrente</div>';
-  var _subsO=(typeof window.recurItems==="function")?window.recurItems(""):[];
+  var _subsAll=(typeof window.recurItems==="function")?window.recurItems(""):[];
+  var _subsO=_subsAll.filter(function(d){return (String(d.renov||"").slice(0,4)===String(NY))});
   var _subArrO=_subsO.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
-  h+='<div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">As subscrições/AT ganhas somam <b>'+fmt(_subArrO)+'</b> de ARR — a base recorrente que alimenta a Camada 1 acima. Edita renovações e ARR em Comercial › Subscrições/AT; o orçamento reflete automaticamente.</div>';
-  if(!_subsO.length)h+='<div style="font-size:12px;color:#a89d8d">Sem subscrições/AT ganhas.</div>';
-  else{h+='<div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th style="text-align:right">Valor</th><th style="text-align:right">ARR</th></tr>';
-    _subsO.slice().sort(function(a,b){return (Number(b.arr)||0)-(Number(a.arr)||0);}).forEach(function(d){h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#7a7268">'+esc(d.product||"—")+'</td><td style="text-align:right">'+fmt(d.value||0)+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+(d.arr>0?fmt(d.arr):"—")+'</td></tr>';});
-    h+='<tr style="border-top:2px solid #ece6dc"><td colspan="3" style="text-align:right;font-weight:700">Total ARR</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+fmt(_subArrO)+'</td></tr>';
+  var _subBaseTot=_subsAll.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+  h+='<div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">As subscrições/AT & contratos que <b>renovam em '+NY+'</b> somam <b>'+fmt(_subArrO)+'</b> de ARR — é o que alimenta a Camada 1 acima (só conta o que renova neste ano). A base recorrente total ativa é '+fmt(_subBaseTot)+'. Edita renovações e ARR em Comercial › Subscrições/AT; o orçamento reflete automaticamente.</div>';
+  if(!_subsO.length)h+='<div style="font-size:12px;color:#a89d8d">Nenhuma subscrição/AT/contrato renova em '+NY+'.</div>';
+  else{h+='<div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th style="text-align:right">ARR</th><th>Renova em</th><th style="text-align:center">Renov.</th></tr>';
+    _subsO.slice().sort(function(a,b){return (Number(b.arr)||0)-(Number(a.arr)||0);}).forEach(function(d){var rc=Number(d.renovacoesCount)||1;h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#7a7268">'+esc(d.product||"—")+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+(d.arr>0?fmt(d.arr):"—")+'</td><td style="color:#7a7268">'+(d.renov?fmtD(d.renov):"—")+'</td><td style="text-align:center">'+(rc>1?'<span style="background:'+rgba(TEAL,.15)+';color:'+TEAL+';border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">🔁 '+rc+'</span>':'—')+'</td></tr>';});
+    h+='<tr style="border-top:2px solid #ece6dc"><td colspan="2" style="text-align:right;font-weight:700">Total ARR '+NY+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+fmt(_subArrO)+'</td><td colspan="2"></td></tr>';
     h+='</table></div>';}
   h+='</div>';
   var recPct=total27>0?Math.round(withPrice/total27*100):0;
@@ -8257,7 +8261,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
         var tipoB=x.kind==="sub"?bdg(x.tipo,x.tipo==="AT"?TEAL:PUR):bdg("Contrato",SL);
         h+='<tr>'+
           '<td style="font-weight:600">'+esc(cn(x.clientId))+'</td>'+
-          '<td style="color:#3a352e;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.nome||"—")+'</td>'+
+          '<td style="color:#3a352e;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.nome||"—")+((Number(x.renovacoesCount)||1)>1?' <span style="background:'+rgba(TEAL,.15)+';color:'+TEAL+';border-radius:6px;padding:1px 5px;font-size:9px;font-weight:700" title="renovações unidas nesta subscrição">🔁 '+(Number(x.renovacoesCount)||1)+'</span>':'')+'</td>'+
           '<td>'+tipoB+'</td>'+
           '<td style="text-align:right;font-weight:700">'+fmt(x.valor||0)+'</td>'+
           '<td style="text-align:right">'+(canEdit?'<input type="number" step="0.01" value="'+(x.arr!==""&&x.arr!=null?x.arr:"")+'" onchange="recurSetArr(\''+x.kind+'\',\''+x.id+'\',this.value)" style="width:88px;text-align:right;border:1px solid #e5e0da;border-radius:7px;padding:4px 6px;font-size:11.5px;font-family:inherit;color:'+PUR+';font-weight:600">':'<span style="color:'+PUR+';font-weight:600">'+(x.arr>0?fmt(x.arr):"—")+'</span>')+'</td>'+
@@ -8269,6 +8273,13 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
         '</tr>';
       });
       h+='</tbody></table></div>';
+    }
+    var merged=(D.deals||[]).filter(function(d){return d._subMergedInto&&(typeof isWon==="function"&&isWon(d))&&(typeof isSubDeal==="function"&&isSubDeal(d));});
+    if(fCli)merged=merged.filter(function(d){return d.clientId===fCli;});
+    if(merged.length&&canEdit){
+      h+='<div class="cd" style="margin-top:12px"><div class="ct2" style="margin-bottom:6px">Subscrições arquivadas / unidas ('+merged.length+')</div><div style="font-size:11.5px;color:#a89d8d;margin-bottom:8px">Renovações antigas unidas noutra subscrição — não contam para o ARR. Podes separá-las outra vez.</div><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Item</th><th>Renovava em</th><th>Unida na subscrição que renova</th><th></th></tr></thead><tbody>';
+      merged.slice().sort(function(a,b){return (a.renewDate||"").localeCompare(b.renewDate||"");}).forEach(function(d){var into=(D.deals||[]).filter(function(x){return x.id===d._subMergedInto;})[0];h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#7a7268">'+esc(String(d.product||"").slice(0,34))+'</td><td style="color:#7a7268">'+(d.renewDate?fmtD(d.renewDate):"—")+'</td><td style="color:#7a7268">'+(into?(into.renewDate?fmtD(into.renewDate):"—"):"—")+'</td><td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="desunirSub(\''+d.id+'\')">Separar</button></td></tr>';});
+      h+='</tbody></table></div></div>';
     }
     h+='</div>';
     app.innerHTML=h;
@@ -8436,31 +8447,40 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
     var subs=(typeof subDeals==="function"?subDeals():[]);
     if(subs.length<2){document.getElementById("mArea").innerHTML=mWrap("Unir subscrições",'<div style="font-size:12.5px;color:#a89d8d">São precisas pelo menos duas subscrições ganhas para unir.</div>');return;}
-    var opt=function(sel){return subs.map(function(d){return '<option value="'+d.id+'">'+esc(cn(d.clientId)+" · "+String(d.product||"").slice(0,30)+(d.renewDate?" (renova "+fmtD(d.renewDate)+")":""))+'</option>';}).join("");};
-    var body='<div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">Junta uma subscrição antiga (que já foi renovada por outra) na subscrição atual. A que <b>mantéis</b> fica com a data de renovação mais recente; a outra é arquivada (deixa de contar para o ARR), sem se perder.</div>'
-      +fld("Subscrição a manter (a atual)",'<select id="us_keep">'+opt()+'</select>')
-      +fld("Subscrição a juntar (renovação antiga)",'<select id="us_src">'+opt()+'</select>')
-      +'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="unirSub()">Unir</button>';
+    subs=subs.slice().sort(function(a,b){var ca=cn(a.clientId),cb=cn(b.clientId);if(ca!==cb)return ca<cb?-1:1;var ra=a.renewDate||"",rb=b.renewDate||"";return ra<rb?-1:(ra>rb?1:0);});
+    var rows=subs.map(function(d){var rc=Number(d.renovacoesCount)||1;return '<label style="display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid #ece6dc;border-radius:9px;margin-bottom:5px;cursor:pointer;font-size:12.5px">'
+      +'<input type="checkbox" class="us_ck" value="'+d.id+'">'
+      +'<span style="flex:1;min-width:0"><b>'+esc(cn(d.clientId))+'</b> · <span style="color:#7a7268">'+esc(String(d.product||"").slice(0,34))+'</span></span>'
+      +'<span style="color:#7a7268;font-size:11px;white-space:nowrap">'+(d.renewDate?"renova "+fmtD(d.renewDate):"sem data")+'</span>'
+      +(rc>1?' <span style="background:'+rgba(TEAL,.15)+';color:'+TEAL+';border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">🔁 '+rc+'</span>':'')
+      +'</label>';}).join("");
+    var body='<div style="font-size:12.5px;color:#7a7268;margin-bottom:10px">Marca as subscrições que são renovações umas das outras. Fica ativa <b>a que renova mais tarde</b>; as anteriores são arquivadas (deixam de contar para o ARR) e somam à <b>contagem de renovações</b> — nada se perde.</div>'
+      +'<div style="max-height:340px;overflow:auto;margin-bottom:10px">'+rows+'</div>'
+      +'<button class="btn" style="background:'+R+';width:100%" onclick="unirSub()">Unir selecionadas</button>';
     document.getElementById("mArea").innerHTML=mWrap("Unir subscrições",body);
   };
   window.unirSub=function(){
     if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
-    var keepId=(document.getElementById("us_keep")||{}).value||"";var srcId=(document.getElementById("us_src")||{}).value||"";
-    if(!keepId||!srcId||keepId===srcId){toastSafe("Escolhe duas subscrições diferentes.");return;}
-    var keep=(D.deals||[]).filter(function(x){return x.id===keepId;})[0];var src=(D.deals||[]).filter(function(x){return x.id===srcId;})[0];
-    if(!keep||!src)return;
+    var ids=[].slice.call(document.querySelectorAll(".us_ck:checked")).map(function(c){return c.value;});
+    if(ids.length<2){toastSafe("Escolhe pelo menos duas subscrições.");return;}
+    var arr=ids.map(function(id){return (D.deals||[]).filter(function(x){return x.id===id;})[0];}).filter(Boolean);
+    if(arr.length<2)return;
+    var keep=arr.slice().sort(function(a,b){var ra=a.renewDate||"",rb=b.renewDate||"";if(ra!==rb)return ra<rb?-1:1;var da=a.date||"",db=b.date||"";return da<db?-1:(da>db?1:0);}).pop();
     var doIt=function(){
-      var kd=keep.renewDate||"",sd=src.renewDate||"";keep.renewDate=(kd>sd?kd:sd)||kd||sd;
-      if(!keep.date||(src.date&&src.date<keep.date))keep.date=keep.date||src.date;
-      src._subMergedInto=keepId;
-      if(typeof logAct==="function")logAct("Comercial","Subscrições unidas — "+cn(src.clientId)+" juntada em "+cn(keep.clientId));
-      save();clM();ren();toastSafe("Subscrições unidas.","ok");
+      var totalCount=arr.reduce(function(a,d){return a+(Number(d.renovacoesCount)||1);},0);
+      var earliest=keep.date||"";
+      arr.forEach(function(d){if(d===keep)return;if(d.date&&(!earliest||d.date<earliest))earliest=d.date;d._subMergedInto=keep.id;});
+      keep.renovacoesCount=totalCount;
+      if(earliest&&(!keep.date||earliest<keep.date))keep.date=earliest;
+      if(typeof logAct==="function")logAct("Comercial","Subscrições unidas ("+arr.length+") — mantida "+cn(keep.clientId)+" que renova "+(keep.renewDate?fmtD(keep.renewDate):"—")+" · "+totalCount+" renovações");
+      save();clM();ren();toastSafe(arr.length+" subscrições unidas · "+totalCount+" renovações contabilizadas.","ok");
     };
-    if(typeof confirmM==="function")confirmM("Unir «"+esc(cn(src.clientId))+"» em «"+esc(cn(keep.clientId))+"»? A subscrição antiga é arquivada.",doIt,{yesLabel:"Unir"});else doIt();
+    if(typeof confirmM==="function")confirmM("Unir <b>"+arr.length+"</b> subscrições?<br>Fica ativa a de <b>"+esc(cn(keep.clientId))+"</b> que renova em <b>"+(keep.renewDate?fmtD(keep.renewDate):"—")+"</b>; as restantes são arquivadas.",doIt,{yesLabel:"Unir"});else doIt();
   };
   window.desunirSub=function(id){
     if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
-    var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;delete d._subMergedInto;
+    var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;var keepId=d._subMergedInto;delete d._subMergedInto;
+    if(keepId){var keep=(D.deals||[]).filter(function(x){return x.id===keepId;})[0];if(keep)keep.renovacoesCount=Math.max(1,(Number(keep.renovacoesCount)||1)-(Number(d.renovacoesCount)||1));}
     if(typeof logAct==="function")logAct("Comercial","Subscrição separada — "+cn(d.clientId));save();ren();toastSafe("Separada.","ok");
   };
   // ===================== C2 · Recorrência unificada (Subscrições/AT + Contratos) =====================
@@ -8468,12 +8488,13 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   function recurCtrArr(c){return (c&&c.arr!=null&&c.arr!=="")?Number(c.arr):((typeof ctrAnual==="function")?ctrAnual(c):(Number(c&&c.valor||0)));}
   function recurItems(fCli){
     var out=[],subIds={};
-    (typeof subDeals==="function"?subDeals():[]).forEach(function(d){subIds[d.id]=1;if(fCli&&d.clientId!==fCli)return;out.push({kind:"sub",id:d.id,clientId:d.clientId,nome:d.product||"",product:d.product||"",value:Number(d.value)||0,valor:Number(d.value)||0,arr:Number(d.arr)||0,aum:Number(d.aumentoPct)||0,renov:d.renewDate||"",estado:(d.stage==="concluido"?"Encerrada":"Ativa"),tipo:(d.type==="AT"?"AT":"SUB"),obj:d});});
+    (typeof subDeals==="function"?subDeals():[]).forEach(function(d){subIds[d.id]=1;if(fCli&&d.clientId!==fCli)return;out.push({kind:"sub",id:d.id,clientId:d.clientId,nome:d.product||"",product:d.product||"",value:Number(d.value)||0,valor:Number(d.value)||0,arr:Number(d.arr)||0,aum:Number(d.aumentoPct)||0,renov:d.renewDate||"",estado:(d.stage==="concluido"?"Encerrada":"Ativa"),tipo:(d.type==="AT"?"AT":"SUB"),renovacoesCount:Number(d.renovacoesCount)||1,obj:d});});
     (D.contratos||[]).forEach(function(c){if(c.dealId&&subIds[c.dealId])return;if(fCli&&c.clientId!==fCli)return;out.push({kind:"ctr",id:c.id,clientId:c.clientId,nome:c.descricao||"Contrato",product:(c.descricao||"Contrato"),value:Number(c.valor)||0,valor:Number(c.valor)||0,arr:recurCtrArr(c),aum:Number(c.aumentoPct)||0,renov:c.fim||"",estado:((c.estado==="terminado"||c.estado==="cancelado")?"Encerrado":"Ativo"),tipo:"Contrato",obj:c});});
     return out;
   }
   window.recurItems=recurItems;
   window.recurArrTotal=function(){return recurItems("").reduce(function(a,x){return a+(Number(x.arr)||0);},0);};
+  window.recurArrAno=function(year){year=String(year);return recurItems("").reduce(function(a,x){return a+(((String(x.renov||"").slice(0,4))===year)?(Number(x.arr)||0):0);},0);};
   window.ctrArrStandalone=function(){return (D.contratos||[]).filter(function(c){var lk=c.dealId&&(D.deals||[]).some(function(d){return d.id===c.dealId&&isWon(d);});return !lk&&c.estado!=="terminado"&&c.estado!=="cancelado";}).reduce(function(a,c){return a+recurCtrArr(c);},0);};
   window.recurSetArr=function(kind,id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var o=recurObj(kind,id);if(!o)return;o.arr=(v===""?"":(Number(v)||0));if(typeof logAct==="function")logAct("Comercial","ARR atualizado — "+cn(o.clientId||o.clientId));save();ren();};
   window.recurSetAum=function(kind,id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var o=recurObj(kind,id);if(!o)return;o.aumentoPct=Number(v)||0;save();ren();};
