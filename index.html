@@ -449,7 +449,7 @@ function genReport(){
   var openD=D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)}).sort(function(a,b){return b.value-a.value});
   var perd=D.deals.filter(function(d){return d.stage==="perdido"&&inYear(d.date)});
   var perdT=perd.reduce(function(a,d){return a+d.value},0);
-  var arrW=D.deals.filter(function(d){return isWon(d)}).reduce(function(a,d){return a+(d.arr||0)},0);
+  var arrW=(typeof window.recurArrTotal==="function")?window.recurArrTotal():D.deals.filter(function(d){return isWon(d)}).reduce(function(a,d){return a+(d.arr||0)},0);
   var adj=ganhas.filter(function(d){return!D.invoices.find(function(i){return i.dealId===d.id})});
   var adjT=adj.reduce(function(a,d){return a+d.value},0);
   var term=Number(D.paymentTermDays)||30;
@@ -1132,7 +1132,7 @@ if(cTab==="dashboard"){
     var wo=S.inv+adjNoInv+openD.slice(2).reduce(function(a,d){return a+d.value*(d.stage==="projeto"?WT.projeto:d.stage==="proposta"?WT.proposta:WT.lead)},0);
     h+='<div class="ins'+(top2share>=60?" w":"")+'"><div style="font-weight:600;margin-bottom:4px">'+(top2share>=60?"⚠️":"🎲")+' Stress-test: e se os 2 maiores escorregarem?</div><div style="font-size:13px;color:#7a7268;line-height:1.6">'+cn(top2[0].clientId)+' ('+fmt(top2[0].value)+') e '+cn(top2[1].clientId)+' ('+fmt(top2[1].value)+') representam <b>'+top2share+'% do pipeline aberto</b>. Se ambos deslizarem para '+(activeYear()+1)+', o cenário ponderado cai para <b>'+fmt(wo)+'</b> ('+pc(wo,D.budget)+'% do objectivo)'+(wo>=D.budget?" — mesmo assim acima do objectivo.":" — abaixo do objectivo, seria preciso reforçar o funil.")+'</div></div>'}
 
-  var arrWon=D.deals.filter(function(d){return isWon(d)}).reduce(function(a,d){return a+(d.arr||0)},0);
+  var arrWon=(typeof window.recurArrTotal==="function")?window.recurArrTotal():D.deals.filter(function(d){return isWon(d)}).reduce(function(a,d){return a+(d.arr||0)},0);
   var arrPipe=D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)}).reduce(function(a,d){return a+(d.arr||0)},0);
   if(arrWon+arrPipe>0){h+='<div class="ins"><div style="font-weight:600;margin-bottom:4px">🔁 Base de receita recorrente (ARR)</div><div style="font-size:13px;color:#7a7268;line-height:1.6">ARR garantido (vendas ganhas): <b>'+fmt(arrWon)+'/ano</b>. ARR em jogo no pipeline aberto: '+fmt(arrPipe)+'/ano'+(arrPipe>arrWon*2?' — o pipeline actual pode multiplicar a base recorrente; priorizar os deals com ARR alto tem efeito composto em 2027+.':'.')+'</div></div>'}
 
@@ -8298,7 +8298,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     var cliRows=Object.keys(byCli).sort(function(a,b){return byCli[b]-byCli[a];});
     // subscrições a renovar (90 dias)
     var subs=(typeof subDeals==="function"?subDeals():[]).map(function(d){return {n:cn(d.clientId),p:d.product||"",arr:Number(d.arr)||0,dd:(typeof subRenewDays==="function")?subRenewDays(d):null};}).filter(function(s){return s.dd!=null&&s.dd<=90;}).sort(function(a,b){return a.dd-b.dd;});
-    var arrTot=(typeof subDeals==="function"?subDeals():[]).reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+    var arrTot=(typeof window.recurArrTotal==="function")?window.recurArrTotal():(typeof subDeals==="function"?subDeals():[]).reduce(function(a,d){return a+(Number(d.arr)||0);},0);
     // bolsas de horas
     var bols=(typeof bolsaList==="function"?bolsaList():[]).map(function(b){return {n:cn(b.clientId),h:Number(b.horas)||0,s:(typeof bolsaSaldo==="function")?bolsaSaldo(b):0};});
     var fmtH=function(n){return (typeof fmtHM==="function")?fmtHM(n):(Math.round(n*10)/10+"h");};
@@ -8312,7 +8312,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       +'<div class="k"><div class="n">'+e2(fmt(S2.col||0))+'</div><div class="l">Cobrado</div></div>'
       +'<div class="k"><div class="n" style="color:#AB2331">-'+e2(fmt((S2.exp||0)+pess))+'</div><div class="l">Custos (despesas + pessoal)</div></div>'
       +'<div class="k"><div class="n" style="color:'+(res<0?"#AB2331":"#1a7f4b")+'">'+e2(fmt(res))+'</div><div class="l">Resultado</div></div></div>'
-      +'<table>'+row("Faturação",fmt(S2.inv||0))+row("Despesas diretas",fmt(S2.exp||0),"#AB2331")+row("Custo de pessoal (horas)",fmt(pess),"#AB2331")+row("ARR contratado (subscrições/AT)",fmt(arrTot),"#1a7f4b")+'</table>'
+      +'<table>'+row("Faturação",fmt(S2.inv||0))+row("Despesas diretas",fmt(S2.exp||0),"#AB2331")+row("Custo de pessoal (horas)",fmt(pess),"#AB2331")+row("ARR contratado (subscrições/AT + contratos)",fmt(arrTot),"#1a7f4b")+'</table>'
       +'<h2>Horas por cliente ('+e2(yr)+')</h2>';
     if(!cliRows.length)html+='<div style="font-size:12px;color:#a89d8d">Sem horas registadas.</div>';
     else{html+='<table><thead><tr><th>Cliente</th><th style="text-align:right">Horas</th></tr></thead><tbody>';cliRows.forEach(function(k){html+='<tr><td>'+e2(k)+'</td><td style="text-align:right;font-weight:700">'+e2(fmtH(byCli[k]))+'</td></tr>';});html+='</tbody></table>';}
