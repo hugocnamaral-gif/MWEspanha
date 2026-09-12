@@ -938,6 +938,16 @@ if(cTab==="dashboard"){
   h+='<tr><td style="font-weight:600">6. Upsell</td><td style="color:#7a7268;font-size:11px">especialidades em clientes actuais</td><td style="text-align:right">'+fmt(B.upsell)+'</td></tr>';
   h+='<tr style="border-top:2px solid #ece6dc"><td style="font-weight:700;font-size:14px">ORÇAMENTO '+NY+'</td><td></td><td style="text-align:right;font-weight:700;font-size:16px;font-family:\'Fraunces\',serif;color:'+GD+'">'+fmt(total27)+'</td></tr>';
   h+='</table></div>';
+  h+='<div class="cd"><div class="ct2" style="margin-bottom:8px">SUBSCRIÇÕES & AT — base recorrente</div>';
+  var _subsO=(typeof window.subDeals==="function")?window.subDeals():[];
+  var _subArrO=_subsO.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
+  h+='<div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">As subscrições/AT ganhas somam <b>'+fmt(_subArrO)+'</b> de ARR — a base recorrente que alimenta a Camada 1 acima. Edita renovações e ARR em Comercial › Subscrições/AT; o orçamento reflete automaticamente.</div>';
+  if(!_subsO.length)h+='<div style="font-size:12px;color:#a89d8d">Sem subscrições/AT ganhas.</div>';
+  else{h+='<div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Produto</th><th style="text-align:right">Valor</th><th style="text-align:right">ARR</th></tr>';
+    _subsO.slice().sort(function(a,b){return (Number(b.arr)||0)-(Number(a.arr)||0);}).forEach(function(d){h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#7a7268">'+esc(d.product||"—")+'</td><td style="text-align:right">'+fmt(d.value||0)+'</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+(d.arr>0?fmt(d.arr):"—")+'</td></tr>';});
+    h+='<tr style="border-top:2px solid #ece6dc"><td colspan="3" style="text-align:right;font-weight:700">Total ARR</td><td style="text-align:right;font-weight:700;color:'+PUR+'">'+fmt(_subArrO)+'</td></tr>';
+    h+='</table></div>';}
+  h+='</div>';
   var recPct=total27>0?Math.round(withPrice/total27*100):0;
   h+='<div class="ins'+(recPct<40?" w":"")+'"><div style="font-weight:600;margin-bottom:4px">'+(recPct>=40?"✅":"⚠️")+' Qualidade do orçamento</div><div style="font-size:13px;color:#7a7268;line-height:1.6">'+recPct+'% do orçamento de '+NY+' vem de receita recorrente já contratada ou em pipeline; '+(100-recPct)+'% depende de vender de novo. '+(recPct>=40?"Uma base saudável — o ano não começa do zero.":"Um orçamento assente sobretudo em novo negócio é frágil: qualquer atraso comercial passa directamente para o resultado. Aumentar a base recorrente devia ser prioridade em '+(NY-1)+'.")+'</div></div>';
   if(Number(B.newBiz)>0){var ticket=oneOff26>0&&D.deals.filter(function(d){return isWon(d)&&inYear(d.date)}).length>0?oneOff26/D.deals.filter(function(d){return isWon(d)&&inYear(d.date)}).length:0;
@@ -4930,14 +4940,14 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   function allHours(){
     var out=[];
     (Array.isArray(D.timesheets)?D.timesheets:[]).forEach(function(t){
-      var _em=t.email||"";var _nm=t.nome||(typeof emailToNome==="function"?emailToNome(_em):"")||_em;out.push({_src:"ts",_id:t.id,_deal:t.dealId||"",data:t.data||"",horas:Number(t.horas)||0,vh:tsRate(t),pessoa:_nm||_em||"—",_email:_em,_nome:_nm,cliente:tsCliente(t),projeto:tsProjeto(t),tarefa:tsTarefa(t),_modulo:(t.interfaceId?"Integração":(t.ticketId?"Suporte":(t.dealId?"Projetos":"Outro"))),_client:(function(){var d=tsDeal(t);if(d)return d.clientId||"";if(t.ticketId){var tk=(D.tickets||[]).filter(function(x){return x.id===t.ticketId;})[0];return tk?(tk.clientId||""):"";}return "";})()});
+      var _em=t.email||"";var _nm=t.nome||(typeof emailToNome==="function"?emailToNome(_em):"")||_em;out.push({_src:"ts",_id:t.id,_deal:t.dealId||"",data:t.data||"",horas:Number(t.horas)||0,vh:tsRate(t),pessoa:_nm||_em||"—",_email:_em,_nome:_nm,cliente:tsCliente(t),projeto:tsProjeto(t),tarefa:tsTarefa(t),_bolsa:t.bolsaId||"",_modulo:(t.interfaceId?"Integração":(t.ticketId?"Suporte":(t.dealId?"Projetos":"Outro"))),_client:(function(){var d=tsDeal(t);if(d)return d.clientId||"";if(t.ticketId){var tk=(D.tickets||[]).filter(function(x){return x.id===t.ticketId;})[0];return tk?(tk.clientId||""):"";}return "";})()});
     });
     (Array.isArray(D.projectos)?D.projectos:[]).forEach(function(p){
       var dl=(D.deals||[]).filter(function(d){return d.id===p.dealId;})[0]||null;
       var cli=dl?cn(dl.clientId):"—";var proj=dl?(dl.product||("Projeto "+(p.dealId||""))):"(projeto)";
       (p.horas||[]).forEach(function(x){
         var tk=(p.tarefas||[]).filter(function(tt){return tt.id===x.tarefaId;})[0];
-        var _nm2=x.colaborador||"";var _em2=x.email||(typeof nomeToEmail==="function"?nomeToEmail(_nm2):"")||"";out.push({_src:"proj",_id:x.id,_deal:p.dealId||"",data:x.data||"",horas:Number(x.horas)||0,vh:(x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):(typeof hrRate==="function"?hrRate():0),pessoa:_nm2||"—",_email:_em2,_nome:_nm2,cliente:cli,projeto:proj,tarefa:x.nota||(tk?tk.titulo:"")||"—",_modulo:"Projetos",_client:(dl?(dl.clientId||""):"")});
+        var _nm2=x.colaborador||"";var _em2=x.email||(typeof nomeToEmail==="function"?nomeToEmail(_nm2):"")||"";out.push({_src:"proj",_id:x.id,_deal:p.dealId||"",data:x.data||"",horas:Number(x.horas)||0,vh:(x.valorHora!=null&&x.valorHora!=="")?Number(x.valorHora):(typeof hrRate==="function"?hrRate():0),pessoa:_nm2||"—",_email:_em2,_nome:_nm2,cliente:cli,projeto:proj,tarefa:x.nota||(tk?tk.titulo:"")||"—",_bolsa:x.bolsaId||"",_modulo:"Projetos",_client:(dl?(dl.clientId||""):"")});
       });
     });
     return out;
@@ -5097,12 +5107,14 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     var dealOpts='<option value="">— nenhum —</option>'+(D.deals||[]).slice().sort(function(a,b){return (a.clientId||"").localeCompare(b.clientId||"");}).map(function(d){return '<option value="'+d.id+'"'+(x.dealId===d.id?' selected':'')+'>'+esc(cn(d.clientId)+" — "+(d.product||d.id))+'</option>';}).join("");
     var tkOpts='<option value="">— nenhum —</option>'+(D.tickets||[]).map(function(t){return '<option value="'+t.id+'"'+(x.ticketId===t.id?' selected':'')+'>'+esc((t.titulo||t.id))+'</option>';}).join("");
     var intfOpts='<option value="">— nenhuma —</option>'+(D.interfaces||[]).map(function(i){var lbl=(cn(i.clientId)||"?")+" · "+((i.oSist||"?")+"→"+(i.dSist||"?"))+(i.proto?" "+i.proto:"");return '<option value="'+i.id+'"'+(x.interfaceId===i.id?' selected':'')+'>'+esc(lbl)+'</option>';}).join("");
+    var _bolList=(typeof bolsaList==="function"?bolsaList():[]);window.__hBolMap={};var _bolLbl=function(bb){return (cn(bb.clientId)||"?")+" — "+fmtHM((typeof bolsaSaldo==="function")?bolsaSaldo(bb):0)+" livres"+(bb.nota?" · "+bb.nota:"");};var bolDL=_bolList.map(function(bb){var lbl=_bolLbl(bb);window.__hBolMap[lbl]=bb.id;return '<option value="'+esc(lbl)+'"></option>';}).join("");var _bolSel=(x.bolsaId?(_bolList.filter(function(bb){return bb.id===x.bolsaId;})[0]):null);var _bolSelLbl=_bolSel?_bolLbl(_bolSel):"";
     var body='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+fld("Data",'<input type="date" id="h_data" value="'+(x.data||todayISO())+'" onchange="horaRecalcVH()">')+fld("Tempo (h:mm)",'<input type="text" id="h_horas" placeholder="0:30" value="'+fmtHM(Number(x.horas)||0)+'">')+'</div>'+
       (canLogForOthers()?fld("Colaborador (em branco = tu)",'<input id="h_email" list="h_elist" value="'+esc(x.email||"")+'" placeholder="email do colaborador" onchange="horaRecalcVH()">'+dlist("h_elist",(typeof hrRoster!=="undefined"?hrRoster:[]))):'')+
       fld("Projeto (negócio)",'<select id="h_deal" onchange="horaFillTasks()">'+dealOpts+'</select>')+
       fld("Tarefa do projeto (opcional)",'<select id="h_task"></select>')+
       fld("Ou ticket de suporte",'<select id="h_ticket">'+tkOpts+'</select>')+
       fld("Ou integração",'<select id="h_intf">'+intfOpts+'</select>')+
+      fld("Descontar da bolsa de horas (procura por cliente)",'<input id="h_bolsa" list="h_bolsalist" autocomplete="off" value="'+esc(_bolSelLbl)+'" placeholder="escreve o cliente para procurar…" onchange="var m=(window.__hBolMap||{})[this.value];var _hb=document.getElementById(\'h_bolsaid\');if(_hb)_hb.value=m||\'\'"><datalist id="h_bolsalist">'+bolDL+'</datalist><input type="hidden" id="h_bolsaid" value="'+esc(x.bolsaId||"")+'">')+
       fld("Descrição",'<input id="h_desc" value="'+esc(x.descricao||"")+'">')+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+fld("Faturável",'<select id="h_fat"><option value="1"'+(x.faturavel?' selected':'')+'>Sim</option><option value="0"'+(!x.faturavel?' selected':'')+'>Não</option></select>')+fld("Custo/hora do colaborador (€)",'<input type="number" id="h_vh" step="0.01" min="0" value="'+_hvh+'">')+'</div>'+'<div style="font-size:11px;color:#a89d8d;margin:-4px 0 8px">O custo/hora vem do vencimento do colaborador no ano da data. «Faturável» só marca se estas horas podem ser cobradas ao cliente — <b>não altera o custo</b>. Para projetos de valor fixo, põe «Não».</div>'+
       '<div style="display:flex;gap:8px;margin-top:6px">'+(id?'<button class="btn bs" style="background:'+R+'" onclick="delHora(\''+id+'\')">Apagar</button>':'')+'<button class="btn" style="background:'+R+';flex:1" onclick="svHora(\''+(id||"")+'\')">Guardar</button></div>';
@@ -5113,7 +5125,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   window.svHora=function(id){
     var v=function(x){var el=document.getElementById(x);return el?el.value:"";};var cfg=horasCfg();
     var x=id?horasList().filter(function(h){return h.id===id;})[0]:{id:huid(),email:(typeof myEmail==="function"?myEmail():"")||"",faturado:false};
-    x.data=v("h_data")||todayISO();x.horas=parseHM(v("h_horas"));x.dealId=v("h_deal");x.taskId=v("h_task")||"";x.ticketId=v("h_ticket");x.interfaceId=v("h_intf")||"";if(x.interfaceId&&!x.dealId){var _if=(D.interfaces||[]).filter(function(i){return i.id===x.interfaceId;})[0];if(_if&&_if.dealId)x.dealId=_if.dealId;}x.descricao=v("h_desc");x.faturavel=v("h_fat")==="1";x.valorHora=Number(v("h_vh"))||0;
+    x.data=v("h_data")||todayISO();x.horas=parseHM(v("h_horas"));x.dealId=v("h_deal");x.taskId=v("h_task")||"";x.ticketId=v("h_ticket");x.interfaceId=v("h_intf")||"";x.bolsaId=(document.getElementById("h_bolsaid")||{}).value||"";if(x.interfaceId&&!x.dealId){var _if=(D.interfaces||[]).filter(function(i){return i.id===x.interfaceId;})[0];if(_if&&_if.dealId)x.dealId=_if.dealId;}x.descricao=v("h_desc");x.faturavel=v("h_fat")==="1";x.valorHora=Number(v("h_vh"))||0;
     cfg.valorHora=x.valorHora||cfg.valorHora;
     if(!id)horasList().push(x);
     var _em=v("h_email");if(_em)x.email=_em.trim();
@@ -8111,10 +8123,11 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   // ===================== BOLSA DE HORAS (avença / retainer por cliente) =====================
   function bolsaList(){return Array.isArray(D.bolsas)?D.bolsas:(D.bolsas=[]);}
   function bolsaConsumo(b){
-    if(!b||!b.clientId)return 0;
+    if(!b)return 0;
     var di=b.dataInicio||"",df=b.dataFim||"";
     return (typeof allHours==="function"?allHours():[]).reduce(function(a,e){
-      if(e._client!==b.clientId)return a;
+      if(e._bolsa){return a+((e._bolsa===b.id)?(Number(e.horas)||0):0);}
+      if(!b.clientId||e._client!==b.clientId)return a;
       var d=e.data||"";
       if(di&&d&&d<di)return a;
       if(df&&d&&d>df)return a;
@@ -8209,7 +8222,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     if(typeof confirmM==="function")confirmM("Eliminar esta bolsa de horas?",doIt,{yesLabel:"Eliminar"});else doIt();
   };
   // ===================== SUBSCRIÇÕES / AT (Comercial — não geram projeto) =====================
-  function subDeals(){return (D.deals||[]).filter(function(d){return isWon(d)&&isSubDeal(d);});}
+  function subDeals(){return (D.deals||[]).filter(function(d){return isWon(d)&&isSubDeal(d)&&!d._subMergedInto;});}
   function subRenewDays(d){if(!d||!d.renewDate)return null;return Math.round((new Date(d.renewDate)-new Date(todayISO()))/86400000);}
   window.subDeals=subDeals;
   window.subSetRenew=function(id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;d.renewDate=v||"";if(typeof logAct==="function")logAct("Comercial","Renovação atualizada — "+cn(d.clientId)+(v?" ("+fmtD(v)+")":""));save();try{if(typeof updateBell==="function")updateBell();}catch(e){}};
@@ -8223,7 +8236,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     var arrTot=all.reduce(function(a,d){return a+(Number(d.arr)||0);},0);
     var valTot=all.reduce(function(a,d){return a+(Number(d.value)||0);},0);
     var soon=all.filter(function(d){var dd=subRenewDays(d);return dd!=null&&dd<=60;});
-    var h=pgHead("🔁","Subscrições / AT");
+    var h=pgHead("🔁","Subscrições / AT",canEdit?'<button class="btn bs" style="background:'+TEAL+'" onclick="openUnirSub()">⤵ Unir subscrições</button>':"");
     h+='<div style="font-size:12px;color:#7a7268;margin:-4px 0 12px">Negócios do tipo <b>AT</b> e <b>Subscrição</b> já ganhos. <b>Não geram projeto</b> — a gestão do serviço e das renovações faz-se aqui.</div>';
     h+='<div class="kr">'+kpi("Subscrições",String(all.length),"AT + Subscrição",PUR,PUR)+kpi("ARR total",fmt(arrTot),"receita recorrente/ano",GRN,GRN)+kpi("Valor total",fmt(valTot),"contratado",BLU,BLU)+kpi("A renovar (60d)",String(soon.length),"próximas renovações",soon.length?GD:SL,soon.length?GD:SL)+'</div>';
     if(soon.length){
@@ -8414,6 +8427,38 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     app.innerHTML=h;
   }
   window.renderMapaHoras=renderMapaHoras;
+  // ===================== C1 · Unir subscrições (renovações) =====================
+  window.openUnirSub=function(){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var subs=(typeof subDeals==="function"?subDeals():[]);
+    if(subs.length<2){document.getElementById("mArea").innerHTML=mWrap("Unir subscrições",'<div style="font-size:12.5px;color:#a89d8d">São precisas pelo menos duas subscrições ganhas para unir.</div>');return;}
+    var opt=function(sel){return subs.map(function(d){return '<option value="'+d.id+'">'+esc(cn(d.clientId)+" · "+String(d.product||"").slice(0,30)+(d.renewDate?" (renova "+fmtD(d.renewDate)+")":""))+'</option>';}).join("");};
+    var body='<div style="font-size:12.5px;color:#7a7268;margin-bottom:8px">Junta uma subscrição antiga (que já foi renovada por outra) na subscrição atual. A que <b>mantéis</b> fica com a data de renovação mais recente; a outra é arquivada (deixa de contar para o ARR), sem se perder.</div>'
+      +fld("Subscrição a manter (a atual)",'<select id="us_keep">'+opt()+'</select>')
+      +fld("Subscrição a juntar (renovação antiga)",'<select id="us_src">'+opt()+'</select>')
+      +'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="unirSub()">Unir</button>';
+    document.getElementById("mArea").innerHTML=mWrap("Unir subscrições",body);
+  };
+  window.unirSub=function(){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var keepId=(document.getElementById("us_keep")||{}).value||"";var srcId=(document.getElementById("us_src")||{}).value||"";
+    if(!keepId||!srcId||keepId===srcId){toastSafe("Escolhe duas subscrições diferentes.");return;}
+    var keep=(D.deals||[]).filter(function(x){return x.id===keepId;})[0];var src=(D.deals||[]).filter(function(x){return x.id===srcId;})[0];
+    if(!keep||!src)return;
+    var doIt=function(){
+      var kd=keep.renewDate||"",sd=src.renewDate||"";keep.renewDate=(kd>sd?kd:sd)||kd||sd;
+      if(!keep.date||(src.date&&src.date<keep.date))keep.date=keep.date||src.date;
+      src._subMergedInto=keepId;
+      if(typeof logAct==="function")logAct("Comercial","Subscrições unidas — "+cn(src.clientId)+" juntada em "+cn(keep.clientId));
+      save();clM();ren();toastSafe("Subscrições unidas.","ok");
+    };
+    if(typeof confirmM==="function")confirmM("Unir «"+esc(cn(src.clientId))+"» em «"+esc(cn(keep.clientId))+"»? A subscrição antiga é arquivada.",doIt,{yesLabel:"Unir"});else doIt();
+  };
+  window.desunirSub=function(id){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;delete d._subMergedInto;
+    if(typeof logAct==="function")logAct("Comercial","Subscrição separada — "+cn(d.clientId));save();ren();toastSafe("Separada.","ok");
+  };
   if(typeof rPnl==="function"){
     var _r=rPnl;
     rPnl=function(){
