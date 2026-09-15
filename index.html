@@ -5266,20 +5266,19 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
       var proj=(D.projectos||[]).filter(function(p){return p.dealId===d.id;})[0];
       var ids=proj?projDealIds(proj):[d.id];
       var rec=ids.reduce(function(a,id){return a+(D.invoices||[]).filter(function(i){return i.dealId===id;}).reduce(function(s,i){return s+(Number(i.amount)||0);},0);},0);
-      var hProj=0,custo=0;ids.forEach(function(id){var pr=(D.projectos||[]).filter(function(p){return p.dealId===id;})[0];if(pr){hProj+=(pr.horas||[]).reduce(function(a,x){return a+(Number(x.horas)||0);},0);custo+=projMaoObra(pr);}});
-      var hTs=ids.reduce(function(a,id){return a+(D.timesheets||[]).filter(function(t){return t.dealId===id;}).reduce(function(s,t){return s+(Number(t.horas)||0);},0);},0);
-      var horas=hProj+hTs;custo+=hTs*hr;
+      var horas=proj?((typeof projHorasAgg==="function")?projHorasAgg(proj):0):0;
+      var custo=proj?((typeof projCustoAgg==="function")?projCustoAgg(proj):0):0;
       if(rec>0||horas>0)rows.push({d:d,rec:rec,horas:horas,custo:custo,mrg:rec-custo});
     });
     (function(){try{var byCli={};rows.forEach(function(x){var cid=x.d.clientId;(byCli[cid]=byCli[cid]||[]).push(x);});Object.keys(byCli).forEach(function(cid){var ncl=(typeof clientNClegal==="function")?clientNClegal(cid):0;if(!ncl)return;var rs=byCli[cid];var sum=rs.reduce(function(a,x){return a+Math.max(0,x.rec);},0);if(sum>0){rs.forEach(function(x){var share=ncl*(Math.max(0,x.rec)/sum);x.rec-=share;x.mrg=x.rec-x.custo;});}else{rs[0].rec-=ncl;rs[0].mrg=rs[0].rec-rs[0].custo;}});}catch(e){}})();
     var totRec=rows.reduce(function(a,x){return a+x.rec;},0),totCst=rows.reduce(function(a,x){return a+x.custo;},0);
     var h='<div class="cd"><div class="ch"><div class="ct2">Rentabilidade por projeto</div>'+(((typeof canSeeCost==="function")&&canSeeCost())?'<button class="btn bs" style="background:'+SL+'" onclick="setHrRate()">Custo/hora: '+fmt(hr)+'</button>':'')+'</div>';
-    h+='<div style="font-size:12px;color:#A6AEB6;margin-bottom:10px">Receita faturada menos o custo das horas, ao <b>valor-hora de cada colaborador</b> (base '+fmt(hr)+'/h quando não há salário associado). Clica numa linha para abrir o cliente.</div>';
+    h+='<div style="font-size:12px;color:#A6AEB6;margin-bottom:10px">Espelha o custo e a margem de cada projeto — <b>o mesmo valor que vês no cartão do projeto</b> (custo às horas de cada colaborador, base '+fmt(hr)+'/h sem salário). Clica numa linha para abrir o cliente.</div>';
     if(!rows.length)h+='<div style="font-size:12.5px;color:#A6AEB6">Sem projetos com receita ou horas registadas.</div>';
     else{rows.sort(function(a,b){return b.mrg-a.mrg;});
       h+='<div style="overflow-x:auto"><table><thead><tr><th>Projeto / Cliente</th><th style="text-align:right">Receita</th><th style="text-align:right">Horas</th><th style="text-align:right">Custo</th><th style="text-align:right">Margem</th><th style="text-align:right">%</th></tr></thead><tbody>';
       rows.forEach(function(x){var nome=cn(x.d.clientId)+" — "+(x.d.product||x.d.id);
-        h+='<tr style="cursor:pointer" onclick="openClient(\''+x.d.clientId+'\')"><td style="font-weight:600">'+esc(nome)+'</td><td style="text-align:right">'+fmt(x.rec)+'</td><td style="text-align:right;color:#7E8892">'+x.horas+'h</td><td style="text-align:right;color:#7E8892">'+fmt(x.custo)+'</td><td style="text-align:right;font-weight:700;color:'+(x.mrg>=0?GRN:DNG)+'">'+fmt(x.mrg)+'</td><td style="text-align:right;font-size:12px;color:'+(x.mrg>=0?GRN:DNG)+'">'+(x.rec>0?Math.round(x.mrg/x.rec*100)+"%":"—")+'</td></tr>';});
+        h+='<tr style="cursor:pointer" onclick="openClient(\''+x.d.clientId+'\')"><td style="font-weight:600">'+esc(nome)+'</td><td style="text-align:right">'+fmt(x.rec)+'</td><td style="text-align:right;color:#7E8892">'+(Math.round((Number(x.horas)||0)*100)/100)+'h</td><td style="text-align:right;color:#7E8892">'+fmt(x.custo)+'</td><td style="text-align:right;font-weight:700;color:'+(x.mrg>=0?GRN:DNG)+'">'+fmt(x.mrg)+'</td><td style="text-align:right;font-size:12px;color:'+(x.mrg>=0?GRN:DNG)+'">'+(x.rec>0?Math.round(x.mrg/x.rec*100)+"%":"—")+'</td></tr>';});
       h+='<tr style="border-top:2px solid #E4E8EB;font-weight:800"><td>Total</td><td style="text-align:right">'+fmt(totRec)+'</td><td></td><td style="text-align:right">'+fmt(totCst)+'</td><td style="text-align:right;color:'+((totRec-totCst)>=0?GRN:DNG)+'">'+fmt(totRec-totCst)+'</td><td style="text-align:right">'+(totRec>0?Math.round((totRec-totCst)/totRec*100)+"%":"—")+'</td></tr>';
       h+='</tbody></table></div>';}
     h+='</div>';app.innerHTML=app.innerHTML+h;
@@ -8799,6 +8798,26 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       return x;
     };
   }
+  window.paintNegatives=function(){
+    try{
+      var re=/^[\-−]\s?\d[\d.   ,:]*(?:€|h|%)?$/;
+      ["app","mArea"].forEach(function(rid){
+        var root=document.getElementById(rid);if(!root)return;
+        var w=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,null,false),el;
+        while(el=w.nextNode()){
+          if(el.childElementCount===0){
+            var t=(el.textContent||"").trim();
+            if(t.length>1&&t.length<22&&re.test(t)){
+              var clean=t.replace(/[\s  ]/g,"").replace(/[^\d.,\-−]/g,"").replace(/−/g,"-").replace(",",".");
+              if(parseFloat(clean)<0){ el.style.setProperty("color",DNG,"important"); }
+            }
+          }
+        }
+      });
+    }catch(e){}
+  };
+  window.fixHourDecimals=function(){try{var reNode=/\d\.\d{3,}\s*h/;["app","mArea"].forEach(function(rid){var root=document.getElementById(rid);if(!root)return;var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false),n,list=[];while(n=w.nextNode()){if(reNode.test(n.nodeValue))list.push(n);}list.forEach(function(t){t.nodeValue=t.nodeValue.replace(/(\d+(?:\.\d+)?)\s*h\b/g,function(m,num){var v=parseFloat(num);return isFinite(v)?((Math.round(v*100)/100)+"h"):m;});});});}catch(e){}};
+  if(typeof rPnl==="function"){var _rpn=rPnl;rPnl=function(){var _x;try{_x=_rpn.apply(this,arguments);}catch(e){}try{fixHourDecimals();}catch(e){}try{paintNegatives();}catch(e){}return _x;};}
   if(typeof rTabs==="function")try{rTabs();}catch(e){}
 
   // ===================== ANEXOS NO SUPABASE STORAGE =====================
