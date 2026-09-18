@@ -7006,30 +7006,31 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     var canEdit=!isReadOnlyNow();
     if(!Array.isArray(D.tickets))D.tickets=[];
     var all=D.tickets.slice();
-    var abertos=all.filter(tkOpen).length;
-    var urg=all.filter(function(t){return tkOpen(t)&&(t.prioridade==="urgente"||t.prioridade==="alta");}).length;
-    var vencidos=all.filter(function(t){return tkSla(t).vencido;}).length;
+    var stats=all.filter(function(t){return t.canal!=="importado"&&t.canal!=="portal";});
+    var abertos=stats.filter(tkOpen).length;
+    var urg=stats.filter(function(t){return tkOpen(t)&&(t.prioridade==="urgente"||t.prioridade==="alta");}).length;
+    var vencidos=stats.filter(function(t){return tkSla(t).vencido;}).length;
     var mes=new Date().toISOString().slice(0,7);
-    var resolvMes=all.filter(function(t){return t.resolvedAt&&t.resolvedAt.slice(0,7)===mes;}).length;
+    var resolvMes=stats.filter(function(t){return t.resolvedAt&&t.resolvedAt.slice(0,7)===mes;}).length;
     var triar=all.filter(tkTriar);
     var h=pgHead("🎧","Suporte — Pedidos",canEdit?'<button class="btn bs" style="background:'+SL+';margin-right:6px" onclick="openCanned()">💬 Respostas-tipo</button><button class="btn" style="background:'+R+'" onclick="openTicketM()">+ Novo pedido</button>':'');
-    h+='<div class="kr">'+kpi("Por triar",""+triar.length,"sem responsável",triar.length?GD:GRN,triar.length?GD:GRN)+kpi("Abertos",""+abertos,"por resolver",R,R)+kpi("SLA vencido",""+vencidos,"fora do prazo",vencidos?DNG:GRN,vencidos?DNG:GRN)+kpi("Resolvidos (mês)",""+resolvMes,"",GRN,GRN)+'</div>';
+    h+='<div class="kr">'+kpi("Por triar",""+stats.filter(tkTriar).length,"sem responsável",triar.length?GD:GRN,triar.length?GD:GRN)+kpi("Abertos",""+abertos,"por resolver",R,R)+kpi("SLA vencido",""+vencidos,"fora do prazo",vencidos?DNG:GRN,vencidos?DNG:GRN)+kpi("Resolvidos (mês)",""+resolvMes,"",GRN,GRN)+'</div>';
     // ---- Painel de desempenho & SLA ----
     (function(){
-      var rot=all.map(tkResolvedOnTime).filter(function(v){return v!==null;});
+      var rot=stats.map(tkResolvedOnTime).filter(function(v){return v!==null;});
       var slaComp=rot.length?Math.round(rot.filter(Boolean).length/rot.length*100):null;
-      var frs=all.map(tkFirstResp).filter(function(v){return v!==null;});
+      var frs=stats.map(tkFirstResp).filter(function(v){return v!==null;});
       var frAvg=frs.length?(Math.round((frs.reduce(function(a,b){return a+b;},0)/frs.length)*10)/10):null;
-      var criadosMes=all.filter(function(t){return (t.createdAt||"").slice(0,7)===mes;}).length;
-      var abertoDentro=all.filter(function(t){return tkOpen(t)&&!tkSla(t).vencido;}).length;var _csv=all.map(function(t){return t.csat;}).filter(function(v){return v>0;});var csatAvg=_csv.length?(Math.round((_csv.reduce(function(a,b){return a+b;},0)/_csv.length)*10)/10):null;
+      var criadosMes=stats.filter(function(t){return (t.createdAt||"").slice(0,7)===mes;}).length;
+      var abertoDentro=stats.filter(function(t){return tkOpen(t)&&!tkSla(t).vencido;}).length;var _csv=stats.map(function(t){return t.csat;}).filter(function(v){return v>0;});var csatAvg=_csv.length?(Math.round((_csv.reduce(function(a,b){return a+b;},0)/_csv.length)*10)/10):null;
       var scol=slaComp==null?SL:(slaComp>=80?GRN:(slaComp>=50?GD:DNG));
       h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Desempenho &amp; SLA</div><div class="kr" style="margin:0">'
         +kpi("Cumprimento de SLA",slaComp==null?"—":slaComp+"%","resolvidos no prazo",scol,scol)
         +kpi("1ª resposta média",frAvg==null?"—":frAvg+"d","tempo até 1ª resposta",BLU,BLU)
         +kpi("Abertos no prazo",""+abertoDentro,"dentro do SLA",GRN,GRN)
-        +kpi("Novos (mês)",""+criadosMes,"pedidos criados",PUR,PUR)+kpi("Satisfação (CSAT)",csatAvg==null?"—":csatAvg+"/5",_csv.length+" resposta(s)",csatAvg==null?SL:(csatAvg>=4?GRN:(csatAvg>=3?GD:DNG)),csatAvg==null?SL:(csatAvg>=4?GRN:(csatAvg>=3?GD:DNG)))+'</div>';
+        +kpi("Novos (mês)",""+criadosMes,"pedidos criados",PUR,PUR)+kpi("Satisfação (CSAT)",csatAvg==null?"—":csatAvg+"/5",_csv.length+" resposta(s)",csatAvg==null?SL:(csatAvg>=4?GRN:(csatAvg>=3?GD:DNG)),csatAvg==null?SL:(csatAvg>=4?GRN:(csatAvg>=3?GD:DNG)))+'</div><div style="font-size:11px;color:#A6AEB6;margin-top:6px">As estatísticas contam apenas pedidos <b>manuais</b> ou recebidos por <b>email</b> — importados e do portal não contam.</div>';
       h+='<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>Prioridade</th><th style="text-align:right">Abertos</th><th style="text-align:right">Vencidos</th><th style="text-align:right">SLA (dias)</th></tr></thead><tbody>';
-      TK_PRIO.forEach(function(pr){var op=all.filter(function(t){return tkOpen(t)&&t.prioridade===pr[0];}).length;var vn=all.filter(function(t){return t.prioridade===pr[0]&&tkSla(t).vencido;}).length;h+='<tr><td>'+bdg(pr[1],TK_PRIO_COL[pr[0]]||SL)+'</td><td style="text-align:right">'+op+'</td><td style="text-align:right;color:'+(vn?R:"#7E8892")+';font-weight:'+(vn?700:400)+'">'+vn+'</td><td style="text-align:right;color:#A6AEB6">'+TK_SLA_DAYS[pr[0]]+'</td></tr>';});
+      TK_PRIO.forEach(function(pr){var op=stats.filter(function(t){return tkOpen(t)&&t.prioridade===pr[0];}).length;var vn=stats.filter(function(t){return t.prioridade===pr[0]&&tkSla(t).vencido;}).length;h+='<tr><td>'+bdg(pr[1],TK_PRIO_COL[pr[0]]||SL)+'</td><td style="text-align:right">'+op+'</td><td style="text-align:right;color:'+(vn?R:"#7E8892")+';font-weight:'+(vn?700:400)+'">'+vn+'</td><td style="text-align:right;color:#A6AEB6">'+TK_SLA_DAYS[pr[0]]+'</td></tr>';});
       h+='</tbody></table></div></div>';
     })();
     // caixa de entrada — pedidos por triar (sem responsável)
