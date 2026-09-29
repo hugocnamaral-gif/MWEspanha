@@ -2242,6 +2242,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     return out;
   }
   async function pushToSB(_retry){
+    saveTimer=null;   // gravação a decorrer: volta a permitir recarregar as alterações dos colegas
     if(currentRole==="viewer")return;
     try{
       // ler o estado atual do servidor e, se mudou desde a última sincronização, fundir por registo
@@ -9392,6 +9393,360 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       return x;
     };
   }
+
+
+  // ===================== LIGAÇÃO AO ERP MOBILWAVE (set 2026) =====================
+  // O ERP Mobilwave (outro projeto Supabase) envia, pela Edge Function sync-espanha, os clientes com país
+  // Espanha/Andorra, as suas vendas e faturas para a tabela erp_inbox deste projeto. Aqui fundem-se em D.
+  // Regras: a etapa de uma venda só avança (uma perdida só reabre se o ERP a der como ganha); a renovação só avança;
+  // uma fatura recebida nunca volta a pendente e o seu valor não muda; nome, região, canal, responsável ST,
+  // produto e data da venda ficam sempre como estão em Espanha.
+  // As decisões (ligar, criar, ignorar) ficam na tabela erp_link, partilhada por todos os utilizadores.
+  var ERP_ST_ORD={lead:0,proposta:1,ganho:2,projeto:3,concluido:4};
+  var ERP_TYPE={EV:"NV",DV:"NV",HV:"NV",NV:"NV",SV:"SV",AT:"AT",SUB:"SUB"};
+  var ERP_LBL={stage:"Etapa",value:"Valor",arr:"ARR",renewDate:"Renovação",collected:"Recebida",collDate:"Recebida em",amount:"Valor",nif:"NIF/CIF",num:"Número",date:"Data",doneDate:"Concluída em",lostDate:"Perdida em"};
+  var ERP_KLBL={cliente:"Cliente",venda:"Venda",fatura:"Fatura"};
+  var ERP={inbox:[],links:{},meta:null,loaded:false,loadedAt:0,busy:false,err:"",plan:[],tab:"rever",lastRunSeen:null};
+  window.__ERP=ERP;
+  function erpKey(k,id){return k+"|"+id;}
+  function erpCanWrite(){return currentRole==="admin"||currentRole==="member"||currentRole==="editor";}
+  function erpState(){if(!D.erpSync||typeof D.erpSync!=="object")D.erpSync={ativo:false,log:[]};if(!Array.isArray(D.erpSync.log))D.erpSync.log=[];return D.erpSync;}
+  function erpToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+  function erpNorm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]/g," ");}
+  var ERP_STOP={stendoscopia:1,medical7:1,hosp:1,hospital:1,hospitais:1,clinica:1,centro:1,medico:1,del:1,las:1,los:1,sau:1,grand:1,gran:1,canaria:1,palmas:1,madrid:1,siglo:1,xxi:1,fuji:1,almeria:1,servei:1,andorra:1};
+  function erpToks(s){var o={};erpNorm(s).split(/\s+/).forEach(function(t){if(t.length>=3&&!ERP_STOP[t])o[t]=1;});return o;}
+  function erpSim(a,b){var A=erpToks(a),B=erpToks(b),i=0,u=0,k;for(k in A){u++;if(B[k])i++;}for(k in B)if(!A[k])u++;return u?i/u:0;}
+  function erpCleanName(n){return String(n||"").replace(/^STEndoscopia(\s*\([^)]*\))?\s*-\s*/i,"").trim();}
+  function erpById(arr,id){if(!id)return null;for(var i=0;i<(arr||[]).length;i++)if(arr[i].id===id)return arr[i];return null;}
+  function erpMoney(v){return typeof fmt==="function"?fmt(v):String(v);}
+  function erpShow(campo,v){if(v==null||v==="")return "—";if(campo==="value"||campo==="arr"||campo==="amount")return erpMoney(v);if(campo==="collected")return v?"sim":"não";if(campo==="stage"&&typeof SL2!=="undefined"&&SL2[v])return SL2[v];if(/date|Date$/.test(campo)&&typeof fmtD==="function")return fmtD(v);return String(v);}
+
+  // ---------- leitura ----------
+  async function erpLoad(){
+    if(!sb)throw new Error("Sem ligação ao servidor.");
+    var inbox=[],f,q;
+    for(f=0;;f+=1000){q=await sb.from("erp_inbox").select("kind,erp_id,erp_client_id,payload,hash,deleted,updated_at").range(f,f+999);if(q.error)throw q.error;inbox=inbox.concat(q.data||[]);if(!q.data||q.data.length<1000)break;}
+    var links={};
+    for(f=0;;f+=1000){q=await sb.from("erp_link").select("*").range(f,f+999);if(q.error)throw q.error;(q.data||[]).forEach(function(l){links[erpKey(l.kind,l.erp_id)]=l;});if(!q.data||q.data.length<1000)break;}
+    var m=await sb.from("erp_sync_meta").select("*").eq("id",1).maybeSingle();
+    ERP.inbox=inbox;ERP.links=links;ERP.meta=(m&&m.data)||null;ERP.loaded=true;ERP.loadedAt=Date.now();ERP.err="";
+  }
+
+  // ---------- construção de registos novos (formato de Espanha) ----------
+  function erpNewCliente(p){var c={id:"erp_"+p.id,name:erpCleanName(p.name),region:"",channel:p.channel||"Directo",erpIds:[p.id]};if(p.nif)c.nif=p.nif;return c;}
+  function erpNewVenda(p,esCli){
+    var st=(ERP_ST_ORD[p.stage]!=null||p.stage==="perdido")?p.stage:"lead";
+    var d={id:"erp_"+p.id,clientId:esCli,date:p.date||erpToday(),type:ERP_TYPE[p.type]||"NV",stage:st,value:Number(p.value)||0,arr:Number(p.arr)||0,product:p.product||"",specialty:p.specialty||"Gastro",erpId:p.id};
+    if(p.renewDate)d.renewDate=p.renewDate;if(p.vendedor)d.erpVendedor=p.vendedor;
+    if(st==="perdido"){d.lostDate=p.lostDate||d.date;if(p.lostReason)d.lostReason=p.lostReason;}
+    if(st==="concluido")d.doneDate=p.date||erpToday();
+    return d;
+  }
+  function erpNewFatura(p,esDeal){
+    var i={id:"erp_"+p.id,num:p.num||"",date:p.date||erpToday(),amount:Number(p.amount)||0,dealId:esDeal,collected:!!p.collected,collDate:p.collected?(p.collDate||p.date||""):"",erpId:p.id};
+    if(p.isNC)i.isNC=true;if(p.clienteNome)i.clienteNome=p.clienteNome;return i;
+  }
+
+  // ---------- diferenças (só o que o ERP pode mudar) ----------
+  function erpDealChanges(d,p){
+    var ch=[],se=p.stage,sd=d.stage;
+    if(se&&se!==sd){
+      if(se==="perdido"){if(!(sd==="ganho"||sd==="projeto"||sd==="concluido"))ch.push([d.id,"stage",sd,se]);}
+      else if(sd==="perdido"){if(ERP_ST_ORD[se]>=2)ch.push([d.id,"stage",sd,se]);} // só reabre se o ERP a der como ganha
+      else if(ERP_ST_ORD[se]!=null&&ERP_ST_ORD[se]>(ERP_ST_ORD[sd]||0))ch.push([d.id,"stage",sd,se]);
+    }
+    var v=Number(p.value);if(!isNaN(v)&&v>0&&Math.abs(v-(Number(d.value)||0))>=1)ch.push([d.id,"value",d.value,v]);
+    var a=Number(p.arr)||0;if(a>0&&Math.abs(a-(Number(d.arr)||0))>=1)ch.push([d.id,"arr",d.arr,a]);
+    if(p.renewDate&&(!d.renewDate||p.renewDate>d.renewDate)&&(d.type==="AT"||d.type==="SUB"))ch.push([d.id,"renewDate",d.renewDate||"",p.renewDate]); // só avança
+    return ch;
+  }
+  function erpInvTargets(esId){var i=erpById(D.invoices,esId);if(!i)return [];if(!i.num)return [i];return (D.invoices||[]).filter(function(x){return x.num===i.num;});}
+  function erpInvChanges(ts,p){
+    var ch=[];
+    ts.forEach(function(t){
+      if(p.collected&&!t.collected){ch.push([t.id,"collected",false,true]);ch.push([t.id,"collDate",t.collDate||"",p.collDate||p.date||erpToday()]);}
+      if(p.num&&!t.num)ch.push([t.id,"num","",p.num]);
+    });
+    // o valor da fatura não se altera: Espanha agrupa ou divide linhas de forma diferente do ERP (ex.: 2022.602)
+    return ch;
+  }
+
+  // ---------- plano: o que cada registo do ERP pede ----------
+  function erpPlan(){
+    var vl={},k;for(k in ERP.links)vl[k]=ERP.links[k];
+    var linkedEs={venda:{},fatura:{}};
+    for(k in vl){var l=vl[k];if(l.estado==="ligado"&&l.es_id&&linkedEs[l.kind])linkedEs[l.kind][l.es_id]=1;}
+    var rows=ERP.inbox.slice().sort(function(a,b){var o={cliente:0,venda:1,fatura:2};return o[a.kind]-o[b.kind];});
+    var plan=[];
+    rows.forEach(function(r){
+      var key=erpKey(r.kind,r.erp_id),L=vl[key],p=r.payload||{},a=null;
+      var base={kind:r.kind,erp_id:r.erp_id,row:r};
+      function A(o){for(var x in base)o[x]=base[x];return o;}
+      var coll=r.kind==="cliente"?D.clients:r.kind==="venda"?D.deals:D.invoices;
+      if(r.deleted){
+        if(L&&L.estado==="ligado"){var rec=erpById(coll,L.es_id);if(rec&&!rec.erpRemovido)a=A({op:"removido",es_id:rec.id,motivo:"Removido no ERP"});}
+        if(a)plan.push(a);return;
+      }
+      if(L&&L.estado==="ignorado")return;
+      if(L&&L.estado==="pendente"){plan.push(A({op:"rever",sugestao:L.es_id,motivo:L.nota||"Por decidir",existe:true}));return;}
+      if(L&&L.estado==="ligado"){
+        if(L.hash_aplicado===r.hash)return;
+        if(r.kind==="cliente"){
+          var c=erpById(D.clients,L.es_id);
+          if(!c){if(/^erp_/.test(L.es_id||"")){plan.push(A({op:"criar",es_id:L.es_id,newRec:erpNewCliente(p),linkExiste:true}));}else plan.push(A({op:"rever",motivo:"O cliente ligado já não existe em Espanha",existe:true}));return;}
+          var ch=[];if(p.nif&&!c.nif)ch.push([c.id,"nif","",p.nif]);
+          plan.push(A({op:"atualizar",es_id:c.id,changes:ch}));return;
+        }
+        if(r.kind==="venda"){
+          var d=erpById(D.deals,L.es_id);
+          if(!d){var cl0=vl[erpKey("cliente",p.clientId)];if(/^erp_/.test(L.es_id||"")&&cl0&&cl0.estado==="ligado"){plan.push(A({op:"criar",es_id:L.es_id,newRec:erpNewVenda(p,cl0.es_id),linkExiste:true}));}else plan.push(A({op:"rever",motivo:"A venda ligada já não existe em Espanha",existe:true}));return;}
+          plan.push(A({op:"atualizar",es_id:d.id,changes:erpDealChanges(d,p)}));return;
+        }
+        var ts=erpInvTargets(L.es_id);
+        if(!ts.length){var dl0=vl[erpKey("venda",p.dealId)];if(/^erp_/.test(L.es_id||"")&&dl0&&dl0.es_id&&dl0.estado!=="pendente"){plan.push(A({op:"criar",es_id:L.es_id,newRec:erpNewFatura(p,dl0.es_id),linkExiste:true}));}else plan.push(A({op:"rever",motivo:"A fatura ligada já não existe em Espanha",existe:true}));return;}
+        plan.push(A({op:"atualizar",es_id:ts[0].id,changes:erpInvChanges(ts,p)}));return;
+      }
+      // ---- registo novo no ERP ----
+      if(r.kind==="cliente"){
+        var best=null,bs=0;(D.clients||[]).forEach(function(c){var s=erpSim(erpCleanName(p.name),c.name);if(s>bs){bs=s;best=c;}});
+        if(best&&bs>=0.3){plan.push(A({op:"rever",sugestao:best.id,motivo:"Nome parecido com «"+best.name+"» em Espanha"}));vl[key]={estado:"pendente"};return;}
+        var nc=erpNewCliente(p);vl[key]={estado:"ligado",es_id:nc.id};plan.push(A({op:"criar",es_id:nc.id,newRec:nc}));return;
+      }
+      if(r.kind==="venda"){
+        if(p.fundidaEm){plan.push(A({op:"ignorar",motivo:"Fundida noutra subscrição no ERP"}));return;}
+        var cl=vl[erpKey("cliente",p.clientId)];
+        if(!cl||cl.estado!=="ligado"){if(cl&&cl.estado==="ignorado")plan.push(A({op:"ignorar",motivo:"O cliente foi ignorado"}));else plan.push(A({op:"esperar",motivo:"À espera da decisão sobre o cliente"}));return;}
+        var v=Number(p.value)||0;
+        if(v===0){plan.push(A({op:"ignorar",motivo:"Valor 0 (marcador de projeto)"}));return;}
+        if(v<0){plan.push(A({op:"rever",motivo:"Valor negativo (estorno)"}));vl[key]={estado:"pendente"};return;}
+        var dup=(D.deals||[]).filter(function(d){return d.clientId===cl.es_id&&!linkedEs.venda[d.id]&&Math.abs((Number(d.value)||0)-v)<=Math.max(2,v*0.01);})[0];
+        if(dup){plan.push(A({op:"rever",sugestao:dup.id,motivo:"Já existe em Espanha uma venda com o mesmo valor ("+(dup.product||dup.type)+")"}));vl[key]={estado:"pendente"};return;}
+        var nd=erpNewVenda(p,cl.es_id);vl[key]={estado:"ligado",es_id:nd.id};linkedEs.venda[nd.id]=1;plan.push(A({op:"criar",es_id:nd.id,newRec:nd}));return;
+      }
+      // fatura nova
+      if(p.anulado){plan.push(A({op:"ignorar",motivo:"Anulada no ERP"}));return;}
+      if(p.num){var same=(D.invoices||[]).filter(function(x){return x.num===p.num&&!linkedEs.fatura[x.id];});
+        if(same.length){linkedEs.fatura[same[0].id]=1;vl[key]={estado:"ligado",es_id:same[0].id};plan.push(A({op:"atualizar",es_id:same[0].id,changes:erpInvChanges(same,p),novoLink:true,motivo:"Mesmo número de fatura"}));return;}}
+      var dl=vl[erpKey("venda",p.dealId)];
+      var esDeal=dl&&dl.es_id&&(dl.estado==="ligado"||dl.estado==="ignorado")?dl.es_id:null;
+      if(!esDeal){if(dl&&dl.estado==="ignorado")plan.push(A({op:"ignorar",motivo:"A venda desta fatura foi ignorada"}));else plan.push(A({op:"esperar",motivo:"À espera da decisão sobre a venda"}));return;}
+      var am=Number(p.amount)||0;
+      var dupI=(D.invoices||[]).filter(function(x){return x.dealId===esDeal&&!linkedEs.fatura[x.id]&&Math.abs((Number(x.amount)||0)-am)<=1;})[0];
+      if(dupI){plan.push(A({op:"rever",sugestao:dupI.id,motivo:"Já existe fatura com o mesmo valor nesta venda"}));vl[key]={estado:"pendente"};return;}
+      var ni=erpNewFatura(p,esDeal);vl[key]={estado:"ligado",es_id:ni.id};linkedEs.fatura[ni.id]=1;plan.push(A({op:"criar",es_id:ni.id,newRec:ni}));
+    });
+    return plan;
+  }
+
+  // ---------- aplicar ----------
+  function erpSetField(kind,id,campo,val){
+    var coll=kind==="cliente"?D.clients:kind==="venda"?D.deals:D.invoices;var r=erpById(coll,id);if(!r)return false;
+    r[campo]=val;
+    if(kind==="venda"&&campo==="stage"){if(val==="perdido"&&!r.lostDate)r.lostDate=erpToday();if(val==="concluido"&&!r.doneDate)r.doneDate=erpToday();}
+    return true;
+  }
+  function erpTagRec(kind,id,erpId){
+    var coll=kind==="cliente"?D.clients:kind==="venda"?D.deals:D.invoices;var r=erpById(coll,id);if(!r)return false;
+    if(kind==="cliente"){if(!Array.isArray(r.erpIds))r.erpIds=[];if(r.erpIds.indexOf(erpId)<0){r.erpIds.push(erpId);return true;}return false;}
+    if(!r.erpId){r.erpId=erpId;return true;}return false;
+  }
+  function erpDescr(a){
+    var p=a.row.payload||{};
+    if(a.kind==="cliente")return erpCleanName(p.name);
+    if(a.kind==="venda")return (p.product||p.type||"")+" · "+erpMoney(p.value)+(p.date?" · "+p.date:"");
+    return "Fatura "+(p.num||"s/ n.º")+" · "+erpMoney(p.amount)+(p.date?" · "+p.date:"");
+  }
+  async function erpApplyPlan(plan){
+    if(!erpCanWrite()||!sb)return {criados:0,atualizados:0,rever:0,removidos:0,ignorados:0};
+    var st=erpState(),now=new Date().toISOString(),n={criados:0,atualizados:0,rever:0,removidos:0,ignorados:0},linkRows=[],itens=[],changedD=false;
+    for(var i=0;i<plan.length;i++){
+      var a=plan[i],L=ERP.links[erpKey(a.kind,a.erp_id)];
+      if(a.op==="criar"){
+        var linkRow={kind:a.kind,erp_id:a.erp_id,es_id:a.es_id,estado:"ligado",hash_aplicado:a.row.hash,nota:(L&&L.nota)||"criado automaticamente",updated_by:currentEmail||"",updated_at:now};
+        if(a.linkExiste){linkRows.push(linkRow);}
+        else{var ins=await sb.from("erp_link").insert(linkRow).select("erp_id");
+          if(ins.error){if(String(ins.error.code)==="23505")continue;throw ins.error;}
+          ERP.links[erpKey(a.kind,a.erp_id)]=linkRow;}
+        var coll=a.kind==="cliente"?D.clients:a.kind==="venda"?D.deals:D.invoices;
+        if(!erpById(coll,a.newRec.id)){coll.push(a.newRec);changedD=true;n.criados++;itens.push("Novo "+ERP_KLBL[a.kind].toLowerCase()+": "+erpDescr(a));}
+      }else if(a.op==="atualizar"){
+        (a.changes||[]).forEach(function(c){if(erpSetField(a.kind,c[0],c[1],c[3]))changedD=true;});
+        if(a.changes&&a.changes.length){n.atualizados++;itens.push(ERP_KLBL[a.kind]+" "+erpDescr(a)+": "+a.changes.map(function(c){return (ERP_LBL[c[1]]||c[1])+" "+erpShow(c[1],c[2])+" → "+erpShow(c[1],c[3]);}).join(", "));}
+        if(erpTagRec(a.kind,a.es_id,a.erp_id))changedD=true;
+        linkRows.push({kind:a.kind,erp_id:a.erp_id,es_id:a.es_id,estado:"ligado",hash_aplicado:a.row.hash,nota:(L&&L.nota)||a.motivo||null,updated_by:currentEmail||"",updated_at:now});
+      }else if(a.op==="ignorar"){
+        n.ignorados++;linkRows.push({kind:a.kind,erp_id:a.erp_id,es_id:null,estado:"ignorado",hash_aplicado:a.row.hash,nota:a.motivo,updated_by:"automático",updated_at:now});
+      }else if(a.op==="rever"){
+        n.rever++;if(!L)linkRows.push({kind:a.kind,erp_id:a.erp_id,es_id:a.sugestao||null,estado:"pendente",nota:a.motivo,updated_by:"automático",updated_at:now});
+      }else if(a.op==="removido"){
+        if(erpSetField(a.kind,a.es_id,"erpRemovido",now)){changedD=true;n.removidos++;itens.push(ERP_KLBL[a.kind]+" removida/o no ERP: "+erpDescr(a));}
+        linkRows.push({kind:a.kind,erp_id:a.erp_id,es_id:a.es_id,estado:"ligado",hash_aplicado:a.row.hash,nota:(L&&L.nota)||null,updated_by:"automático",updated_at:now});
+      }
+    }
+    for(var j=0;j<linkRows.length;j+=200){
+      var u=await sb.from("erp_link").upsert(linkRows.slice(j,j+200),{onConflict:"kind,erp_id"});if(u&&u.error)throw u.error;
+    }
+    linkRows.forEach(function(l){ERP.links[erpKey(l.kind,l.erp_id)]=l;});
+    if(itens.length){
+      st.log.unshift({ts:now,por:currentEmail||"",resumo:n.criados+" novos, "+n.atualizados+" atualizados"+(n.removidos?", "+n.removidos+" removidos no ERP":""),itens:itens.slice(0,60)});
+      st.log=st.log.slice(0,40);
+      try{if(typeof logAct==="function")logAct("ERP","Atualizado a partir do ERP Mobilwave: "+st.log[0].resumo);}catch(e){}
+    }
+    if(changedD||itens.length){window.__selfSave=true;try{save();}finally{window.__selfSave=false;}}
+    return n;
+  }
+
+  // ---------- ciclo automático ----------
+  async function erpTick(force){
+    if(ERP.busy||!ready||!sb)return;
+    var st=erpState();
+    if(!force){
+      if(!st.ativo||!erpCanWrite())return;
+      if(saveTimer)return;
+      try{if(typeof modalOpen==="function"&&modalOpen())return;if(typeof editingInline==="function"&&editingInline())return;}catch(e){}
+    }
+    ERP.busy=true;
+    try{
+      var m=await sb.from("erp_sync_meta").select("last_run").eq("id",1).maybeSingle();
+      var lr=m&&m.data?m.data.last_run:null;
+      if(!force&&ERP.loaded&&lr===ERP.lastRunSeen&&Date.now()-ERP.loadedAt<10*60*1000)return;
+      await erpLoad();
+      ERP.plan=erpPlan();
+      if(st.ativo&&erpCanWrite()){
+        var todo=ERP.plan.filter(function(a){return a.op!=="esperar"&&!(a.op==="rever"&&a.existe);});
+        if(todo.length){ERP.lastResult=await erpApplyPlan(todo);ERP.plan=erpPlan();}
+      }
+      ERP.lastRunSeen=lr;ERP.lastCheck=new Date().toISOString();
+    }catch(e){ERP.err=(e&&e.message)||String(e);try{console.error("[Ligação ERP]",e);}catch(_){}}
+    finally{ERP.busy=false;}
+    try{if(typeof cTab!=="undefined"&&cTab==="ligacaoerp"&&!(typeof modalOpen==="function"&&modalOpen()))ren();}catch(e){}
+  }
+  window.erpTick=erpTick;
+  window.__erpReady=function(){return !!(ready&&sb);};
+  (function erpStart(){
+    var tries=0;var t=setInterval(function(){tries++;if(ready&&sb){clearInterval(t);erpTick(false);setInterval(function(){erpTick(false);},60000);}else if(tries>300)clearInterval(t);},2000);
+  })();
+
+  // ---------- decisões na fila «Por rever» ----------
+  window.erpDecide=async function(kind,erpId){
+    if(!erpCanWrite()){toastSafe("Não tens permissão para decidir ligações ao ERP.");return;}
+    var el=document.getElementById("erpsel_"+kind+"_"+erpId.replace(/[^a-zA-Z0-9_]/g,"_"));var v=el?el.value:"";
+    if(!v){toastSafe("Escolhe primeiro o que fazer com este registo.");return;}
+    var row={kind:kind,erp_id:erpId,updated_by:currentEmail||"",updated_at:new Date().toISOString(),hash_aplicado:null};
+    if(v==="__ignorar"){row.estado="ignorado";row.es_id=null;row.nota="Ignorado por "+(currentEmail||"utilizador");}
+    else if(v==="__criar"){row.estado="ligado";row.es_id="erp_"+erpId;row.nota="Criado a partir da revisão";}
+    else{row.estado="ligado";row.es_id=v;row.nota="Ligado por "+(currentEmail||"utilizador");}
+    var u=await sb.from("erp_link").upsert(row,{onConflict:"kind,erp_id"});
+    if(u&&u.error){toastSafe("Não foi possível gravar a decisão: "+u.error.message);return;}
+    ERP.links[erpKey(kind,erpId)]=row;
+    if(row.estado==="ligado")erpTagRec(kind,row.es_id,erpId);
+    if(erpState().ativo){await erpTick(true);}else{ERP.plan=erpPlan();ren();}
+  };
+  window.erpRelinkCli=async function(erpId,sel){
+    var v=sel.value;if(!v)return;
+    var u=await sb.from("erp_link").upsert({kind:"cliente",erp_id:erpId,es_id:v,estado:"ligado",hash_aplicado:null,nota:"Alterado por "+(currentEmail||"utilizador"),updated_by:currentEmail||"",updated_at:new Date().toISOString()},{onConflict:"kind,erp_id"});
+    if(u&&u.error){toastSafe("Não foi possível gravar: "+u.error.message);return;}
+    await erpTick(true);
+  };
+  window.erpSetTab=function(t){ERP.tab=t;ren();};
+  window.erpAtivar=async function(on){
+    if(currentRole!=="admin"){toastSafe("Só um administrador pode ativar ou desativar a ligação.");return;}
+    var st=erpState();st.ativo=!!on;if(on)st.ativadoEm=new Date().toISOString();
+    window.__selfSave=true;try{save();}finally{window.__selfSave=false;}
+    if(on)await erpTick(true);else ren();
+  };
+  window.erpVerificar=function(){var p=erpTick(true);ren();return p;};
+
+  // ---------- ecrã ----------
+  function erpOptsFor(a){
+    var p=a.row.payload||{},o=[],sug=a.sugestao;
+    function opt(v,l){o.push('<option value="'+esc(v)+'"'+(v===sug?" selected":"")+'>'+esc(l)+'</option>');}
+    o.push('<option value="">Escolher…</option>');
+    if(a.kind==="cliente"){
+      var cs=(D.clients||[]).slice().sort(function(x,y){return erpSim(p.name,y.name)-erpSim(p.name,x.name);});
+      cs.forEach(function(c){opt(c.id,"Ligar a: "+c.name+(c.region?" ("+c.region+")":""));});
+    }else if(a.kind==="venda"){
+      var cl=ERP.links[erpKey("cliente",p.clientId)];var cid=cl&&cl.estado==="ligado"?cl.es_id:null;
+      (D.deals||[]).filter(function(d){return !cid||d.clientId===cid;}).sort(function(x,y){return Math.abs((y.value||0)-(p.value||0))<Math.abs((x.value||0)-(p.value||0))?1:-1;})
+        .forEach(function(d){opt(d.id,"Ligar a: "+(d.date||"")+" · "+d.type+" · "+erpMoney(d.value)+" · "+(d.product||"")+(cid?"":" · "+(typeof cn==="function"?cn(d.clientId):"")));});
+    }else{
+      var dl=ERP.links[erpKey("venda",p.dealId)];var did=dl&&dl.es_id?dl.es_id:null;var dd=erpById(D.deals,did);
+      (D.invoices||[]).filter(function(i){if(did)return i.dealId===did;return true;}).forEach(function(i){opt(i.id,"Ligar a: "+(i.num||"s/ n.º")+" · "+(i.date||"")+" · "+erpMoney(i.amount));});
+      void dd;
+    }
+    var canCreate=true,why="";
+    if(a.kind==="venda"){var c2=ERP.links[erpKey("cliente",p.clientId)];if(!c2||c2.estado!=="ligado"){canCreate=false;why=" (decide primeiro o cliente)";}}
+    if(a.kind==="fatura"){var d2=ERP.links[erpKey("venda",p.dealId)];if(!d2||!d2.es_id||d2.estado==="pendente"){canCreate=false;why=" (decide primeiro a venda)";}}
+    o.splice(1,0,'<option value="__criar"'+(canCreate?"":" disabled")+'>Criar em Espanha'+why+'</option>','<option value="__ignorar">Ignorar (não entra em Espanha)</option>');
+    return o.join("");
+  }
+  function erpErpCli(id){var r=ERP.inbox.filter(function(x){return x.kind==="cliente"&&x.erp_id===id;})[0];return r?erpCleanName(r.payload.name):id;}
+  function erpRow(a){
+    var p=a.row.payload||{},sid=(a.kind+"_"+a.erp_id).replace(/[^a-zA-Z0-9_]/g,"_");
+    var det=a.kind==="cliente"?esc(p.name)+(p.nif?' · NIF '+esc(p.nif):""):
+      a.kind==="venda"?'<b>'+esc(erpErpCli(p.clientId))+'</b><br>'+esc(p.date||"sem data")+' · '+esc(p.type||"")+' · '+esc(p.stage||"")+' · <b>'+erpMoney(p.value)+'</b><br><span style="color:#7E8892">'+esc(p.product||"")+'</span>':
+      '<b>'+esc(erpErpCli(p.clientId))+'</b><br>'+esc(p.num||"s/ n.º")+' · '+esc(p.date||"")+' · <b>'+erpMoney(p.amount)+'</b> · '+(p.collected?"recebida":"por receber");
+    return '<tr><td style="white-space:nowrap"><span class="erp-k">'+ERP_KLBL[a.kind]+'</span></td><td style="min-width:220px">'+det+'</td><td style="color:#7E8892;font-size:12px;min-width:160px">'+esc(a.motivo||"")+'</td><td style="min-width:260px"><div style="display:flex;gap:6px;flex-wrap:wrap"><select id="erpsel_'+sid+'" style="max-width:320px;border:1px solid #E4E8EB;border-radius:8px;padding:6px 8px;font-size:12px;font-family:inherit">'+erpOptsFor(a)+'</select><button class="btn bs" style="background:#2E8C93" onclick="erpDecide(\''+a.kind+'\',\''+esc(a.erp_id)+'\')">Gravar</button></div></td></tr>';
+  }
+  function renderLigacaoERP(){
+    var app=document.getElementById("app");if(!app)return;
+    var st=erpState(),meta=ERP.meta||{},plan=ERP.plan||[];
+    if(!ERP.loaded&&!ERP.busy&&!ERP.err){setTimeout(function(){erpTick(true);},0);}
+    var cnt={ligado:0,ignorado:0,pendente:0};for(var k in ERP.links){var e=ERP.links[k].estado;if(cnt[e]!=null)cnt[e]++;}
+    var rever=plan.filter(function(a){return a.op==="rever";}),esperar=plan.filter(function(a){return a.op==="esperar";});
+    var prev=plan.filter(function(a){return a.op==="criar"||(a.op==="atualizar"&&a.changes&&a.changes.length)||a.op==="removido";});
+    var h='<style>.erp-k{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:1px 9px;background:#E6F1F2;color:#2E8C93}.erp-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}.erp-kpi>div{background:#fff;border:1px solid #E4E8EB;border-radius:10px;padding:12px 14px}.erp-kpi b{display:block;font-size:22px;color:#414D57}.erp-kpi span{font-size:12px;color:#7E8892}.erp-tb{width:100%;border-collapse:collapse;font-size:13px}.erp-tb td,.erp-tb th{padding:8px;border-bottom:1px solid #EEF1F3;text-align:left;vertical-align:top}.erp-tb th{font-size:11px;color:#7E8892;text-transform:uppercase;letter-spacing:.04em}.erp-seg button{border:1px solid #E4E8EB;background:#fff;padding:6px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;color:#414D57}.erp-seg button.on{background:#2E8C93;color:#fff;border-color:#2E8C93}.erp-seg{display:flex;flex-wrap:wrap;gap:0;margin:6px 0 12px}.erp-seg button:first-child{border-radius:8px 0 0 8px}.erp-seg button:last-child{border-radius:0 8px 8px 0}</style>';
+    h+=pgHead("🔗","Ligação ao ERP Mobilwave",'<button class="btn bs" style="background:#7E8892" onclick="erpVerificar()">'+(ERP.busy?"A verificar…":"Verificar agora")+'</button>');
+    var estado=st.ativo?'<span style="color:#3E9E7A;font-weight:700">Ativa</span> · as alterações do ERP entram sozinhas':'<span style="color:#C98F34;font-weight:700">Em pré-visualização</span> · nada é alterado até ativares';
+    h+='<div class="cd" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div>'+estado+'<div style="font-size:12px;color:#7E8892;margin-top:4px">Recebe do ERP os clientes com país Espanha ou Andorra, as suas vendas e faturas. Última atualização enviada pelo ERP: <b>'+(meta.last_run?new Date(meta.last_run).toLocaleString("pt-PT"):"ainda nenhuma")+'</b>'+(ERP.lastCheck?' · última verificação aqui: '+new Date(ERP.lastCheck).toLocaleTimeString("pt-PT"):"")+'</div></div>'+
+      (currentRole==="admin"?(st.ativo?'<button class="btn bs" style="background:#7E8892" onclick="erpAtivar(false)">Pôr em pausa</button>':'<button class="btn" style="background:#2E8C93" onclick="erpAtivar(true)">Ativar ligação e aplicar</button>'):"")+'</div>'+
+      (meta.last_error?'<div style="margin-top:10px;color:#C0564A;font-size:12.5px">Último erro no ERP ('+(meta.last_error_at?new Date(meta.last_error_at).toLocaleString("pt-PT"):"")+'): '+esc(meta.last_error)+'</div>':"")+
+      (ERP.err?'<div style="margin-top:10px;color:#C0564A;font-size:12.5px">Não foi possível ler a ligação: '+esc(ERP.err)+'. Confirma que o script SQL da ligação foi corrido neste projeto Supabase.</div>':"")+'</div>';
+    h+='<div class="erp-kpi"><div><b>'+ERP.inbox.filter(function(x){return !x.deleted;}).length+'</b><span>registos recebidos do ERP</span></div><div><b>'+cnt.ligado+'</b><span>ligados a Espanha</span></div><div><b style="color:'+(rever.length?"#C98F34":"#414D57")+'">'+rever.length+'</b><span>por rever</span></div><div><b>'+esperar.length+'</b><span>à espera de outra decisão</span></div><div><b>'+cnt.ignorado+'</b><span>ignorados (duplicados, valor 0…)</span></div></div>';
+    var tabs=[["rever","Por rever ("+rever.length+")"],["alteracoes",st.ativo?"Últimas alterações":"O que vai mudar ("+prev.length+")"],["clientes","Clientes ligados"],["removidos","Removidos no ERP"]];
+    h+='<div class="erp-seg">'+tabs.map(function(t){return '<button class="'+(ERP.tab===t[0]?"on":"")+'" onclick="erpSetTab(\''+t[0]+'\')">'+esc(t[1])+'</button>';}).join("")+'</div>';
+    if(!ERP.loaded){h+='<div class="cd" style="color:#7E8892">A ler a ligação ao ERP…</div>';app.innerHTML=h;return;}
+    if(ERP.tab==="rever"){
+      if(!rever.length)h+='<div class="cd" style="color:#7E8892">Não há nada por rever. Os registos novos do ERP entram sozinhos quando não há dúvidas.</div>';
+      else{
+        h+='<div class="cd"><p style="margin:0 0 10px;font-size:13px;color:#56626C">Cada registo decide-se uma vez. Se for o mesmo que já existe em Espanha, liga-o; se for novo, cria-o; se for duplicado do próprio ERP, ignora-o. Decide primeiro os clientes, depois as vendas e por fim as faturas.</p><div style="overflow-x:auto"><table class="erp-tb"><thead><tr><th></th><th>No ERP</th><th>Porquê</th><th>Decisão</th></tr></thead><tbody>';
+        h+=rever.map(erpRow).join("")+'</tbody></table></div></div>';
+      }
+    }else if(ERP.tab==="alteracoes"){
+      if(!st.ativo){
+        if(!prev.length)h+='<div class="cd" style="color:#7E8892">Com as ligações atuais, ativar não altera nenhum registo.</div>';
+        else{h+='<div class="cd"><p style="margin:0 0 10px;font-size:13px;color:#56626C">Isto é o que acontece ao carregar em «Ativar ligação e aplicar». Depois disso, as alterações seguintes do ERP entram sozinhas.</p><div style="overflow-x:auto"><table class="erp-tb"><thead><tr><th></th><th>Registo</th><th>Alteração</th></tr></thead><tbody>'+
+          prev.map(function(a){var what=a.op==="criar"?"Novo em Espanha":a.op==="removido"?"Marcado como removido no ERP":a.changes.map(function(c){return (ERP_LBL[c[1]]||c[1])+": "+erpShow(c[1],c[2])+" → <b>"+erpShow(c[1],c[3])+"</b>";}).join("<br>");
+            var nm=a.kind==="cliente"?"":esc(erpErpCli((a.row.payload||{}).clientId))+"<br>";return '<tr><td><span class="erp-k">'+ERP_KLBL[a.kind]+'</span></td><td>'+nm+esc(erpDescr(a))+'</td><td>'+what+'</td></tr>';}).join("")+'</tbody></table></div></div>';}
+      }else{
+        if(!st.log.length)h+='<div class="cd" style="color:#7E8892">Ainda não entrou nenhuma alteração do ERP.</div>';
+        else h+=st.log.map(function(l){return '<div class="cd" style="margin-bottom:10px"><div style="font-weight:700">'+new Date(l.ts).toLocaleString("pt-PT")+' · '+esc(l.resumo)+'</div><ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;color:#56626C">'+(l.itens||[]).map(function(t){return "<li>"+esc(t)+"</li>";}).join("")+'</ul></div>';}).join("");
+      }
+    }else if(ERP.tab==="clientes"){
+      var rowsC=ERP.inbox.filter(function(x){return x.kind==="cliente";}).sort(function(a,b){return erpCleanName(a.payload.name).localeCompare(erpCleanName(b.payload.name));});
+      h+='<div class="cd"><p style="margin:0 0 10px;font-size:13px;color:#56626C">O ERP tem vários clientes para o mesmo hospital (por exemplo «Clínica La Paloma» e «STEndoscopia - Clínica La Paloma»). Aqui ficam todos ligados ao mesmo cliente de Espanha.</p><div style="overflow-x:auto"><table class="erp-tb"><thead><tr><th>Cliente no ERP</th><th>País</th><th>Cliente em Espanha</th></tr></thead><tbody>'+
+        rowsC.map(function(r){var L=ERP.links[erpKey("cliente",r.erp_id)];var cur=L&&L.estado==="ligado"?L.es_id:"";
+          var sel='<select onchange="erpRelinkCli(\''+esc(r.erp_id)+'\',this)" style="max-width:280px;border:1px solid #E4E8EB;border-radius:8px;padding:5px 8px;font-size:12px;font-family:inherit"'+(erpCanWrite()?"":" disabled")+'><option value="">'+(L?(L.estado==="ignorado"?"Ignorado":L.estado==="pendente"?"Por rever":"—"):"—")+'</option>'+(D.clients||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));}).map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===cur?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select>';
+          return '<tr><td>'+esc(r.payload.name)+'</td><td>'+esc(r.payload.pais||"")+'</td><td>'+sel+'</td></tr>';}).join("")+'</tbody></table></div></div>';
+    }else{
+      var rem=[].concat((D.clients||[]).filter(function(x){return x.erpRemovido;}).map(function(x){return ["Cliente",x.name,x.erpRemovido];}),
+        (D.deals||[]).filter(function(x){return x.erpRemovido;}).map(function(x){return ["Venda",(typeof cn==="function"?cn(x.clientId)+" · ":"")+(x.product||"")+" · "+erpMoney(x.value),x.erpRemovido];}),
+        (D.invoices||[]).filter(function(x){return x.erpRemovido;}).map(function(x){return ["Fatura",(x.num||"s/ n.º")+" · "+erpMoney(x.amount),x.erpRemovido];}));
+      if(!rem.length)h+='<div class="cd" style="color:#7E8892">Nenhum registo ligado foi removido no ERP.</div>';
+      else h+='<div class="cd"><p style="margin:0 0 10px;font-size:13px;color:#56626C">Estes registos foram apagados no ERP. Em Espanha ficam como estavam; apaga-os aqui se já não fizerem sentido.</p><table class="erp-tb"><tbody>'+rem.map(function(r){return '<tr><td><span class="erp-k">'+r[0]+'</span></td><td>'+esc(r[1])+'</td><td style="color:#7E8892">'+new Date(r[2]).toLocaleDateString("pt-PT")+'</td></tr>';}).join("")+'</tbody></table></div>';
+    }
+    app.innerHTML=h;
+  }
+  window.renderLigacaoERP=renderLigacaoERP;
+  // menu: Definições › Ligação ao ERP (só administradores veem o ecrã; a fusão corre para quem pode editar)
+  try{
+    DEPT_GROUPS.forEach(function(g){if(g.group==="Definições"&&!g.items.some(function(i){return i.id==="ligacaoerp";}))g.items.splice(g.items.length-1,0,{id:"ligacaoerp",l:"Ligação ao ERP"});});
+    if(typeof TAB2DEPT!=="undefined")TAB2DEPT.ligacaoerp="admin";
+    if(typeof TABS!=="undefined"&&!TABS.some(function(t){return t.id==="ligacaoerp";}))TABS.push({id:"ligacaoerp"});
+    if(window.__NAVSVG)window.__NAVSVG.ligacaoerp='<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>';
+    ES_TABS.ligacaoerp=renderLigacaoERP;
+  }catch(e){window.__scrErr&&window.__scrErr(e,"menu Ligação ERP");}
+  // ===================== fim · LIGAÇÃO AO ERP =====================
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
 })();
