@@ -2191,6 +2191,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   async function reloadState(force){
     if(!sb||!ready)return;
     if(saveTimer||__pushing||__pushAgain||__saveSeq!==__savedSeq)return; // há alterações minhas por gravar — não sobreponho
+    if(window.__ERP&&window.__ERP.busy)return; // a ligação ao ERP está a aplicar alterações: não troco D a meio
     if(!force&&(modalOpen()||editingInline()))return; // não interrompo edição a decorrer
     try{
       __revChecks++;
@@ -2198,6 +2199,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var r=await sb.from("app_state").select("data").eq("id",stateId()).single();
       if(r.error||!r.data)return;
       if(saveTimer||__pushing||__saveSeq!==__savedSeq)return;   // gravei entretanto: não substituo
+      if(window.__ERP&&window.__ERP.busy)return;
       var d=r.data.data;if(!d||!Object.keys(d).length)return;
       var js=JSON.stringify(d);
       __lastRev=d._rev||__lastRev;
@@ -9488,11 +9490,15 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   }
 
   // ---------- construção de registos novos (formato de Espanha) ----------
-  function erpNewCliente(p){var c={id:"erp_"+p.id,name:erpCleanName(p.name),region:"",channel:p.channel||"Directo",erpIds:[p.id]};if(p.nif)c.nif=p.nif;return c;}
+  function erpNewCliente(p){
+    var nm=String(p.name||"");var ch=p.channel||(/^STEndoscopia/i.test(nm)?"STEndoscopia":(/servei/i.test(nm)?"Servei Andorrà":"Directo"));
+    var rg=p.region||p.regiao||(/andorra/i.test(String(p.pais||""))?"Andorra":"");
+    var c={id:"erp_"+p.id,name:erpCleanName(nm),region:rg,channel:ch,erpIds:[p.id]};if(p.nif)c.nif=p.nif;return c;}
   function erpNewVenda(p,esCli){
     var st=p.stage==="validar"?"lead":((ERP_ST_ORD[p.stage]!=null||p.stage==="perdido")?p.stage:"lead");
     var d={id:"erp_"+p.id,clientId:esCli,date:p.date||erpToday(),type:ERP_TYPE[p.type]||"NV",stage:st,value:Number(p.value)||0,arr:Number(p.arr)||0,product:p.product||"",specialty:p.specialty||"Gastro",erpId:p.id};
     if(p.renewDate)d.renewDate=p.renewDate;if(p.vendedor)d.erpVendedor=p.vendedor;
+    var _ec=erpById(D.clients,esCli);if(_ec&&_ec.stResp)d.stResp=_ec.stResp; // herda o responsável ST do cliente
     if(st==="perdido"){d.lostDate=p.lostDate||d.date;if(p.lostReason)d.lostReason=p.lostReason;}
     if(st==="concluido")d.doneDate=p.date||erpToday();
     return d;
@@ -9526,6 +9532,18 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     return ch;
   }
 
+  // registos criados pelo ERP que desapareceram de D sem terem sido apagados por alguém (ex.: gravação perdida)
+  var ERP_TOMB={cliente:"cli",venda:"deal",fatura:"inv"};
+  function erpTombed(kind,id){var t=(D._tomb||{})[ERP_TOMB[kind]];return !!(id&&Array.isArray(t)&&t.indexOf(id)>=0);}
+  function erpPerdido(kind,id){
+    if(!/^erp_/.test(id||"")||erpTombed(kind,id))return false;
+    if(kind==="cliente")return !erpById(D.clients,id);
+    if(kind==="venda")return !erpById(D.deals,id);
+    if(erpById(D.invoices,id))return false;
+    var r=ERP.inbox.filter(function(x){return x.kind==="fatura"&&"erp_"+x.erp_id===id;})[0];var dl=r?ERP.links[erpKey("venda",(r.payload||{}).dealId)]:null;var dd=dl?erpById(D.deals,dl.es_id):null;
+    if(!dd)return !!(dl&&dl.estado==="ligado"&&erpPerdido("venda",dl.es_id)); // a venda também se perdeu e vai ser recriada
+    return dd.stage!=="perdido"; // fatura de venda perdida foi retirada de propósito
+  }
   // ---------- plano: o que cada registo do ERP pede ----------
   function erpPlan(){
     var vl={},k;for(k in ERP.links)vl[k]=ERP.links[k];
@@ -9547,7 +9565,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
         if(!sg&&r.kind==="venda"&&Number(p.value)>0){var gv=Number(p.value);var g=(D.deals||[]).filter(function(d){return !linkedEs.venda[d.id]&&d.stage!=="perdido"&&d.stage!=="concluido"&&gv>=1000&&Math.abs((Number(d.value)||0)-gv)<=Math.max(2,gv*0.005);})[0];if(g)sg=g.id;}
         plan.push(A({op:"rever",sugestao:sg,motivo:L.nota||"Por decidir",existe:true}));return;}
       if(L&&L.estado==="ligado"){
-        if(L.hash_aplicado===r.hash)return;
+        if(L.hash_aplicado===r.hash&&!erpPerdido(r.kind,L.es_id))return; // já aplicado — salvo se o registo criado pelo ERP se perdeu sem ter sido apagado em Espanha
+        if(erpTombed(r.kind,L.es_id))return; // apagado de propósito em Espanha: não volta a ser criado
         if(r.kind==="cliente"){
           var c=erpById(D.clients,L.es_id);
           if(!c){if(/^erp_/.test(L.es_id||"")){plan.push(A({op:"criar",es_id:L.es_id,newRec:erpNewCliente(p),linkExiste:true}));}else plan.push(A({op:"rever",motivo:"O cliente ligado já não existe em Espanha",existe:true}));return;}
@@ -9628,7 +9647,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
           if(ins.error){if(String(ins.error.code)==="23505")continue;throw ins.error;}
           ERP.links[erpKey(a.kind,a.erp_id)]=linkRow;}
         var coll=a.kind==="cliente"?D.clients:a.kind==="venda"?D.deals:D.invoices;
-        if(!erpById(coll,a.newRec.id)){coll.push(a.newRec);changedD=true;n.criados++;itens.push("Novo "+ERP_KLBL[a.kind].toLowerCase()+": "+erpDescr(a));}
+        if(!erpById(coll,a.newRec.id)){coll.push(a.newRec);changedD=true;n.criados++;itens.push("Novo "+ERP_KLBL[a.kind].toLowerCase()+": "+erpDescr(a));
+          window.__selfSave=true;try{save();}finally{window.__selfSave=false;}} // marca já como «por gravar»: a ligação já ficou registada no erp_link
       }else if(a.op==="atualizar"){
         (a.changes||[]).forEach(function(c){if(erpSetField(a.kind,c[0],c[1],c[3]))changedD=true;});
         if(a.changes&&a.changes.length){n.atualizados++;itens.push(ERP_KLBL[a.kind]+" "+erpDescr(a)+": "+a.changes.map(function(c){return (ERP_LBL[c[1]]||c[1])+" "+erpShow(c[1],c[2])+" → "+erpShow(c[1],c[3]);}).join(", "));}
@@ -9662,7 +9682,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     var st=erpState();
     if(!force){
       if(!st.ativo||!erpCanWrite())return;
-      if(saveTimer||__pushing||__saveSeq!==__savedSeq)return;
+      if(saveTimer||__pushing||__pushAgain||__saveSeq!==__savedSeq)return;
       try{if(typeof modalOpen==="function"&&modalOpen())return;if(typeof editingInline==="function"&&editingInline())return;}catch(e){}
     }
     ERP.busy=true;
@@ -9679,12 +9699,14 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       ERP.lastRunSeen=lr;ERP.lastCheck=new Date().toISOString();
     }catch(e){ERP.err=(e&&e.message)||String(e);try{console.error("[Ligação ERP]",e);}catch(_){}}
     finally{ERP.busy=false;}
-    try{if(typeof cTab!=="undefined"&&cTab==="ligacaoerp"&&!(typeof modalOpen==="function"&&modalOpen()))ren();}catch(e){}
+    // redesenha o ecrã da ligação e, se entraram alterações, qualquer outro ecrã aberto (sem interromper edição)
+    var _mudou=!!(ERP.lastResult&&ERP.lastResult!==ERP.__seenResult&&(ERP.lastResult.criados||ERP.lastResult.atualizados||ERP.lastResult.removidos));ERP.__seenResult=ERP.lastResult;
+    try{if(typeof cTab!=="undefined"&&(cTab==="ligacaoerp"||_mudou)&&!(typeof modalOpen==="function"&&modalOpen())&&!(typeof editingInline==="function"&&editingInline()))ren();}catch(e){window.__scrErr&&window.__scrErr(e,"ligação ERP");}
   }
   window.erpTick=erpTick;
   window.__erpReady=function(){return !!(ready&&sb);};
   (function erpStart(){
-    var tries=0;var t=setInterval(function(){tries++;if(ready&&sb){clearInterval(t);erpTick(false);setInterval(function(){erpTick(false);},60000);}else if(tries>300)clearInterval(t);},2000);
+    var tries=0;var t=setInterval(function(){tries++;if(ready&&sb){clearInterval(t);erpTick(false);setInterval(function(){erpTick(false);},60000);}},2000); // continua à espera enquanto o login não estiver feito
   })();
 
   // ---------- decisões na fila «Por rever» ----------
@@ -9764,6 +9786,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       (meta.last_error?'<div style="margin-top:10px;color:#C0564A;font-size:12.5px">Último erro no ERP ('+(meta.last_error_at?new Date(meta.last_error_at).toLocaleString("pt-PT"):"")+'): '+esc(meta.last_error)+'</div>':"")+
       (ERP.err?'<div style="margin-top:10px;color:#C0564A;font-size:12.5px">Não foi possível ler a ligação: '+esc(ERP.err)+'. Confirma que o script SQL da ligação foi corrido neste projeto Supabase.</div>':"")+'</div>';
     h+='<div class="erp-kpi"><div><b>'+ERP.inbox.filter(function(x){return !x.deleted;}).length+'</b><span>registos recebidos do ERP</span></div><div><b>'+cnt.ligado+'</b><span>ligados a Espanha</span></div><div><b style="color:'+(rever.length?"#C98F34":"#414D57")+'">'+rever.length+'</b><span>por rever</span></div><div><b>'+esperar.length+'</b><span>à espera de outra decisão</span></div><div><b>'+cnt.ignorado+'</b><span>ignorados (duplicados, valor 0…)</span></div></div>';
+    var semReg=(D.clients||[]).filter(function(c){return /^erp_/.test(c.id)&&!c.region&&!c.erpRemovido;});
+    if(semReg.length)h+='<div class="cd" style="border-left:3px solid #C98F34;margin-bottom:14px;font-size:12.5px;color:#414D57"><b>'+semReg.length+' cliente(s) criado(s) a partir do ERP sem região</b> — sem região ficam como «—» nas vendas por região. Define-a (e o responsável ST, se for o caso) na ficha: '+semReg.map(function(c){return '<a onclick="openAddrM(\''+c.id+'\')" style="color:#2E8C93;cursor:pointer;font-weight:600;text-decoration:underline">'+esc(c.name)+'</a>';}).join(", ")+'.</div>';
     var tabs=[["rever","Por rever ("+rever.length+")"],["alteracoes",st.ativo?"Últimas alterações":"O que vai mudar ("+prev.length+")"],["clientes","Clientes ligados"],["removidos","Removidos no ERP"]];
     h+='<div class="erp-seg">'+tabs.map(function(t){return '<button class="'+(ERP.tab===t[0]?"on":"")+'" onclick="erpSetTab(\''+t[0]+'\')">'+esc(t[1])+'</button>';}).join("")+'</div>';
     if(!ERP.loaded){h+='<div class="cd" style="color:#5F6B75">A ler a ligação ao ERP…</div>';app.innerHTML=h;return;}
