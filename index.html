@@ -1319,7 +1319,7 @@ if(cTab==="dashboard"){
 document.getElementById("app").innerHTML=h}
 
 function setPipeF(k,v){if(!window.__pipeF)window.__pipeF={type:"",spec:"",q:"",resp:""};if(k==="clear"){window.__pipeF={type:"",spec:"",q:"",resp:""}}else{window.__pipeF[k]=v}rPnl();}
-function mvDl(id,sg){D.deals.forEach(function(d){if(d.id===id)d.stage=sg});var dl=D.deals.find(function(d){return d.id===id});if(dl)logAct(sg==="ganho"?"Adjudicação":"Pipeline",cn(dl.clientId)+" movido para "+SL2[sg]+(dl.value>0?" — "+fmt(dl.value):""));if(sg==="ganho"&&dl&&dl.value>0&&!D.invoices.find(function(i){return i.dealId===id})){D.invoices.push({id:uid(),dealId:id,amount:dl.value,date:_hojeLocal(),collected:false,collDate:""});logAct("Factura","Fatura criada automaticamente — "+cn(dl.clientId)+" "+fmt(dl.value))}save();ren()}
+function mvDl(id,sg){var _dl0=(D.deals||[]).find(function(d){return d.id===id});if(_dl0&&window.erpLigada&&window.erpLigada(_dl0)&&_dl0.stage!==sg){if(typeof toastSafe==="function")toastSafe("Esta venda vem do ERP Mobilwave: a etapa muda-se no ERP e chega aqui sozinha.");else if(typeof toast==="function")toast("Esta venda vem do ERP Mobilwave: a etapa muda-se no ERP.");try{ren();}catch(e){}return;}D.deals.forEach(function(d){if(d.id===id)d.stage=sg});var dl=D.deals.find(function(d){return d.id===id});if(dl)logAct(sg==="ganho"?"Adjudicação":"Pipeline",cn(dl.clientId)+" movido para "+SL2[sg]+(dl.value>0?" — "+fmt(dl.value):""));if(sg==="ganho"&&dl&&dl.value>0&&!D.invoices.find(function(i){return i.dealId===id})){D.invoices.push({id:uid(),dealId:id,amount:dl.value,date:_hojeLocal(),collected:false,collDate:""});logAct("Factura","Fatura criada automaticamente — "+cn(dl.clientId)+" "+fmt(dl.value))}save();ren()}
 function tgCl(id){D.invoices.forEach(function(i){if(i.id===id){i.collected=!i.collected;i.collDate=i.collected?_hojeLocal():"";var d=D.deals.find(function(x){return x.id===i.dealId});logAct("Cobrança",(i.collected?"Recebido: ":"Revertido para pendente: ")+(d?cn(d.clientId):"—")+" — "+fmt(i.amount))}});save();ren()}
 function quickNext(id){var dl=D.deals.find(function(x){return x.id===id});if(!dl)return;
   document.getElementById("mArea").innerHTML=mWrap("Próxima ação — "+cn(dl.clientId),
@@ -1422,13 +1422,18 @@ function openDM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.client
   var _vd=dl?(dl.vendedor||""):_me;var _gc=dl?(dl.gestorConta||(_cl&&_cl.gestorConta)||""):((_cl&&_cl.gestorConta)||"");
   return '<div class="r2">'+fld("Responsável (vendedor)",'<input id="f_vd" value="'+esc(_vd)+'" placeholder="colaborador">')+fld("Gestor de conta",'<input id="f_gc" value="'+esc(_gc)+'" placeholder="colaborador">')+'</div><div style="font-size:11.5px;color:#6B7680;margin:-4px 0 8px">O gestor de conta fica associado ao cliente e aparece por defeito nos outros negócios dele.</div>';})()+fld("Etapa",sel("f7",sg,dl?dl.stage:"lead"))+fld("Data",'<input type="date" id="f8" value="'+(dl?dl.date:_hojeLocal())+'">')+'<div class="r2">'+fld("Próxima ação",'<input id="f9" placeholder="ex.: ligar ao Dr. Elvira" value="'+(dl&&dl.nextAction?String(dl.nextAction).replace(/"/g,"&quot;"):"")+'">')+fld("Data follow-up",'<input type="date" id="f10" value="'+(dl&&dl.nextDate?dl.nextDate:"")+'">')+'</div>'+fld("Data perdida (só se perdido)",'<input type="date" id="f11" value="'+(dl&&dl.lostDate?dl.lostDate:"")+'">')+fld("Razão da perda (só se perdido)",'<input id="f12" value="'+(dl&&dl.lostReason?String(dl.lostReason).replace(/"/g,"&quot;"):"")+'">')+'<div style="margin-top:10px;border-top:1px solid #f0e6d8;padding-top:8px"><div style="font-size:11px;font-weight:700;color:#5F6B75;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Artigos da proposta</div><div style="display:grid;grid-template-columns:1fr 48px 78px 66px 26px;gap:5px;font-size:11px;color:#6B7680;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px"><span>Artigo</span><span>Qtd</span><span>Preço</span><span>IVA</span><span></span></div><div id="dm_arts">'+((dl&&dl.artigos&&dl.artigos.length)?dl.artigos.map(function(a,i){return dmArtRowHTML(i,a);}).join(""):"")+'</div><button type="button" class="btn bs" style="background:'+SL+';margin-top:4px" onclick="dmAddArt()">+ Artigo</button> <span id="dm_arttot" style="font-size:11.5px;color:#5F6B75;margin-left:8px"></span><div style="font-size:11px;color:#6B7680;margin-top:4px">O valor do deal é preenchido pela soma dos artigos (sem IVA). Junta os artigos que compõem a proposta.</div></div>'+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svDl(\''+(editId||"")+'\')">Guardar</button>')}
 function editDl(id){openDM({editId:id})}
+(function(){var _o=openDM;openDM=function(opts){_o(opts);try{var id=opts&&opts.editId;var dl=id?D.deals.find(function(x){return x.id===id}):null;if(!dl||!window.erpLigada||!window.erpLigada(dl))return;
+  ["f1t","f2","f3","f4","f5","f6","f7","f8","f11","f12","f_vd","f_gc","f_sub","f_cloud"].forEach(function(k){var e=document.getElementById(k);if(e){e.disabled=true;e.style.background="#F4F6F8";e.style.color="#5F6B75";}});
+  var ar=document.getElementById("dm_arts");if(ar&&ar.parentNode)ar.parentNode.style.display="none";
+  var t=document.querySelector("#mArea h2, #mArea .mt, #mArea div");var box=document.createElement("div");box.style.cssText="background:#E4EEF7;color:#2F6690;border-radius:8px;padding:8px 10px;font-size:12.5px;margin:0 0 10px";box.textContent="Venda do ERP Mobilwave: nome, cliente, valor, etapa e vendedor mudam-se no ERP e chegam aqui sozinhos. O próximo passo e a data de follow-up podes mudar aqui — seguem para o ERP.";
+  var f=document.getElementById("f1t");var fw=f?f.closest(".fld")||f.parentNode:null;if(fw&&fw.parentNode)fw.parentNode.insertBefore(box,fw);}catch(e){}};window.openDM=openDM;})();
 function editARR(id){var d=D.deals.find(function(x){return x.id===id});if(!d)return;promptM("ARR anual (€) para "+cn(d.clientId)+"\n"+d.product.slice(0,50)+"\n\nValor recorrente por ano (12× a mensalidade):",function(v){var n=Number(String(v).replace(",","."));if(isNaN(n)||n<0){toast("Valor inválido.",{type:"error"});return}var old=d.arr||0;d.arr=n;logAct("Nota","ARR atualizado: "+cn(d.clientId)+" — "+fmt(old)+" → "+fmt(n)+"/ano");save();ren()},{default:String(d.arr||0),okLabel:"Guardar ARR"})}
 function addSpecialty(clientId){openDM({clientId:clientId})}
 function openSpecM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.clientId;var sp=editId?D.clientSpecs.find(function(x){return x.id===editId}):null;var cs=D.clients.map(function(c){return{v:c.id,t:c.name}});document.getElementById("mArea").innerHTML=mWrap(sp?"Editar Especialidade":"Nova Especialidade",fld("Cliente",sel("f1",cs,sp?sp.clientId:(preClient||"")))+fld("Especialidade",sel("f2",SPECS,sp?sp.specialty:"Gastro"))+fld("AT Ativa?",sel("f3",[{v:"1",t:"Sim"},{v:"0",t:"Não"}],sp&&sp.at?"1":"0"))+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svSpec(\''+(editId||"")+'\')">Guardar</button>')}
 function editSpec(id){openSpecM({editId:id})}
 function svSpec(editId){var data={clientId:document.getElementById("f1").value,specialty:document.getElementById("f2").value,at:document.getElementById("f3").value==="1"};if(editId){var sp=D.clientSpecs.find(function(x){return x.id===editId});if(sp){Object.assign(sp,data);logAct("Cliente","Especialidade atualizada: "+cn(data.clientId)+" — "+data.specialty+(data.at?" (AT ativa)":""))}}else{data.id=uid();D.clientSpecs.push(data);logAct("Cliente","Especialidade adicionada: "+cn(data.clientId)+" — "+data.specialty)}save();clM();ren()}
 function delSpec(id){confirmM("Remover esta especialidade do registo?",function(){tombDel("spec",id);D.clientSpecs=D.clientSpecs.filter(function(s){return s.id!==id});save();ren()},{yesLabel:"Remover"})}
-function svDl(editId){var _ct=document.getElementById("f1t");var _cid=(document.getElementById("f1")||{}).value||"";if(_ct){var _nm=(_ct.value||"").trim().toLowerCase();var _m=D.clients.filter(function(c){return (c.name||"").toLowerCase()===_nm;})[0];if(_m)_cid=_m.id;}if(!_cid){if(typeof toast==="function")toast("Escolhe um cliente da lista.",{type:"error"});return}var data={clientId:_cid,product:document.getElementById("f2").value,specialty:document.getElementById("f3").value,type:document.getElementById("f4").value,stage:document.getElementById("f7").value,value:Number(document.getElementById("f5").value),arr:Number(document.getElementById("f6").value),date:document.getElementById("f8").value,nextAction:(document.getElementById("f9")||{}).value||"",nextDate:(document.getElementById("f10")||{}).value||"",lostDate:(document.getElementById("f11")||{}).value||"",lostReason:(document.getElementById("f12")||{}).value||"",vendedor:((document.getElementById("f_vd")||{}).value||"").trim(),gestorConta:((document.getElementById("f_gc")||{}).value||"").trim(),sub:!!(document.getElementById("f_sub")||{}).checked,cloud:!!(document.getElementById("f_cloud")||{}).checked};try{if(data.gestorConta){var _c9=clientById(_cid);if(_c9)_c9.gestorConta=data.gestorConta;}}catch(e){}var _arts=[];try{Array.prototype.forEach.call(document.querySelectorAll("#dm_arts .dm_art"),function(r){var d=(r.querySelector(".dma_desc").value||"").trim();var q=Number(r.querySelector(".dma_qtd").value)||0;var pu=Number(r.querySelector(".dma_preco").value)||0;var iv=Number(r.querySelector(".dma_iva").value)||0;if(d||pu)_arts.push({desc:d,qtd:q||1,precoUnit:pu,iva:iv});});}catch(e){}data.artigos=_arts;if(_arts.length)data.value=Math.round(_arts.reduce(function(a,x){return a+((Number(x.qtd)||0)*(Number(x.precoUnit)||0));},0)*100)/100;if(editId){var dl=D.deals.find(function(x){return x.id===editId});if(dl){Object.assign(dl,data);logAct("Pipeline","Deal editado: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}}else{data.id=uid();D.deals.push(data);logAct(data.stage==="proposta"?"Proposta":"Pipeline","Novo deal ["+SL2[data.stage]+"]: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}save();clM();ren()}
+function svDl(editId){var _ct=document.getElementById("f1t");var _cid=(document.getElementById("f1")||{}).value||"";if(_ct){var _nm=(_ct.value||"").trim().toLowerCase();var _m=D.clients.filter(function(c){return (c.name||"").toLowerCase()===_nm;})[0];if(_m)_cid=_m.id;}if(!_cid){if(typeof toast==="function")toast("Escolhe um cliente da lista.",{type:"error"});return}var data={clientId:_cid,product:document.getElementById("f2").value,specialty:document.getElementById("f3").value,type:document.getElementById("f4").value,stage:document.getElementById("f7").value,value:Number(document.getElementById("f5").value),arr:Number(document.getElementById("f6").value),date:document.getElementById("f8").value,nextAction:(document.getElementById("f9")||{}).value||"",nextDate:(document.getElementById("f10")||{}).value||"",lostDate:(document.getElementById("f11")||{}).value||"",lostReason:(document.getElementById("f12")||{}).value||"",vendedor:((document.getElementById("f_vd")||{}).value||"").trim(),gestorConta:((document.getElementById("f_gc")||{}).value||"").trim(),sub:!!(document.getElementById("f_sub")||{}).checked,cloud:!!(document.getElementById("f_cloud")||{}).checked};try{if(data.gestorConta){var _c9=clientById(_cid);if(_c9)_c9.gestorConta=data.gestorConta;}}catch(e){}var _arts=[];try{Array.prototype.forEach.call(document.querySelectorAll("#dm_arts .dm_art"),function(r){var d=(r.querySelector(".dma_desc").value||"").trim();var q=Number(r.querySelector(".dma_qtd").value)||0;var pu=Number(r.querySelector(".dma_preco").value)||0;var iv=Number(r.querySelector(".dma_iva").value)||0;if(d||pu)_arts.push({desc:d,qtd:q||1,precoUnit:pu,iva:iv});});}catch(e){}data.artigos=_arts;if(_arts.length)data.value=Math.round(_arts.reduce(function(a,x){return a+((Number(x.qtd)||0)*(Number(x.precoUnit)||0));},0)*100)/100;if(editId){var dl=D.deals.find(function(x){return x.id===editId});if(dl&&window.erpLigada&&window.erpLigada(dl)){["clientId","product","specialty","type","stage","value","arr","date","lostDate","lostReason","vendedor","gestorConta","sub","cloud","artigos"].forEach(function(k){if(dl[k]===undefined)delete data[k];else data[k]=dl[k];});data.product=data.product||"";}if(dl){Object.assign(dl,data);logAct("Pipeline","Deal editado: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}}else{data.id=uid();D.deals.push(data);logAct(data.stage==="proposta"?"Proposta":"Pipeline","Novo deal ["+SL2[data.stage]+"]: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}save();clM();ren()}
 function openEM(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var projs=[{v:"",t:"— sem projeto —"}].concat((D.projectos||[]).map(function(p){var d=(D.deals||[]).find(function(x){return x.id===p.dealId})||{};return {v:p.dealId,t:cn(d.clientId)+" · "+String(d.product||p.nome||"").slice(0,26)};}));document.getElementById("mArea").innerHTML=mWrap(e?"Editar Despesa":"Nova Despesa",fld("Descrição / a que se refere",'<input id="f1" value="'+esc(e?(e.desc||""):"")+'">')+'<div class="r2">'+fld("Valor €",'<input type="number" step="0.01" id="f2" value="'+(e?e.amount:0)+'">')+fld("Data",'<input type="date" id="f3" value="'+(e?e.date:_hojeLocal())+'">')+'</div><div class="r2">'+fld("Banco",sel("f4",["Santander","CGD",""],e?(e.bank||""):"Santander"))+fld("Tipo",sel("f5",["Viagem","Combustível","Telecomunicações","Eletricidade","Software","Serviços","Marketing","Equipamento","Stock","Outro"],e?(e.type||"Outro"):"Viagem"))+'</div><div class="r2">'+fld("Projeto (opcional)",sel("f7",projs,e?(e.projetoId||""):""))+fld("Cliente (opcional)",'<input id="f6" value="'+esc(e?(e.client||""):"")+'">')+'</div>'+(id?'<button class="btn bs" style="background:#fff;color:'+DNG+';border:1px solid '+rgba(DNG,.3)+';width:100%;margin-bottom:6px" onclick="delEx(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svEx(\''+(id||"")+'\')">Guardar</button>')}
 function svEx(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var rec=e||{id:uid()};rec.desc=document.getElementById("f1").value;rec.amount=Number(document.getElementById("f2").value)||0;rec.date=document.getElementById("f3").value;rec.bank=document.getElementById("f4").value;rec.type=document.getElementById("f5").value;rec.client=document.getElementById("f6").value;rec.projetoId=document.getElementById("f7").value;if(!e){D.expenses.push(rec);logAct("Despesa",(rec.desc||"").slice(0,40)+" — "+fmt(rec.amount));}else{logAct("Despesa","Despesa editada — "+(rec.desc||"").slice(0,40));}save();clM();ren()}
 function _despNum(v){var s=String(v==null?"":v).trim();if(!s)return NaN;if(s.indexOf(",")>=0&&s.indexOf(".")>=0)s=s.replace(/\./g,"").replace(",",".");else if(s.indexOf(",")>=0)s=s.replace(",",".");return parseFloat(s);}function _despDate(v){if(v==null||v==="")return "";var s=String(v).trim();var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);if(m){var dd=("0"+m[1]).slice(-2),mm=("0"+m[2]).slice(-2),yy=m[3].length===2?"20"+m[3]:m[3];if(+mm>=1&&+mm<=12&&+dd>=1&&+dd<=31)return yy+"-"+mm+"-"+dd;}var m2=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);if(m2)return m2[1]+"-"+("0"+m2[2]).slice(-2)+"-"+("0"+m2[3]).slice(-2);var d=new Date(s);if(!isNaN(d)&&d.getFullYear()>2000)return d.toISOString().slice(0,10);return s.slice(0,10);}
@@ -7875,6 +7880,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   if(typeof window.mvDl==="function"){
     var _mvDlP=window.mvDl;
     window.mvDl=function(id,sg){
+      var _dl1=(D.deals||[]).filter(function(d){return d.id===id;})[0];if(_dl1&&window.erpLigada&&window.erpLigada(_dl1)&&_dl1.stage!==sg){_mvDlP(id,sg);return;}
       _mvDlP(id,sg);
       if(sg==="projeto"){try{
         var dl=(D.deals||[]).filter(function(d){return d.id===id;})[0];
@@ -9725,7 +9731,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   // As decisões (ligar, criar, ignorar) ficam na tabela erp_link, partilhada por todos os utilizadores.
   var ERP_ST_ORD={lead:0,validar:0.5,proposta:1,ganho:2,projeto:3,concluido:4};
   var ERP_TYPE={}; // os tipos passam iguais aos do ERP (NV, AT, SUB, SV, EV, HV, DV)
-  var ERP_LBL={vendedor:"Vendedor",gestorConta:"Gestor de conta",sub:"Subscrição",cloud:"Cloud",saas:"SaaS",stage:"Etapa",value:"Valor",arr:"ARR",renewDate:"Renovação",collected:"Recebida",collDate:"Recebida em",amount:"Valor",nif:"NIF/CIF",num:"Número",date:"Data",doneDate:"Concluída em",lostDate:"Perdida em"};
+  var ERP_LBL={product:"Nome",clientId:"Cliente",type:"Tipo",specialty:"Especialidade",nextAction:"Próximo passo",nextDate:"Data follow-up",lostReason:"Razão da perda",vendedor:"Vendedor",gestorConta:"Gestor de conta",sub:"Subscrição",cloud:"Cloud",saas:"SaaS",stage:"Etapa",value:"Valor",arr:"ARR",renewDate:"Renovação",collected:"Recebida",collDate:"Recebida em",amount:"Valor",nif:"NIF/CIF",num:"Número",date:"Data",doneDate:"Concluída em",lostDate:"Perdida em"};
   var ERP_KLBL={cliente:"Cliente",venda:"Venda",fatura:"Fatura"};
   var ERP={inbox:[],links:{},meta:null,loaded:false,loadedAt:0,busy:false,err:"",plan:[],tab:"rever",lastRunSeen:null};
   window.__ERP=ERP;
@@ -9753,7 +9759,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   function erpCleanName(n){return String(n||"").replace(/^STEndoscopia(\s*\([^)]*\))?\s*-\s*/i,"").trim();}
   function erpById(arr,id){if(!id)return null;for(var i=0;i<(arr||[]).length;i++)if(arr[i].id===id)return arr[i];return null;}
   function erpMoney(v){return typeof fmt==="function"?fmt(v):String(v);}
-  function erpShow(campo,v){if(v==null||v==="")return "—";if(campo==="value"||campo==="arr"||campo==="amount")return erpMoney(v);if(campo==="collected")return v?"sim":"não";if(campo==="stage"&&typeof SL2!=="undefined"&&SL2[v])return SL2[v];if(/date|Date$/.test(campo)&&typeof fmtD==="function")return fmtD(v);return String(v);}
+  function erpShow(campo,v){if(v==null||v==="")return "—";if(campo==="value"||campo==="arr"||campo==="amount")return erpMoney(v);if(campo==="collected")return v?"sim":"não";if(campo==="clientId"&&typeof cn==="function")return cn(v);if(campo==="stage"&&typeof SL2!=="undefined"&&SL2[v])return SL2[v];if(/date|Date$/.test(campo)&&typeof fmtD==="function")return fmtD(v);return String(v);}
 
   // ---------- leitura ----------
   async function erpLoad(){
@@ -9778,6 +9784,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     var _ec=erpById(D.clients,esCli);if(_ec&&_ec.stResp)d.stResp=_ec.stResp; // herda o responsável ST do cliente
     if(st==="perdido"){d.lostDate=p.lostDate||d.date;if(p.lostReason)d.lostReason=p.lostReason;}
     if(st==="concluido")d.doneDate=p.date||erpToday();
+    if(p.lostDate&&!d.lostDate)d.lostDate=p.lostDate;if(p.nextAction)d.nextAction=p.nextAction;if(p.nextDate)d.nextDate=p.nextDate;d._erpFup={na:p.nextAction||"",nd:p.nextDate||""};
     return d;
   }
   function erpNewFatura(p,esDeal){
@@ -9786,20 +9793,28 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   }
 
   // ---------- diferenças (só o que o ERP pode mudar) ----------
+  // cliente de Espanha que corresponde ao cliente do ERP
+  function erpCliEs(erpCliId){var l=ERP.links[erpKey("cliente",erpCliId)];return l&&l.estado==="ligado"&&l.es_id&&erpById(D.clients,l.es_id)?l.es_id:null;}
+  // Venda ligada: o ERP manda em tudo o que é comum. Próximo passo e data de follow-up andam nos dois sentidos.
+  var ERP_MANDA=["product","value","arr","stage","date","type","specialty","vendedor","gestorConta","renewDate","lostDate","lostReason"];
   function erpDealChanges(d,p){
-    var ch=[],se=p.stage,sd=d.stage;
-    if(se&&se!==sd){
-      if(se==="perdido"){if(!(sd==="ganho"||sd==="projeto"||sd==="concluido"))ch.push([d.id,"stage",sd,se]);}
-      else if(sd==="perdido"){if(ERP_ST_ORD[se]>=2)ch.push([d.id,"stage",sd,se]);} // só reabre se o ERP a der como ganha
-      else if(ERP_ST_ORD[se]!=null&&ERP_ST_ORD[se]>(ERP_ST_ORD[sd]||0))ch.push([d.id,"stage",sd,se]);
-    }
-    var v=Number(p.value);if(!isNaN(v)&&v>0&&Math.abs(v-(Number(d.value)||0))>=1)ch.push([d.id,"value",d.value,v]);
-    var a=Number(p.arr)||0;if(a>0&&Math.abs(a-(Number(d.arr)||0))>=1)ch.push([d.id,"arr",d.arr,a]);
-    if(p.renewDate&&(!d.renewDate||p.renewDate>d.renewDate)&&(d.type==="AT"||d.type==="SUB"))ch.push([d.id,"renewDate",d.renewDate||"",p.renewDate]); // só avança
-    if(p.vendedor&&!d.vendedor)ch.push([d.id,"vendedor","",p.vendedor]);
-    if(p.gestorConta&&!d.gestorConta)ch.push([d.id,"gestorConta","",p.gestorConta]);
+    var ch=[];
+    var ce=erpCliEs(p.clientId);if(ce&&ce!==d.clientId)ch.push([d.id,"clientId",d.clientId,ce]);
+    ERP_MANDA.forEach(function(k){
+      if(p[k]===undefined)return;
+      var nv=p[k],ov=d[k];
+      if(k==="value"||k==="arr"){nv=Number(nv)||0;if(Math.abs(nv-(Number(ov)||0))<0.5)return;}
+      else if(k==="stage"){if(!(ERP_ST_ORD[nv]!=null||nv==="perdido"))return;if(nv===ov)return;if(ov==="concluido"&&(nv==="ganho"||nv==="projeto"))return;} // venda já concluída em Espanha não volta atrás (no ERP as antigas ficam «adjudicado»)
+      else{nv=nv==null?"":nv;if(String(nv)===String(ov==null?"":ov))return;if(k==="specialty"&&!nv)return;}
+      ch.push([d.id,k,ov==null?"":ov,nv]);
+    });
     if(p.sub!=null&&!!p.sub!==!!d.sub)ch.push([d.id,"sub",!!d.sub,!!p.sub]);
     if(p.cloud!=null&&!!p.cloud!==!!d.cloud)ch.push([d.id,"cloud",!!d.cloud,!!p.cloud]);
+    // follow-up: só entra o que mudou no ERP desde a última vez (o que se escreve em Espanha segue para o ERP)
+    var pna=p.nextAction||"",pnd=p.nextDate||"",dna=d.nextAction||"",dnd=d.nextDate||"",sn=d._erpFup;
+    var erpMudou=sn?(pna!==(sn.na||"")||pnd!==(sn.nd||"")):!!(pna||pnd);
+    if(erpMudou){if(pna!==dna)ch.push([d.id,"nextAction",dna,pna]);if(pnd!==dnd)ch.push([d.id,"nextDate",dnd,pnd]);}
+    if(!sn||sn.na!==pna||sn.nd!==pnd)ch.push([d.id,"_erpFup",sn||null,{na:pna,nd:pnd}]);
     return ch;
   }
   function erpInvTargets(esId){var i=erpById(D.invoices,esId);if(!i)return [];if(!i.num)return [i];return (D.invoices||[]).filter(function(x){return x.num===i.num;});}
@@ -9843,7 +9858,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
         if(L&&L.estado==="ligado"){var rec=erpById(coll,L.es_id);if(rec&&!rec.erpRemovido)a=A({op:"removido",es_id:rec.id,motivo:"Removido no ERP"});}
         if(a)plan.push(a);return;
       }
-      if(L&&L.estado==="ignorado")return;
+      if(L&&L.estado==="ignorado"&&!(r.kind==="venda"&&/^Valor 0/.test(L.nota||"")&&/^(lead|validar|proposta)$/.test(p.stage||"")))return;
+      var _ign0=!!(L&&L.estado==="ignorado");if(_ign0)L=undefined;
       // cliente com o mesmo nome nos dois lados (o ERP usa agora os nomes do MW Espanha): liga sozinho
       if(r.kind==="cliente"&&(!L||L.estado==="pendente")){var _ex=erpExactCli(p);
         if(_ex){vl[key]={estado:"ligado",es_id:_ex.id};plan.push(A({op:"atualizar",es_id:_ex.id,changes:(p.nif&&!_ex.nif)?[[_ex.id,"nif","",p.nif]]:[],novoLink:true,motivo:"Mesmo nome nos dois lados"}));return;}
@@ -9884,7 +9900,10 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
         var cl=vl[erpKey("cliente",p.clientId)];
         if(!cl||cl.estado!=="ligado"){if(cl&&cl.estado==="ignorado")plan.push(A({op:"ignorar",motivo:"O cliente foi ignorado"}));else plan.push(A({op:"esperar",motivo:"À espera da decisão sobre o cliente"}));return;}
         var v=Number(p.value)||0,isCrm=/^crm_/.test(String(p.id));
-        if(v===0&&!isCrm){plan.push(A({op:"ignorar",motivo:"Valor 0 (marcador de projeto)"}));return;}
+        if(v===0&&!isCrm){
+          var _ab=/^(lead|validar|proposta)$/.test(p.stage||"")?(D.deals||[]).filter(function(d){return d.clientId===cl.es_id&&!linkedEs.venda[d.id]&&/^(lead|validar|proposta)$/.test(d.stage||"")&&(erpSim(p.product,d.product)>=0.25||erpSim(p.specialty,d.specialty)>=0.9);})[0]:null;
+          if(_ab){vl[key]={estado:"ligado",es_id:_ab.id};linkedEs.venda[_ab.id]=1;plan.push(A({op:"atualizar",es_id:_ab.id,changes:erpDealChanges(_ab,p),novoLink:true,motivo:"Mesma oportunidade aberta do cliente"}));return;}
+          if(!_ign0)plan.push(A({op:"ignorar",motivo:"Valor 0 (marcador de projeto)"}));return;}
         if(v<0){plan.push(A({op:"rever",motivo:"Valor negativo (estorno)"}));vl[key]={estado:"pendente"};return;}
         var dup=(D.deals||[]).filter(function(d){if(d.clientId!==cl.es_id||linkedEs.venda[d.id])return false;
           if(v>0)return Math.abs((Number(d.value)||0)-v)<=Math.max(2,v*0.01);
@@ -9945,7 +9964,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
           window.__selfSave=true;try{save();}finally{window.__selfSave=false;}} // marca já como «por gravar»: a ligação já ficou registada no erp_link
       }else if(a.op==="atualizar"){
         (a.changes||[]).forEach(function(c){if(erpSetField(a.kind,c[0],c[1],c[3]))changedD=true;});
-        if(a.changes&&a.changes.length){n.atualizados++;itens.push(ERP_KLBL[a.kind]+" "+erpDescr(a)+": "+a.changes.map(function(c){return (ERP_LBL[c[1]]||c[1])+" "+erpShow(c[1],c[2])+" → "+erpShow(c[1],c[3]);}).join(", "));}
+        var _vis=(a.changes||[]).filter(function(c){return String(c[1]).charAt(0)!=="_";});
+        if(_vis.length){n.atualizados++;itens.push(ERP_KLBL[a.kind]+" "+erpDescr(a)+": "+_vis.map(function(c){return (ERP_LBL[c[1]]||c[1])+" "+erpShow(c[1],c[2])+" → "+erpShow(c[1],c[3]);}).join(", "));}
         if(erpTagRec(a.kind,a.es_id,a.erp_id))changedD=true;
         linkRows.push({kind:a.kind,erp_id:a.erp_id,es_id:a.es_id,estado:"ligado",hash_aplicado:a.row.hash,nota:(L&&L.nota)||a.motivo||null,updated_by:currentEmail||"",updated_at:now});
       }else if(a.op==="ignorar"){
@@ -9983,12 +10003,14 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     try{
       var m=await sb.from("erp_sync_meta").select("last_run").eq("id",1).maybeSingle();
       var lr=m&&m.data?m.data.last_run:null;
+      try{await erpFupOutbox();}catch(e){}
       if(!force&&ERP.loaded&&lr===ERP.lastRunSeen&&Date.now()-ERP.loadedAt<10*60*1000)return;
       await erpLoad();
       ERP.plan=erpPlan();
       if(st.ativo&&erpCanWrite()){
         var todo=ERP.plan.filter(function(a){return a.op!=="esperar"&&!(a.op==="rever"&&a.existe);});
         if(todo.length){ERP.lastResult=await erpApplyPlan(todo);ERP.plan=erpPlan();}
+        try{await erpFupOutbox();}catch(e){}
       }
       ERP.lastRunSeen=lr;ERP.lastCheck=new Date().toISOString();
     }catch(e){ERP.err=(e&&e.message)||String(e);try{console.error("[Ligação ERP]",e);}catch(_){}}
@@ -9998,6 +10020,25 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     try{if(typeof cTab!=="undefined"&&(cTab==="ligacaoerp"||_mudou)&&!(typeof modalOpen==="function"&&modalOpen())&&!(typeof editingInline==="function"&&editingInline()))ren();}catch(e){window.__scrErr&&window.__scrErr(e,"ligação ERP");}
   }
   window.erpTick=erpTick;
+  async function erpFupOutbox(){
+    if(!sb||!ERP.loaded||ERP.outboxOff||!erpCanWrite())return 0;
+    var fila=[],marcar=[];
+    Object.keys(ERP.links).forEach(function(k){var l=ERP.links[k];if(l.kind!=="venda"||l.estado!=="ligado"||!l.es_id)return;
+      var d=erpById(D.deals,l.es_id);if(!d||!d._erpFup)return;
+      var cur=(d.nextAction||"")+"|"+(d.nextDate||"");
+      if(cur===(d._erpFup.na||"")+"|"+(d._erpFup.nd||"")||d._fupSent===cur)return;
+      fila.push({kind:"venda",erp_id:l.erp_id,campos:{nextAction:d.nextAction||"",nextDate:d.nextDate||""},created_by:currentEmail||""});marcar.push([d,cur]);});
+    if(!fila.length)return 0;
+    var r=await sb.from("erp_outbox").insert(fila);
+    if(r&&r.error){if(/erp_outbox|does not exist|42P01/.test(String(r.error.message||r.error.code)))ERP.outboxOff=true;try{console.warn("[Ligação ERP] follow-up para o ERP:",r.error);}catch(e){}return 0;}
+    marcar.forEach(function(x){x[0]._fupSent=x[1];});
+    window.__selfSave=true;try{save();}finally{window.__selfSave=false;}
+    return fila.length;
+  }
+  window.erpFupOutbox=erpFupOutbox;
+  // vendas ligadas: o que é do ERP muda-se no ERP
+  function erpLigada(d){return !!(d&&d.erpId);}
+  window.erpLigada=erpLigada;
   window.__erpReady=function(){return !!(ready&&sb);};
   (function erpStart(){
     var tries=0;var t=setInterval(function(){tries++;if(ready&&sb){clearInterval(t);erpTick(false);setInterval(function(){erpTick(false);},60000);}},2000); // continua à espera enquanto o login não estiver feito
