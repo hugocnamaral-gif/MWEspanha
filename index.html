@@ -1174,7 +1174,7 @@ if(cTab==="dashboard"){
     h+='</div>';
   } else if(finSub==="despesas"){
   h+='<div class="cd"><div class="ch"><div class="ct2">Despesas</div><div style="display:flex;gap:6px;align-items:center"><label class="btn bs" style="background:'+SL+';cursor:pointer;margin:0">📄 Importar Excel<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="impDespesasXlsx(this)"></label><button class="btn bs" style="background:'+R+'" onclick="openEM(\'\')">+ Despesa</button></div></div><div style="font-size:11px;color:#6B7680;margin-bottom:8px">Clica numa despesa para editar, atribuir a projeto/cliente ou eliminar. Importar Excel: colunas <b>data</b>, <b>a que se refere</b>, <b>valor</b>, <b>tipo</b>.</div>'+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><select onchange="window.__expAloc=this.value;rPnl()" style="border:1px solid #E4E8EB;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Alocação: todas</option><option value="sim"'+(window.__expAloc==="sim"?" selected":"")+'>Alocadas a projeto</option><option value="nao"'+(window.__expAloc==="nao"?" selected":"")+'>Não alocadas a projeto</option></select></div>'+'<div style="max-height:560px;overflow:auto">';
-  D.expenses.filter(function(e){var al=!!e.projetoId;if(window.__expAloc==="sim"&&!al)return false;if(window.__expAloc==="nao"&&al)return false;return true;}).slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){var _pj=e.projetoId?((D.deals||[]).find(function(x){return x.id===e.projetoId})||null):null;var _tag=[e.type,(_pj?cn(_pj.clientId):""),e.client].filter(Boolean).join(" · ");h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f7f5;cursor:pointer" onclick="openEM(\''+e.id+'\')"><div><div style="font-size:12px;font-weight:500">'+esc(e.desc||"—")+'</div><div style="font-size:11px;color:#5F6B75">'+fmtD(e.date)+(e.bank?" · "+esc(e.bank):"")+(_tag?" · "+esc(_tag):"")+'</div></div><div style="display:flex;align-items:center;gap:6px">'+(e.reembolsoId?'<span style="font-size:11px;font-weight:600;color:'+BLU+';border:1px solid '+rgba(BLU,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">reembolso</span>':'')+(e.projetoId?'<span style="font-size:11px;font-weight:600;color:'+GRN+';border:1px solid '+rgba(GRN,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">alocado</span>':'')+'<span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button class="btn bs" style="background:'+SL+'" onclick="event.stopPropagation();openEM(\''+e.id+'\')">Editar</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="event.stopPropagation();delEx(\''+e.id+'\')">✕</button></div></div>'});
+  D.expenses.filter(function(e){var al=!!e.projetoId;if(window.__expAloc==="sim"&&!al)return false;if(window.__expAloc==="nao"&&al)return false;return true;}).slice().sort(function(a,b){return b.date.localeCompare(a.date)}).forEach(function(e){var _pj=e.projetoId?((D.deals||[]).find(function(x){return x.id===e.projetoId})||null):null;var _tag=[e.type,(_pj?cn(_pj.clientId):""),e.client].filter(Boolean).join(" · ");h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f7f5;cursor:pointer" onclick="openEM(\''+e.id+'\')"><div><div style="font-size:12px;font-weight:500">'+esc(e.desc||"—")+'</div><div style="font-size:11px;color:#5F6B75">'+fmtD(e.date)+(e.bank?" · "+esc(e.bank):"")+(_tag?" · "+esc(_tag):"")+'</div></div><div style="display:flex;align-items:center;gap:6px">'+(e.erpDespId?'<span title="Despesa marcada como Espanha no ERP Mobilwave" style="font-size:11px;font-weight:600;color:#2E8C93;border:1px solid #BFE0E3;border-radius:6px;padding:1px 6px;white-space:nowrap">ERP</span>':'')+(e.nota?'<span style="font-size:11px;color:#5F6B75;border:1px solid #E4E8EB;border-radius:6px;padding:1px 6px;white-space:nowrap">'+esc(e.nota)+'</span>':'')+(e.reembolsoId?'<span style="font-size:11px;font-weight:600;color:'+BLU+';border:1px solid '+rgba(BLU,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">reembolso</span>':'')+(e.projetoId?'<span style="font-size:11px;font-weight:600;color:'+GRN+';border:1px solid '+rgba(GRN,.4)+';border-radius:6px;padding:1px 6px;white-space:nowrap">alocado</span>':'')+'<span style="font-weight:600;color:'+R+';font-size:12px;white-space:nowrap">-'+fmt(e.amount)+'</span><button class="btn bs" style="background:'+SL+'" onclick="event.stopPropagation();openEM(\''+e.id+'\')">Editar</button><button style="background:none;border:none;font-size:12px;cursor:pointer;color:#ccc" onclick="event.stopPropagation();delEx(\''+e.id+'\')">✕</button></div></div>'});
   h+='</div></div>';
   } else {
   var _movPend=!!window.__movPend;var _ylab=(typeof _yearSel!=="undefined"&&_yearSel==="all")?"(todos os anos)":activeYear();var _dd=function(a,b){return (b.date||"").localeCompare(a.date||"")};
@@ -10020,6 +10020,52 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     try{if(typeof cTab!=="undefined"&&(cTab==="ligacaoerp"||_mudou)&&!(typeof modalOpen==="function"&&modalOpen())&&!(typeof editingInline==="function"&&editingInline()))ren();}catch(e){window.__scrErr&&window.__scrErr(e,"ligação ERP");}
   }
   window.erpTick=erpTick;
+
+  // ===================== DESPESAS DE ESPANHA VINDAS DO ERP (set 2026) =====================
+  // O ERP marca as despesas com país Espanha (coluna H do extrato). A Edge Function sync-espanha-despesas
+  // copia-as para a tabela erp_despesas deste projeto; aqui entram em D.expenses:
+  //  · despesa nova do ERP → criada (id erpd_<id do ERP>, marcada «ERP»)
+  //  · se já existir uma despesa igual em Espanha (mesma data e valor) → liga-se a ela, sem duplicar
+  //  · alterada no ERP → atualizada aqui · removida no ERP (ou deixou de ser Espanha) → sai daqui
+  //  · apagada à mão em Espanha → não volta a entrar
+  var ERPD={busy:false,off:false,last:null,err:""};window.__ERPD=ERPD;
+  function erpdNum(v){return Math.round((Number(v)||0)*100)/100;}
+  async function erpDespTick(force){
+    if(ERPD.busy||ERPD.off||!ready||!sb)return;
+    var st=erpState();
+    if(!force){
+      if(!st.ativo||!erpCanWrite())return;
+      if(saveTimer||__pushing||__pushAgain||__saveSeq!==__savedSeq)return;
+      try{if(typeof modalOpen==="function"&&modalOpen())return;if(typeof editingInline==="function"&&editingInline())return;}catch(e){}
+    }
+    ERPD.busy=true;var n={criadas:0,ligadas:0,atualizadas:0,removidas:0};
+    try{
+      var rows=[],f,q;
+      for(f=0;;f+=1000){q=await sb.from("erp_despesas").select("erp_id,payload,hash,deleted").range(f,f+999);
+        if(q.error){if(/erp_despesas|does not exist|42P01|schema cache/i.test(String(q.error.message||"")+String(q.error.code||""))){ERPD.off=true;return;}throw q.error;}
+        rows=rows.concat(q.data||[]);if(!q.data||q.data.length<1000)break;}
+      D.expenses=D.expenses||[];if(!D._tomb)D._tomb={};if(!Array.isArray(D._tomb.exp))D._tomb.exp=[];
+      var byErp={};D.expenses.forEach(function(e){if(e&&e.erpDespId)byErp[e.erpDespId]=e;});
+      rows.forEach(function(r){var p=r.payload||{};var e=byErp[r.erp_id];
+        if(r.deleted){if(e){if(String(e.id).indexOf("erpd_")===0){D.expenses=D.expenses.filter(function(x){return x!==e;});}else{delete e.erpDespId;delete e._erpHash;}n.removidas++;}return;}
+        if(e){if(e._erpHash!==r.hash){e.date=p.date||e.date;e.amount=erpdNum(p.amount);if(String(e.id).indexOf("erpd_")===0){e.type=p.type||e.type;e.bank=p.bank||e.bank;e.desc=p.desc||e.desc;}if(p.nota)e.nota=p.nota;e._erpHash=r.hash;n.atualizadas++;}return;}
+        var id="erpd_"+r.erp_id;if(D._tomb.exp.indexOf(id)>=0)return;
+        var amt=erpdNum(p.amount);
+        var twin=D.expenses.filter(function(x){return x&&!x.erpDespId&&String(x.date||"").slice(0,10)===String(p.date||"").slice(0,10)&&Math.abs(erpdNum(x.amount)-amt)<0.01;})[0];
+        if(twin){twin.erpDespId=r.erp_id;twin._erpHash=r.hash;n.ligadas++;return;}
+        var ne={id:id,date:p.date||erpToday(),desc:p.desc||"Despesa do ERP",amount:amt,bank:p.bank||"",type:p.type||"Outro",client:"",projetoId:"",erpDespId:r.erp_id,_erpHash:r.hash,origem:"ERP"};
+        if(p.nota)ne.nota=p.nota;D.expenses.push(ne);n.criadas++;});
+      var tot=n.criadas+n.ligadas+n.atualizadas+n.removidas;
+      if(tot){st.log.unshift({em:new Date().toISOString(),txt:"Despesas do ERP: "+n.criadas+" novas, "+n.ligadas+" ligadas a despesas já existentes, "+n.atualizadas+" atualizadas, "+n.removidas+" removidas"});st.log=st.log.slice(0,200);
+        try{_idxClear&&_idxClear();}catch(e){}save();}
+      ERPD.last={em:new Date().toISOString(),total:rows.filter(function(r){return !r.deleted;}).length,res:n};ERPD.err="";
+      if(tot){try{if(!(typeof modalOpen==="function"&&modalOpen())&&!(typeof editingInline==="function"&&editingInline()))ren();}catch(e){}}
+    }catch(e){ERPD.err=(e&&e.message)||String(e);try{console.error("[Despesas ERP]",e);}catch(_){}}
+    finally{ERPD.busy=false;}
+    return n;
+  }
+  window.erpDespTick=erpDespTick;
+  (function(){var t=setInterval(function(){if(ready&&sb){clearInterval(t);setTimeout(function(){erpDespTick(false);},4000);setInterval(function(){erpDespTick(false);},60000);}},2000);})();
   async function erpFupOutbox(){
     if(!sb||!ERP.loaded||ERP.outboxOff||!erpCanWrite())return 0;
     var fila=[],marcar=[];
@@ -10116,7 +10162,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     var h='<style>.erp-k{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:1px 9px;background:#E6F1F2;color:#2E8C93}.erp-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}.erp-kpi>div{background:#fff;border:1px solid #E4E8EB;border-radius:10px;padding:12px 14px}.erp-kpi b{display:block;font-size:22px;color:#414D57}.erp-kpi span{font-size:12px;color:#5F6B75}.erp-tb{width:100%;border-collapse:collapse;font-size:13px}.erp-tb td,.erp-tb th{padding:8px;border-bottom:1px solid #EEF1F3;text-align:left;vertical-align:top}.erp-tb th{font-size:11px;color:#5F6B75;text-transform:uppercase;letter-spacing:.04em}.erp-seg button{border:1px solid #E4E8EB;background:#fff;padding:6px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;color:#414D57}.erp-seg button.on{background:#2E8C93;color:#fff;border-color:#2E8C93}.erp-seg{display:flex;flex-wrap:wrap;gap:0;margin:6px 0 12px}.erp-seg button:first-child{border-radius:8px 0 0 8px}.erp-seg button:last-child{border-radius:0 8px 8px 0}</style>';
     h+=pgHead("🔗","Ligação ao ERP Mobilwave",'<button class="btn bs" style="background:#5F6B75" onclick="erpVerificar()">'+(ERP.busy?"A verificar…":"Verificar agora")+'</button>');
     var estado=st.ativo?'<span style="color:#3E9E7A;font-weight:700">Ativa</span> · as alterações do ERP entram sozinhas':'<span style="color:#C98F34;font-weight:700">Em pré-visualização</span> · nada é alterado até ativares';
-    h+='<div class="cd" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div>'+estado+'<div style="font-size:12px;color:#5F6B75;margin-top:4px">Recebe do ERP os clientes com país Espanha ou Andorra, as suas vendas e faturas. Última atualização enviada pelo ERP: <b>'+(meta.last_run?new Date(meta.last_run).toLocaleString("pt-PT"):"ainda nenhuma")+'</b>'+(ERP.lastCheck?' · última verificação aqui: '+new Date(ERP.lastCheck).toLocaleTimeString("pt-PT"):"")+'</div></div>'+
+    h+='<div class="cd" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div>'+estado+'<div style="font-size:12px;color:#5F6B75;margin-top:4px">Recebe do ERP os clientes com país Espanha ou Andorra, as suas vendas, faturas e as despesas marcadas como Espanha. Última atualização enviada pelo ERP: <b>'+(meta.last_run?new Date(meta.last_run).toLocaleString("pt-PT"):"ainda nenhuma")+'</b>'+(ERP.lastCheck?' · última verificação aqui: '+new Date(ERP.lastCheck).toLocaleTimeString("pt-PT"):"")+'</div>'+(function(){var X=window.__ERPD||{};var n=(D.expenses||[]).filter(function(e){return e.erpDespId;});var t=n.reduce(function(a,e){return a+(Number(e.amount)||0);},0);return '<div style="font-size:12px;color:#5F6B75;margin-top:4px">Despesas do ERP: <b>'+n.length+'</b> ('+(typeof fmt==="function"?fmt(t):t)+')'+(X.off?' · <span style="color:#B94A3E">tabela erp_despesas ainda não criada</span>':'')+(X.err?' · <span style="color:#B94A3E">'+esc(X.err)+'</span>':'')+(X.last?' · verificado às '+new Date(X.last.em).toLocaleTimeString("pt-PT"):'')+'</div>';})()+'</div>'+
       (currentRole==="admin"?(st.ativo?'<button class="btn bs" style="background:#5F6B75" onclick="erpAtivar(false)">Pôr em pausa</button>':'<button class="btn" style="background:#2E8C93" onclick="erpAtivar(true)">Ativar ligação e aplicar</button>'):"")+'</div>'+
       (meta.last_error?'<div style="margin-top:10px;color:#C0564A;font-size:12.5px">Último erro no ERP ('+(meta.last_error_at?new Date(meta.last_error_at).toLocaleString("pt-PT"):"")+'): '+esc(meta.last_error)+'</div>':"")+
       (ERP.err?'<div style="margin-top:10px;color:#C0564A;font-size:12.5px">Não foi possível ler a ligação: '+esc(ERP.err)+'. Confirma que o script SQL da ligação foi corrido neste projeto Supabase.</div>':"")+'</div>';
