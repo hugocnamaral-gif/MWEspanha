@@ -138,10 +138,8 @@ tr:hover td{background:#EFF1F4}
 
 <script>
 var R="#2E8C93",G="#C98F34",GD="#C98F34",GRN="#3E9E7A",BLU="#4E86B0",PUR="#37506A",SL="#5F6B75",TEAL="#2E8C93",DNG="#C0564A";
-var STAGES=["lead","proposta","ganho","projeto","concluido"];
-var SL2={lead:"Lead",proposta:"Proposta",projeto:"Projeto",ganho:"Ganho",concluido:"Concluído",perdido:"Perdido"};
-var SC={lead:R,proposta:G,projeto:PUR,ganho:GRN,concluido:"#2E8C93",perdido:"#5F6B75"};
-var SPECS=["Gastro","Pneumo","Filestream","Integração"];
+var STAGES=["lead","validar","proposta","ganho","projeto","concluido"]; var SL2={lead:"Oportunidade identificada",validar:"Por validar",proposta:"Proposta submetida",projeto:"Em projeto",ganho:"Adjudicado e sem NE",concluido:"Concluído",perdido:"Perdido",exec:"Em projeto"}; var SC={lead:R,validar:BLU,proposta:G,projeto:PUR,ganho:GRN,concluido:"#2E8C93",perdido:"#5F6B75",exec:PUR};
+var SPECS=["Gastro","Pneumo","ORL","Cardio","Uro","Ginecologia","Dermatologia","Oftalmologia","Neurologia","Anatomia Patológica","Imagem","Filestream","Integração"];
 var REGS=["Andaluzia","Aragão","Astúrias","Baleares","Canárias","Cantábria","Castela-Mancha","Castela e Leão","Catalunha","Ceuta","Estremadura","Galiza","La Rioja","Madrid","Melilla","Múrcia","Navarra","País Basco","Valencia","Andorra"];
 var MO=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
@@ -193,6 +191,8 @@ function yearPicker(){
   return '<select onchange="setYear(this.value)" style="border:1px solid #E4E8EB;border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;font-weight:600;color:#414D57;background:#fff;cursor:pointer">'+opts+'</select>';
 }
 function fmtD(d){return d?new Date(d).toLocaleDateString("pt-PT",{day:"numeric",month:"short",year:"numeric"}):"—"}
+function _dById(id){if(id==null)return undefined;return (D.deals||[]).filter(function(x){return x.id===id;})[0];}
+function clientById(id){if(id==null)return undefined;return (D.clients||[]).filter(function(x){return x.id===id;})[0];}
 function _hojeLocal(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 try{if(!String.prototype.mwFold)Object.defineProperty(String.prototype,"mwFold",{value:function(){return String(this).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");},enumerable:false,configurable:true,writable:true});}catch(e){}
 function pc(a,b){return b>0?((a/b)*100).toFixed(1):"0"}
@@ -261,6 +261,10 @@ function clRowsHtml(){
   var ctList=D.clients.filter(function(cl){
     if(ctF.region!=="Todos"&&cl.region!==ctF.region)return false;
     if(ctF.channel!=="Todos"&&cl.channel!==ctF.channel)return false;
+    if(ctF.cloud==="Cloud"&&!cl.cloud)return false;
+    if(ctF.cloud==="Não"&&cl.cloud)return false;
+    if(ctF.saas==="SaaS"&&!cl.saas)return false;
+    if(ctF.saas==="Não"&&cl.saas)return false;
     if(q&&(cl.name+" "+(cl.nif||"")).mwFold().indexOf(q)<0)return false;
     var specs=D.clientSpecs.filter(function(s){return s.clientId===cl.id});
     if(ctF.spec!=="Todos"&&!specs.some(function(s){return s.specialty===ctF.spec}))return false;
@@ -268,12 +272,24 @@ function clRowsHtml(){
     if(ctF.at==="Sem AT"&&specs.some(function(s){return s.at}))return false;
     return true;
   }).sort(function(a,b){return a.name.localeCompare(b.name)});
-  if(ctList.length===0)return '<tr><td colspan="5" style="text-align:center;padding:24px;color:#5F6B75;font-size:13px">Sem clientes para estes filtros</td></tr>';
+  if(ctList.length===0)return '<tr><td colspan="6" style="text-align:center;padding:24px;color:#5F6B75;font-size:13px">Sem clientes para estes filtros</td></tr>';
   var h="";
-  ctList.forEach(function(cl){
+  var holdMap={},stand=[];
+  ctList.forEach(function(cl){ if(cl.holding){(holdMap[cl.holding]=holdMap[cl.holding]||[]).push(cl);} else stand.push(cl); });
+  var items=stand.map(function(cl){return{k:"c",name:cl.name,cl:cl};});
+  Object.keys(holdMap).forEach(function(hn){items.push({k:"h",name:hn,cos:holdMap[hn]});});
+  items.sort(function(a,b){return a.name.localeCompare(b.name);});
+  items.forEach(function(it){
+    if(it.k==="h"){
+      var cos=it.cos,anyC=cos.some(function(c){return c.cloud;}),anyS=cos.some(function(c){return c.saas;});
+      var reg=cos[0].region||"—",allR=cos.every(function(c){return c.region===reg;});
+      h+='<tr style="background:'+rgba(R,.03)+'"><td><a onclick="openHolding(\''+it.name+'\')" style="font-weight:700;color:'+R+';cursor:pointer;text-decoration:none;border-bottom:1px dotted '+rgba(R,.4)+'" title="Ver empresas do grupo">🏢 '+esc(it.name)+'</a> <span style="font-size:11px;color:#fff;background:'+SL+';border-radius:20px;padding:1px 7px;vertical-align:middle">HOLDING</span></td><td>'+(allR?reg:"Vários")+'</td><td>Grupo</td><td>'+(anyC?'<span style="background:'+rgba(BLU,.12)+';color:'+BLU+';border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600">☁ Cloud</span>':'')+(anyS?' <span style="background:'+rgba(PUR,.12)+';color:'+PUR+';border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600">SaaS</span>':'')+'</td><td><span style="font-size:12px;color:#5F6B75">'+cos.length+' empresas — <a onclick="openHolding(\''+it.name+'\')" style="color:'+R+';cursor:pointer;font-weight:600">ver detalhe</a></span></td><td></td></tr>';
+      return;
+    }
+    var cl=it.cl;
     var specs=D.clientSpecs.filter(function(s){return s.clientId===cl.id});
-    h+='<tr><td><a onclick="openClient(\''+cl.id+'\')" style="font-weight:600;color:'+R+';cursor:pointer;text-decoration:none;border-bottom:1px dotted '+rgba(R,.4)+'" title="Ver ficha, morada e contactos">'+esc(cl.name)+'</a>'+((D.contacts||[]).filter(function(x){return x.clientId===cl.id}).length?' <span style="font-size:11px;color:#6B7680">\ud83d\udc64'+(D.contacts||[]).filter(function(x){return x.clientId===cl.id}).length+'</span>':'')+'</td><td>'+cl.region+'</td><td>'+cl.channel+'</td><td>';
-    if(specs.length===0){h+='<span style="font-size:11px;color:#6B7680">Sem especialidades registadas</span>'}
+    h+='<tr><td><a onclick="openClient(\''+cl.id+'\')" style="font-weight:600;color:'+R+';cursor:pointer;text-decoration:none;border-bottom:1px dotted '+rgba(R,.4)+'" title="Ver ficha, morada e contactos">'+esc(cl.name)+'</a>'+((D.contacts||[]).filter(function(x){return x.clientId===cl.id}).length?' <span style="font-size:11px;color:#6B7680">\ud83d\udc64'+(D.contacts||[]).filter(function(x){return x.clientId===cl.id}).length+'</span>':'')+'</td><td>'+cl.region+'</td><td>'+cl.channel+'</td><td>'+(cl.cloud?'<span style="background:'+rgba(BLU,.12)+';color:'+BLU+';border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;white-space:nowrap">☁ Cloud</span>':'')+(cl.saas?' <span style="background:'+rgba(PUR,.12)+';color:'+PUR+';border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600">SaaS</span>':'')+'</td><td>';
+    if(specs.length===0){h+='<span style="font-size:12px;color:#6B7680">Sem especialidades registadas</span>'}
     specs.forEach(function(s){var sc=s.specialty==="Gastro"?GD:s.specialty==="Pneumo"?PUR:BLU;
       h+='<span style="display:inline-flex;align-items:center;gap:2px;margin:2px 6px 2px 0">'+bdg(s.specialty+(s.at?" \u00b7 AT Ativa":""),s.at?GRN:sc)+'<button style="background:none;border:none;font-size:11px;cursor:pointer;color:#ccc" onclick="editSpec(\''+s.id+'\')" title="Editar">\u270e</button><button style="background:none;border:none;font-size:11px;cursor:pointer;color:#ccc" onclick="delSpec(\''+s.id+'\')" title="Remover">\u2715</button></span>'});
     h+='</td><td style="white-space:nowrap"><button style="background:#edf8f3;color:'+GRN+';border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer" onclick="openSpecM({clientId:\''+cl.id+'\'})">+ Especialidade</button> <button style="background:#F7E6E3;color:'+R+';border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer" onclick="delCl(\''+cl.id+'\')" title="Remover cliente">\u2715 Remover</button></td></tr>';
@@ -500,7 +516,7 @@ function genReport(){
   var term=Number(D.paymentTermDays)||30;
   var risky=D.invoices.filter(function(i){return!i.collected&&Math.floor((now-new Date(i.date))/86400000)>=180});
   var riskyT=risky.reduce(function(a,i){return a+i.amount},0);
-  var WT={projeto:0.75,proposta:0.4,lead:0.1};
+  var WT={projeto:0.75,proposta:0.4,validar:0.2,lead:0.1};
   var wProj=0,wProp=0,wLead=0;openD.forEach(function(d){if(d.stage==="projeto")wProj+=d.value*WT.projeto;else if(d.stage==="proposta")wProp+=d.value*WT.proposta;else wLead+=d.value*WT.lead});
   var forecast=S.inv+adjT+wProj+wProp+wLead;
   // séries mensais
@@ -933,27 +949,27 @@ if(cTab==="dashboard"){
 } else if(cTab==="pipeline"){
   if(!window.__pipeF)window.__pipeF={type:"",spec:"",q:"",resp:""};
   var _pf=window.__pipeF;
-  var _pResp=function(d){return (d.fupOwner||d.stResp||d.erpVendedor||"").trim()||"(sem responsável)";};
+  var _pResp=function(d){return (d.vendedor||d.erpVendedor||d.fupOwner||d.stResp||"").trim()||"(sem vendedor)";};
   h=pgHead("🎯","Pipeline",'<button class="btn" style="background:'+R+'" onclick="openDM()">+ Deal</button>');
   var _tipos=[];D.deals.forEach(function(d){var t=(d.type||"").trim();if(t&&_tipos.indexOf(t)<0)_tipos.push(t)});_tipos.sort();
   var _specs=[];D.deals.forEach(function(d){var x=(d.specialty||"").trim();if(x&&_specs.indexOf(x)<0)_specs.push(x)});_specs.sort();
-  var _resps={};D.deals.forEach(function(d){if(d.stage==="perdido")return;var v=_pResp(d);_resps[v]=(_resps[v]||0)+1;});var _rl=Object.keys(_resps).sort(function(a,b){return a==="(sem responsável)"?1:(b==="(sem responsável)"?-1:a.localeCompare(b));});
+  var _resps={};D.deals.forEach(function(d){if(d.stage==="perdido")return;var v=_pResp(d);_resps[v]=(_resps[v]||0)+1;});var _rl=Object.keys(_resps).sort(function(a,b){return a==="(sem vendedor)"?1:(b==="(sem vendedor)"?-1:a.localeCompare(b));});
   var _topt=function(v,cur){return '<option value="'+esc(v)+'"'+(cur===v?" selected":"")+'>'+esc(v||"—")+'</option>'};
   var _sS='padding:6px 10px;border:1px solid #E4E8EB;border-radius:8px;font-size:12px;font-family:inherit;background:#fff';
   h+='<div class="cd" style="padding:10px 12px;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<span style="font-size:12px;color:#5F6B75;font-weight:600">Filtrar:</span>';
   h+='<select onchange="if(this.value===\'all\'){window.__pipeAll=true;rPnl();}else{window.__pipeAll=false;setYear(this.value);}" style="'+_sS+'"><option value="all"'+(window.__pipeAll!==false?' selected':'')+'>Todos os anos</option>'+(typeof yearsInData==="function"?yearsInData():[]).map(function(y){return '<option value="'+y+'"'+(window.__pipeAll===false&&String(activeYear())===String(y)?' selected':'')+'>Só '+y+'</option>';}).join("")+'</select>';
-  h+='<select onchange="setPipeF(\'resp\',this.value)" style="'+_sS+(_pf.resp?';border-color:'+R+';font-weight:600;color:'+R:'')+'"><option value="">Todos os responsáveis</option>'+_rl.map(function(v){return '<option value="'+esc(v)+'"'+(_pf.resp===v?' selected':'')+'>'+esc(v)+' ('+_resps[v]+')</option>';}).join("")+'</select>';
+  h+='<select onchange="setPipeF(\'resp\',this.value)" style="'+_sS+(_pf.resp?';border-color:'+R+';font-weight:600;color:'+R:'')+'"><option value="">Todos os vendedores</option>'+_rl.map(function(v){return '<option value="'+esc(v)+'"'+(_pf.resp===v?' selected':'')+'>'+esc(v)+' ('+_resps[v]+')</option>';}).join("")+'</select>';
   h+='<select onchange="setPipeF(\'type\',this.value)" style="'+_sS+'"><option value="">Todos os tipos</option>'+_tipos.map(function(t){return _topt(t,_pf.type)}).join("")+'</select>';
   h+='<select onchange="setPipeF(\'spec\',this.value)" style="'+_sS+'"><option value="">Todas as especialidades</option>'+_specs.map(function(x){return _topt(x,_pf.spec)}).join("")+'</select>';
   h+='<input value="'+esc(_pf.q||"")+'" oninput="window.__pipeF.q=this.value;clearTimeout(window.__pipeQT);window.__pipeQT=setTimeout(function(){rPnl();},250)" placeholder="Procurar cliente/produto..." style="'+_sS+';flex:1;min-width:150px">';
   if(_pf.type||_pf.spec||_pf.q||_pf.resp)h+='<button onclick="setPipeF(\'clear\')" style="background:#EFF1F4;color:#5F6B75;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">✕ Limpar</button>';
-  h+='</div><div class="kan">';
+  h+='</div><div style="font-size:11.5px;color:#6B7680;margin:-4px 0 10px">Mesmas etapas do ERP Mobilwave. As oportunidades de clientes de Espanha criadas no ERP entram aqui sozinhas. Data = entrada na etapa atual.</div><div class="kan" style="grid-template-columns:repeat(6,minmax(170px,1fr));overflow-x:auto">';
   var _pfMatch=function(d){
     if(_pf.resp&&_pResp(d)!==_pf.resp)return false;
     if(_pf.type&&(d.type||"").trim()!==_pf.type)return false;
     if(_pf.spec&&(d.specialty||"").trim()!==_pf.spec)return false;
-    if(_pf.q){var q=_pf.q.mwFold();var hay=(cn(d.clientId)+" "+(d.product||"")+" "+(d.fupOwner||"")+" "+(d.stResp||"")+" "+(d.nextAction||"")).mwFold();if(hay.indexOf(q)<0)return false;}
+    if(_pf.q){var q=_pf.q.mwFold();var hay=(cn(d.clientId)+" "+(d.product||"")+" "+(d.vendedor||"")+" "+(d.fupOwner||"")+" "+(d.stResp||"")+" "+(d.nextAction||"")).mwFold();if(hay.indexOf(q)<0)return false;}
     return true;};
   STAGES.forEach(function(sg){
     var colDeals=D.deals.filter(function(d){return d.stage===sg&&(window.__pipeAll!==false||inYear(d.date))&&_pfMatch(d)}).sort(function(a,b){return b.value-a.value});
@@ -961,7 +977,7 @@ if(cTab==="dashboard"){
     h+='<div ondragover="mwDragOver(event)" ondragleave="mwDragLeave(event)" ondrop="mwDrop(event,\'pipeline\',\''+sg+'\')"><div style="text-align:center;margin-bottom:4px">'+bdg(SL2[sg],SC[sg])+'</div><div style="text-align:center;font-size:11px;color:#6B7680;margin-bottom:10px">'+colDeals.length+' · '+fmt(colTotal)+'</div>';
     if(colDeals.length===0){h+='<div style="text-align:center;padding:24px 10px;color:#C6CDD4;font-size:12px;border:1.5px dashed #E4E8EB;border-radius:10px">Sem oportunidades</div>'}
     colDeals.forEach(function(dl){
-      h+='<div class="dc" draggable="true" ondragstart="mwDragStart(event,\'pipeline\',\''+dl.id+'\')" ondragend="mwDragEnd(event)" style="border-left:3px solid '+SC[sg]+';cursor:grab"><div style="font-size:12px;font-weight:600;margin-bottom:2px">'+cn(dl.clientId)+'</div>'+((dl.fupOwner||dl.stResp)?'<div style="font-size:11px;color:#6B7680;margin-bottom:2px">'+esc(dl.fupOwner||dl.stResp)+'</div>':'')+'<div style="font-size:11px;color:#5F6B75;margin-bottom:6px">'+dl.product+'</div><div style="margin-bottom:6px">'+bdg(dl.specialty,BLU)+'</div>';
+      h+='<div class="dc" draggable="true" ondragstart="mwDragStart(event,\'pipeline\',\''+dl.id+'\')" ondragend="mwDragEnd(event)" style="border-left:3px solid '+SC[sg]+';cursor:grab"><div style="font-size:12px;font-weight:600;margin-bottom:2px">'+cn(dl.clientId)+'</div>'+((dl.vendedor||dl.fupOwner||dl.stResp)?'<div style="font-size:11px;color:#6B7680;margin-bottom:2px">'+esc(dl.vendedor||dl.fupOwner||dl.stResp)+'</div>':'')+'<div style="font-size:11px;color:#5F6B75;margin-bottom:6px">'+dl.product+'</div><div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">'+bdg(dl.specialty,BLU)+((dl.sub||dl.type==="SUB")?'<span title="Subscrição" style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:'+rgba(PUR,.12)+';color:'+PUR+'">SUB</span>':'')+(dl.cloud?'<span title="Cloud" style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:'+rgba(BLU,.12)+';color:'+BLU+'">☁ Cloud</span>':'')+'</div>';
       if(dl.value>0)h+='<div style="font-size:14px;font-weight:700;color:'+SC[sg]+';margin-bottom:6px">'+fmt(dl.value)+(dl.arr>0?'<span style="font-size:11px;color:#5F6B75"> ARR '+fmt(dl.arr)+'</span>':'')+'</div>';
       if(dl.nextAction||dl.nextDate){var ov=isOverdue(dl);h+='<div onclick="quickNext(\''+dl.id+'\')" title="Editar próxima ação" style="cursor:pointer;font-size:11px;padding:4px 7px;border-radius:6px;margin-bottom:6px;background:'+(ov?"#F7E6E3":"#EFF1F4")+';color:'+(ov?R:"#5F6B75")+'">'+(ov?"⚠ ":"→ ")+(dl.nextAction||"follow-up")+(dl.nextDate?' <b>'+fmtD(dl.nextDate)+'</b>'+(ov?" ("+daysLate(dl)+"d)":""):"")+'</div>'}
       else if(dl.stage!=="ganho"&&dl.stage!=="perdido"){h+='<div onclick="quickNext(\''+dl.id+'\')" title="Definir próxima ação" style="cursor:pointer;font-size:11px;padding:4px 7px;border-radius:6px;margin-bottom:6px;background:#EEF0F2;color:#b8ae9e;border:1px dashed #E4E8EB">+ próxima ação</div>'}
@@ -980,7 +996,13 @@ if(cTab==="dashboard"){
   var vFac=vDeals.filter(function(d){return billStatus(d.id).k==="fac"}).reduce(function(a,d){return a+d.value},0);
   var vPago=vDeals.filter(function(d){return billStatus(d.id).k==="pago"}).reduce(function(a,d){return a+d.value},0);
   var vARR=vDeals.reduce(function(a,d){return a+(d.arr||0)},0);
-  h+='<div class="kr">'+kpi("Total Vendas",fmt(vTotal),vDeals.length+" vendas",GD,G)+kpi("ARR ganho",fmt(vARR),"receita recorrente/ano",PUR,PUR)+kpi("Adjudicado",fmt(vAdj),"",GD,GD)+kpi("Faturado",fmt(vFac),"",SL,SL)+kpi("Pago",fmt(vPago),"",GRN,GRN)+'</div>';
+  var _yv=String(activeYear()),_isM=function(d){return !!d&&(d.type==="AT"||d.type==="SUB"||!!d.sub);};
+  var _ivY=(D.invoices||[]).filter(function(i){return !i.anulado&&String(i.date||"").slice(0,4)===_yv;});
+  var _fnv=0,_fav=0;_ivY.forEach(function(i){var d=_dById(i.dealId);if(_isM(d))_fav+=Number(i.amount)||0;else _fnv+=Number(i.amount)||0;});
+  var _pfN=0,_pfM=0;(D.deals||[]).forEach(function(d){if(!isWon(d)||String(d.date||"").slice(0,4)!==_yv)return;if((D.invoices||[]).some(function(i){return i.dealId===d.id;}))return;if(_isM(d))_pfM+=Number(d.value)||0;else _pfN+=Number(d.value)||0;});
+  var _cobv=(D.invoices||[]).filter(function(i){return i.collected&&String(i.collDate||i.date||"").slice(0,4)===_yv;}).reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+  var _pcv=_ivY.filter(function(i){return !i.collected;}).reduce(function(a,i){return a+(Number(i.amount)||0);},0);
+  h+='<div class="kr">'+kpi("Adjudicado "+_yv,fmt(_fnv+_fav+_pfN+_pfM),"faturado + por faturar (s/IVA)",GD,G)+kpi("Faturado",fmt(_fnv+_fav),"NV "+fmt(_fnv)+" · M "+fmt(_fav),SL,SL)+kpi("Adjudicado não faturado",fmt(_pfN+_pfM),"NV "+fmt(_pfN)+" · M "+fmt(_pfM),GD,GD)+kpi("Pago (recebido)",fmt(_cobv),"pela data de recebimento",GRN,GRN)+kpi("Faturado "+_yv+" por cobrar",fmt(_pcv),"",R,R)+'</div>';
   h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Canal</th><th>Especialidade</th><th>Produto</th><th>Tipo</th><th style="text-align:right">Valor</th><th style="text-align:right">ARR</th><th>Estado</th><th></th></tr>';
   vDeals.forEach(function(d){var cl=D.clients.find(function(c){return c.id===d.clientId});var bs=billStatus(d.id);var sc=d.specialty==="Gastro"?GD:d.specialty==="Pneumo"?PUR:BLU;
     h+='<tr><td>'+(cl?'<a onclick="openClient(\''+cl.id+'\')" style="font-weight:600;color:'+R+';cursor:pointer;text-decoration:none;border-bottom:1px dotted '+rgba(R,.4)+'">'+cl.name+'</a>':"—")+'</td><td>'+(cl?cl.channel:"")+((window.esST&&window.esST(d,cl))?'<div style="font-size:11px;color:'+TEAL+';font-weight:600;margin-top:2px">ST: '+esc(window.esST(d,cl))+'</div>':'')+'</td><td>'+bdg(d.specialty,sc)+'</td><td style="color:#5F6B75">'+d.product+'</td><td>'+bdg(d.type,SL)+'</td><td style="text-align:right;font-weight:700">'+fmt(d.value)+'</td><td style="text-align:right"><span style="font-weight:600;color:'+(d.arr>0?PUR:"#C6CDD4")+'">'+(d.arr>0?fmt(d.arr):"—")+'</span> <button style="background:none;border:none;font-size:11px;cursor:pointer;color:#C6CDD4" onclick="editARR(\''+d.id+'\')" title="Editar ARR">✎</button></td><td>'+bdg(bs.label,bs.color)+(bs.sub?'<div style="font-size:11px;color:#6B7680;margin-top:2px">'+bs.sub+'</div>':'')+'</td><td style="white-space:nowrap"><button style="background:'+rgba(SL,.15)+';color:'+SL+';border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px" onclick="editDl(\''+d.id+'\')" title="Editar venda (datas, valor, etapa)">✎ Editar</button><button style="background:'+rgba(BLU,.1)+';color:'+BLU+';border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px" onclick="openAttM(\''+d.id+'\',\'proposta\')" title="Ficheiros da proposta">📎'+(dealAtts(d.id).length?' '+dealAtts(d.id).length:'')+'</button><button style="background:#edf8f3;color:'+GRN+';border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer" onclick="addSpecialty(\''+d.clientId+'\')" title="Upsell — adicionar especialidade a este cliente">+ Especialidade</button></td></tr>'});
@@ -1013,7 +1035,7 @@ if(cTab==="dashboard"){
   var arrBase=0;try{arrBase=(typeof window.recurArrAno==="function")?window.recurArrAno(NY):wonD3.reduce(function(a,d){return a+(d.arr||0)},0);}catch(e){arrBase=wonD3.reduce(function(a,d){return a+(d.arr||0)},0);}
   var openD3=D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)});
   var arrPipe3=openD3.reduce(function(a,d){return a+(d.arr||0)},0);
-  var WT3={projeto:0.75,proposta:0.4,lead:0.1};
+  var WT3={projeto:0.75,proposta:0.4,validar:0.2,lead:0.1};
   var arrExp=openD3.reduce(function(a,d){return a+(d.arr||0)*(WT3[d.stage]||0.1)},0);
   var oneOff26=D.deals.filter(function(d){return isWon(d)&&inYear(d.date)}).reduce(function(a,d){return a+d.value},0);
   var carry=(arrBase+arrExp)*(B.renew/100);
@@ -1097,16 +1119,19 @@ if(cTab==="dashboard"){
   var regs=["Todos"].concat(REGS);
   var specOpts=["Todos"].concat(SPECS);
   var atOpts=["Todos","Com AT","Sem AT"];
-  h=pgHead("📇","Clientes Totais — Especialidades Activas",'<button class="btn" style="background:'+R+'" onclick="openCM()">+ Cliente Novo</button>');
+  var cloudOpts=["Todos","Cloud","Não"];var saasOpts=["Todos","SaaS","Não"];
+  h=pgHead("📇","Clientes Totais — Especialidades Ativas",'<button class="btn" style="background:'+R+'" onclick="openCM()">+ Cliente Novo</button>');
   h+='<div class="cd" style="padding:14px;margin-bottom:14px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">';
   h+=selF("Região",regs,ctF.region,"setCTF('region',this.value)");
   h+=selF("Canal",chans,ctF.channel,"setCTF('channel',this.value)");
   h+=selF("Especialidade",specOpts,ctF.spec,"setCTF('spec',this.value)");
   h+=selF("AT",atOpts,ctF.at,"setCTF('at',this.value)");
+  h+=selF("Cloud",cloudOpts,ctF.cloud||"Todos","setCTF('cloud',this.value)");
+  h+=selF("SaaS",saasOpts,ctF.saas||"Todos","setCTF('saas',this.value)");
   h+='<div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:11px;color:#5F6B75;font-weight:600">Nome do cliente</label><input id="clSearch" placeholder="Procurar…" value="'+String(ctF.name||"").replace(/"/g,"&quot;")+'" oninput="clFilter(this.value)" style="border:1px solid #E4E8EB;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none;min-width:150px"></div>';
   h+='<button style="background:#f8f7f5;border:1px solid #E4E8EB;color:#5F6B75;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer" onclick="clrCTF()">Limpar filtros</button>';
   h+='</div></div>';
-  h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Região</th><th>Canal</th><th>Especialidades</th><th></th></tr><tbody id="clRows">'+clRowsHtml()+'</tbody></table></div></div>';
+  h+='<div class="cd"><div style="overflow-x:auto"><table><tr><th>Cliente</th><th>Região</th><th>Canal</th><th>Cloud</th><th>Especialidades</th><th></th></tr><tbody id="clRows">'+clRowsHtml()+'</tbody></table></div></div>';
 } else if(cTab==="financeiro"){
   h=pgHead("💶",finSub==="orcamento"?"Orçamento":finSub==="cobrancas"?"Financeiro — Pendentes":finSub==="despesas"?"Financeiro — Despesas":"Financeiro — Faturação",yearPicker())+'<div class="kr">'+kpi("Faturado",fmt(S.inv),"emitido em "+yearLabel(),GD,G)+kpi("Cobrado",fmt(S.col),"recebido em "+yearLabel(),GRN,GRN)+kpi("Pendente",fmt(S.pend),S.pendPrev>0?"inclui "+fmt(S.pendPrev)+" de anos anteriores":"",R,R)+kpi("Custos",fmt(S.exp),"",R,R)+kpi("Cashflow",fmt(S.cf2),"recebido − custos",S.cf2<0?DNG:GRN,S.cf2<0?DNG:GRN)+'</div>';
   if(finSub==="orcamento"){
@@ -1217,7 +1242,7 @@ if(cTab==="dashboard"){
 
   h+='<div class="ins'+(onTrack?"":" w")+'"><div style="font-weight:600;margin-bottom:4px">'+(onTrack?"✅":"📈")+' Ritmo vs objetivo</div><div style="font-size:13px;color:#5F6B75;line-height:1.6">Ao ritmo actual, projecção de fecho do ano é ~'+fmt(runRate)+' ('+(onTrack?"acima":"abaixo")+' do objetivo de '+fmt(D.budget)+'). Faltam '+fmt(Math.max(0,D.budget-S.inv))+', o que exige ~'+fmt(Math.round(Math.max(0,D.budget-S.inv)/ml))+'/mês nos próximos '+ml+' meses.</div></div>';
 
-  var WT={projeto:0.75,proposta:0.4,lead:0.1};
+  var WT={projeto:0.75,proposta:0.4,validar:0.2,lead:0.1};
   var adjNoInv=D.deals.filter(function(d){return isWon(d)&&inYear(d.date)&&!D.invoices.find(function(i){return i.dealId===d.id})}).reduce(function(a,d){return a+d.value},0);
   var wProj=0,wProp=0,wLead=0;
   D.deals.filter(function(d){return !isClosed(d)&&inYear(d.date)}).forEach(function(d){if(d.stage==="projeto")wProj+=d.value*WT.projeto;else if(d.stage==="proposta")wProp+=d.value*WT.proposta;else wLead+=d.value*WT.lead});
@@ -1267,7 +1292,7 @@ if(cTab==="dashboard"){
   openDeals.slice(0,4).forEach(function(d){
     h+='<div class="ins o"><div style="font-weight:600;margin-bottom:4px">🎯 '+cn(d.clientId)+' — '+fmt(d.value)+(d.arr>0?' <span style="font-size:11px;color:#5F6B75">(ARR '+fmt(d.arr)+')</span>':'')+'</div><div style="font-size:13px;color:#5F6B75">'+d.product+' · '+bdg(SL2[d.stage],SC[d.stage])+'</div></div>'});
 
-  var stalled=D.deals.filter(function(d){return(d.stage==="lead"||d.stage==="proposta")&&d.date<=(activeYear()+"-05-01")&&inYear(d.date)});
+  var stalled=D.deals.filter(function(d){return(d.stage==="lead"||d.stage==="validar"||d.stage==="proposta")&&d.date<=(activeYear()+"-05-01")&&inYear(d.date)});
   if(stalled.length){h+='<div class="ins w" style="margin-top:4px"><div style="font-weight:600;margin-bottom:4px">⏳ Leads/propostas paradas há mais tempo</div><div style="font-size:13px;color:#5F6B75;line-height:1.6">'+stalled.map(function(d){return cn(d.clientId)+" ("+bdg(SL2[d.stage],SC[d.stage])+", desde "+fmtD(d.date)+")"}).join(" · ")+'</div></div>'}
 
   var specByClient={};D.deals.filter(function(d){return isWon(d)}).forEach(function(d){specByClient[d.clientId]=specByClient[d.clientId]||new Set();specByClient[d.clientId].add(d.specialty)});
@@ -1392,7 +1417,10 @@ function dmArtRowHTML(i,a){a=a||{};var IVA=[23,13,6,0,21,10,4];var ivaOpts=IVA.m
 window.dmAddArt=function(){var box=document.getElementById("dm_arts");if(!box)return;box.insertAdjacentHTML("beforeend",dmArtRowHTML(box.querySelectorAll(".dm_art").length,{qtd:1,precoUnit:0,iva:23}));dmArtCalc();};
 window.dmDelArt=function(btn){try{var row=btn.closest(".dm_art");if(row)row.parentNode.removeChild(row);}catch(e){}dmArtCalc();};
 window.dmArtCalc=function(){var net=0,iva=0,n=0;try{Array.prototype.forEach.call(document.querySelectorAll("#dm_arts .dm_art"),function(r){var q=Number(r.querySelector(".dma_qtd").value)||0;var pu=Number(r.querySelector(".dma_preco").value)||0;var iv=Number(r.querySelector(".dma_iva").value)||0;var ln=q*pu;net+=ln;iva+=ln*iv/100;n++;});}catch(e){}var el=document.getElementById("dm_arttot");if(el)el.innerHTML=n?("L\u00edquido <b>"+fmt(net)+"</b> \u00b7 IVA "+fmt(iva)+" \u00b7 Total <b>"+fmt(net+iva)+"</b>"):"";var vf=document.getElementById("f5");if(vf&&n)vf.value=Math.round(net*100)/100;};
-function openDM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.clientId;var dl=editId?D.deals.find(function(x){return x.id===editId}):null;var cs=D.clients.map(function(c){return{v:c.id,t:c.name}});var stageKeys=STAGES.slice();["perdido","concluido"].forEach(function(s){if(stageKeys.indexOf(s)<0)stageKeys.push(s);});if(dl&&dl.stage&&stageKeys.indexOf(dl.stage)<0)stageKeys.push(dl.stage);var sg=stageKeys.map(function(s){return{v:s,t:SL2[s]||s}});document.getElementById("mArea").innerHTML=mWrap(dl?"Editar Deal":(preClient?"Nova Especialidade — "+cn(preClient):"Novo Deal"),fld("Cliente",'<input id="f1t" list="dl_clis" autocomplete="off" placeholder="escreve para procurar…" value="'+esc(dl?cn(dl.clientId):(preClient?cn(preClient):""))+'"><datalist id="dl_clis">'+D.clients.map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="f1" value="'+(dl?dl.clientId:(preClient||""))+'">')+fld("Produto",'<input id="f2" value="'+(dl?dl.product.replace(/"/g,"&quot;"):"")+'">')+'<div class="r2">'+fld("Especialidade",sel("f3",SPECS,dl?dl.specialty:"Gastro"))+fld("Tipo",sel("f4",["NV","AT","SUB","SV"],dl?dl.type:"NV"))+'</div><div class="r2">'+fld("Valor €",'<input type="number" id="f5" value="'+(dl?dl.value:0)+'">')+fld("ARR €",'<input type="number" id="f6" value="'+(dl?dl.arr:0)+'">')+'</div>'+fld("Etapa",sel("f7",sg,dl?dl.stage:"lead"))+fld("Data",'<input type="date" id="f8" value="'+(dl?dl.date:_hojeLocal())+'">')+'<div class="r2">'+fld("Próxima ação",'<input id="f9" placeholder="ex.: ligar ao Dr. Elvira" value="'+(dl&&dl.nextAction?String(dl.nextAction).replace(/"/g,"&quot;"):"")+'">')+fld("Data follow-up",'<input type="date" id="f10" value="'+(dl&&dl.nextDate?dl.nextDate:"")+'">')+'</div>'+fld("Data perdida (só se perdido)",'<input type="date" id="f11" value="'+(dl&&dl.lostDate?dl.lostDate:"")+'">')+fld("Razão da perda (só se perdido)",'<input id="f12" value="'+(dl&&dl.lostReason?String(dl.lostReason).replace(/"/g,"&quot;"):"")+'">')+'<div style="margin-top:10px;border-top:1px solid #f0e6d8;padding-top:8px"><div style="font-size:11px;font-weight:700;color:#5F6B75;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Artigos da proposta</div><div style="display:grid;grid-template-columns:1fr 48px 78px 66px 26px;gap:5px;font-size:11px;color:#6B7680;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px"><span>Artigo</span><span>Qtd</span><span>Preço</span><span>IVA</span><span></span></div><div id="dm_arts">'+((dl&&dl.artigos&&dl.artigos.length)?dl.artigos.map(function(a,i){return dmArtRowHTML(i,a);}).join(""):"")+'</div><button type="button" class="btn bs" style="background:'+SL+';margin-top:4px" onclick="dmAddArt()">+ Artigo</button> <span id="dm_arttot" style="font-size:11.5px;color:#5F6B75;margin-left:8px"></span><div style="font-size:11px;color:#6B7680;margin-top:4px">O valor do deal é preenchido pela soma dos artigos (sem IVA). Junta os artigos que compõem a proposta.</div></div>'+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svDl(\''+(editId||"")+'\')">Guardar</button>')}
+function openDM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.clientId;var dl=editId?D.deals.find(function(x){return x.id===editId}):null;var cs=D.clients.map(function(c){return{v:c.id,t:c.name}});var stageKeys=STAGES.slice();["perdido","concluido"].forEach(function(s){if(stageKeys.indexOf(s)<0)stageKeys.push(s);});if(dl&&dl.stage&&stageKeys.indexOf(dl.stage)<0)stageKeys.push(dl.stage);var sg=stageKeys.map(function(s){return{v:s,t:SL2[s]||s}});document.getElementById("mArea").innerHTML=mWrap(dl?"Editar Deal":(preClient?"Nova Especialidade — "+cn(preClient):"Novo Deal"),fld("Cliente",'<input id="f1t" list="dl_clis" autocomplete="off" placeholder="escreve para procurar…" value="'+esc(dl?cn(dl.clientId):(preClient?cn(preClient):""))+'"><datalist id="dl_clis">'+D.clients.map(function(c){return '<option value="'+esc(c.name)+'"></option>';}).join("")+'</datalist><input type="hidden" id="f1" value="'+(dl?dl.clientId:(preClient||""))+'">')+fld("Produto",'<input id="f2" value="'+(dl?dl.product.replace(/"/g,"&quot;"):"")+'">')+'<div class="r2">'+fld("Especialidade",sel("f3",SPECS,dl?dl.specialty:"Gastro"))+fld("Tipo",sel("f4",(function(){var t=["NV","AT","SUB","SV","EV","HV","DV"];if(dl&&dl.type&&t.indexOf(dl.type)<0)t.push(dl.type);return t;})(),dl?dl.type:"NV"))+'</div>'+'<div style="display:flex;gap:18px;margin:-2px 0 10px;font-size:13px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="f_sub"'+(dl&&(dl.sub||dl.type==="SUB")?" checked":"")+'> Subscrição (SUB)</label><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="f_cloud"'+(dl&&dl.cloud?" checked":"")+'> Cloud</label></div><div class="r2">'+fld("Valor €",'<input type="number" id="f5" value="'+(dl?dl.value:0)+'">')+fld("ARR €",'<input type="number" id="f6" value="'+(dl?dl.arr:0)+'">')+'</div>'+(function(){var _me="";try{var _hp=D.hrPeople||{};var _em=(window.__mwEmail||"").toLowerCase();Object.keys(_hp).forEach(function(k){if(k.toLowerCase()===_em)_me=(_hp[k]||{}).nome||"";});}catch(e){}
+  var _cl=dl?clientById(dl.clientId):(preClient?clientById(preClient):null);
+  var _vd=dl?(dl.vendedor||""):_me;var _gc=dl?(dl.gestorConta||(_cl&&_cl.gestorConta)||""):((_cl&&_cl.gestorConta)||"");
+  return '<div class="r2">'+fld("Responsável (vendedor)",'<input id="f_vd" value="'+esc(_vd)+'" placeholder="colaborador">')+fld("Gestor de conta",'<input id="f_gc" value="'+esc(_gc)+'" placeholder="colaborador">')+'</div><div style="font-size:11.5px;color:#6B7680;margin:-4px 0 8px">O gestor de conta fica associado ao cliente e aparece por defeito nos outros negócios dele.</div>';})()+fld("Etapa",sel("f7",sg,dl?dl.stage:"lead"))+fld("Data",'<input type="date" id="f8" value="'+(dl?dl.date:_hojeLocal())+'">')+'<div class="r2">'+fld("Próxima ação",'<input id="f9" placeholder="ex.: ligar ao Dr. Elvira" value="'+(dl&&dl.nextAction?String(dl.nextAction).replace(/"/g,"&quot;"):"")+'">')+fld("Data follow-up",'<input type="date" id="f10" value="'+(dl&&dl.nextDate?dl.nextDate:"")+'">')+'</div>'+fld("Data perdida (só se perdido)",'<input type="date" id="f11" value="'+(dl&&dl.lostDate?dl.lostDate:"")+'">')+fld("Razão da perda (só se perdido)",'<input id="f12" value="'+(dl&&dl.lostReason?String(dl.lostReason).replace(/"/g,"&quot;"):"")+'">')+'<div style="margin-top:10px;border-top:1px solid #f0e6d8;padding-top:8px"><div style="font-size:11px;font-weight:700;color:#5F6B75;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Artigos da proposta</div><div style="display:grid;grid-template-columns:1fr 48px 78px 66px 26px;gap:5px;font-size:11px;color:#6B7680;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px"><span>Artigo</span><span>Qtd</span><span>Preço</span><span>IVA</span><span></span></div><div id="dm_arts">'+((dl&&dl.artigos&&dl.artigos.length)?dl.artigos.map(function(a,i){return dmArtRowHTML(i,a);}).join(""):"")+'</div><button type="button" class="btn bs" style="background:'+SL+';margin-top:4px" onclick="dmAddArt()">+ Artigo</button> <span id="dm_arttot" style="font-size:11.5px;color:#5F6B75;margin-left:8px"></span><div style="font-size:11px;color:#6B7680;margin-top:4px">O valor do deal é preenchido pela soma dos artigos (sem IVA). Junta os artigos que compõem a proposta.</div></div>'+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svDl(\''+(editId||"")+'\')">Guardar</button>')}
 function editDl(id){openDM({editId:id})}
 function editARR(id){var d=D.deals.find(function(x){return x.id===id});if(!d)return;promptM("ARR anual (€) para "+cn(d.clientId)+"\n"+d.product.slice(0,50)+"\n\nValor recorrente por ano (12× a mensalidade):",function(v){var n=Number(String(v).replace(",","."));if(isNaN(n)||n<0){toast("Valor inválido.",{type:"error"});return}var old=d.arr||0;d.arr=n;logAct("Nota","ARR atualizado: "+cn(d.clientId)+" — "+fmt(old)+" → "+fmt(n)+"/ano");save();ren()},{default:String(d.arr||0),okLabel:"Guardar ARR"})}
 function addSpecialty(clientId){openDM({clientId:clientId})}
@@ -1400,7 +1428,7 @@ function openSpecM(opts){opts=opts||{};var editId=opts.editId,preClient=opts.cli
 function editSpec(id){openSpecM({editId:id})}
 function svSpec(editId){var data={clientId:document.getElementById("f1").value,specialty:document.getElementById("f2").value,at:document.getElementById("f3").value==="1"};if(editId){var sp=D.clientSpecs.find(function(x){return x.id===editId});if(sp){Object.assign(sp,data);logAct("Cliente","Especialidade atualizada: "+cn(data.clientId)+" — "+data.specialty+(data.at?" (AT ativa)":""))}}else{data.id=uid();D.clientSpecs.push(data);logAct("Cliente","Especialidade adicionada: "+cn(data.clientId)+" — "+data.specialty)}save();clM();ren()}
 function delSpec(id){confirmM("Remover esta especialidade do registo?",function(){tombDel("spec",id);D.clientSpecs=D.clientSpecs.filter(function(s){return s.id!==id});save();ren()},{yesLabel:"Remover"})}
-function svDl(editId){var _ct=document.getElementById("f1t");var _cid=(document.getElementById("f1")||{}).value||"";if(_ct){var _nm=(_ct.value||"").trim().toLowerCase();var _m=D.clients.filter(function(c){return (c.name||"").toLowerCase()===_nm;})[0];if(_m)_cid=_m.id;}if(!_cid){if(typeof toast==="function")toast("Escolhe um cliente da lista.",{type:"error"});return}var data={clientId:_cid,product:document.getElementById("f2").value,specialty:document.getElementById("f3").value,type:document.getElementById("f4").value,stage:document.getElementById("f7").value,value:Number(document.getElementById("f5").value),arr:Number(document.getElementById("f6").value),date:document.getElementById("f8").value,nextAction:(document.getElementById("f9")||{}).value||"",nextDate:(document.getElementById("f10")||{}).value||"",lostDate:(document.getElementById("f11")||{}).value||"",lostReason:(document.getElementById("f12")||{}).value||""};var _arts=[];try{Array.prototype.forEach.call(document.querySelectorAll("#dm_arts .dm_art"),function(r){var d=(r.querySelector(".dma_desc").value||"").trim();var q=Number(r.querySelector(".dma_qtd").value)||0;var pu=Number(r.querySelector(".dma_preco").value)||0;var iv=Number(r.querySelector(".dma_iva").value)||0;if(d||pu)_arts.push({desc:d,qtd:q||1,precoUnit:pu,iva:iv});});}catch(e){}data.artigos=_arts;if(_arts.length)data.value=Math.round(_arts.reduce(function(a,x){return a+((Number(x.qtd)||0)*(Number(x.precoUnit)||0));},0)*100)/100;if(editId){var dl=D.deals.find(function(x){return x.id===editId});if(dl){Object.assign(dl,data);logAct("Pipeline","Deal editado: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}}else{data.id=uid();D.deals.push(data);logAct(data.stage==="proposta"?"Proposta":"Pipeline","Novo deal ["+SL2[data.stage]+"]: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}save();clM();ren()}
+function svDl(editId){var _ct=document.getElementById("f1t");var _cid=(document.getElementById("f1")||{}).value||"";if(_ct){var _nm=(_ct.value||"").trim().toLowerCase();var _m=D.clients.filter(function(c){return (c.name||"").toLowerCase()===_nm;})[0];if(_m)_cid=_m.id;}if(!_cid){if(typeof toast==="function")toast("Escolhe um cliente da lista.",{type:"error"});return}var data={clientId:_cid,product:document.getElementById("f2").value,specialty:document.getElementById("f3").value,type:document.getElementById("f4").value,stage:document.getElementById("f7").value,value:Number(document.getElementById("f5").value),arr:Number(document.getElementById("f6").value),date:document.getElementById("f8").value,nextAction:(document.getElementById("f9")||{}).value||"",nextDate:(document.getElementById("f10")||{}).value||"",lostDate:(document.getElementById("f11")||{}).value||"",lostReason:(document.getElementById("f12")||{}).value||"",vendedor:((document.getElementById("f_vd")||{}).value||"").trim(),gestorConta:((document.getElementById("f_gc")||{}).value||"").trim(),sub:!!(document.getElementById("f_sub")||{}).checked,cloud:!!(document.getElementById("f_cloud")||{}).checked};try{if(data.gestorConta){var _c9=clientById(_cid);if(_c9)_c9.gestorConta=data.gestorConta;}}catch(e){}var _arts=[];try{Array.prototype.forEach.call(document.querySelectorAll("#dm_arts .dm_art"),function(r){var d=(r.querySelector(".dma_desc").value||"").trim();var q=Number(r.querySelector(".dma_qtd").value)||0;var pu=Number(r.querySelector(".dma_preco").value)||0;var iv=Number(r.querySelector(".dma_iva").value)||0;if(d||pu)_arts.push({desc:d,qtd:q||1,precoUnit:pu,iva:iv});});}catch(e){}data.artigos=_arts;if(_arts.length)data.value=Math.round(_arts.reduce(function(a,x){return a+((Number(x.qtd)||0)*(Number(x.precoUnit)||0));},0)*100)/100;if(editId){var dl=D.deals.find(function(x){return x.id===editId});if(dl){Object.assign(dl,data);logAct("Pipeline","Deal editado: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}}else{data.id=uid();D.deals.push(data);logAct(data.stage==="proposta"?"Proposta":"Pipeline","Novo deal ["+SL2[data.stage]+"]: "+cn(data.clientId)+" — "+data.product.slice(0,35)+(data.value>0?" ("+fmt(data.value)+")":""))}save();clM();ren()}
 function openEM(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var projs=[{v:"",t:"— sem projeto —"}].concat((D.projectos||[]).map(function(p){var d=(D.deals||[]).find(function(x){return x.id===p.dealId})||{};return {v:p.dealId,t:cn(d.clientId)+" · "+String(d.product||p.nome||"").slice(0,26)};}));document.getElementById("mArea").innerHTML=mWrap(e?"Editar Despesa":"Nova Despesa",fld("Descrição / a que se refere",'<input id="f1" value="'+esc(e?(e.desc||""):"")+'">')+'<div class="r2">'+fld("Valor €",'<input type="number" step="0.01" id="f2" value="'+(e?e.amount:0)+'">')+fld("Data",'<input type="date" id="f3" value="'+(e?e.date:_hojeLocal())+'">')+'</div><div class="r2">'+fld("Banco",sel("f4",["Santander","CGD",""],e?(e.bank||""):"Santander"))+fld("Tipo",sel("f5",["Viagem","Combustível","Telecomunicações","Eletricidade","Software","Serviços","Marketing","Equipamento","Stock","Outro"],e?(e.type||"Outro"):"Viagem"))+'</div><div class="r2">'+fld("Projeto (opcional)",sel("f7",projs,e?(e.projetoId||""):""))+fld("Cliente (opcional)",'<input id="f6" value="'+esc(e?(e.client||""):"")+'">')+'</div>'+(id?'<button class="btn bs" style="background:#fff;color:'+DNG+';border:1px solid '+rgba(DNG,.3)+';width:100%;margin-bottom:6px" onclick="delEx(\''+id+'\')">Eliminar</button>':'')+'<button class="btn" style="background:'+R+';width:100%;margin-top:6px" onclick="svEx(\''+(id||"")+'\')">Guardar</button>')}
 function svEx(id){var e=id?(D.expenses||[]).find(function(x){return x.id===id}):null;var rec=e||{id:uid()};rec.desc=document.getElementById("f1").value;rec.amount=Number(document.getElementById("f2").value)||0;rec.date=document.getElementById("f3").value;rec.bank=document.getElementById("f4").value;rec.type=document.getElementById("f5").value;rec.client=document.getElementById("f6").value;rec.projetoId=document.getElementById("f7").value;if(!e){D.expenses.push(rec);logAct("Despesa",(rec.desc||"").slice(0,40)+" — "+fmt(rec.amount));}else{logAct("Despesa","Despesa editada — "+(rec.desc||"").slice(0,40));}save();clM();ren()}
 function _despNum(v){var s=String(v==null?"":v).trim();if(!s)return NaN;if(s.indexOf(",")>=0&&s.indexOf(".")>=0)s=s.replace(/\./g,"").replace(",",".");else if(s.indexOf(",")>=0)s=s.replace(",",".");return parseFloat(s);}function _despDate(v){if(v==null||v==="")return "";var s=String(v).trim();var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);if(m){var dd=("0"+m[1]).slice(-2),mm=("0"+m[2]).slice(-2),yy=m[3].length===2?"20"+m[3]:m[3];if(+mm>=1&&+mm<=12&&+dd>=1&&+dd<=31)return yy+"-"+mm+"-"+dd;}var m2=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);if(m2)return m2[1]+"-"+("0"+m2[2]).slice(-2)+"-"+("0"+m2[3]).slice(-2);var d=new Date(s);if(!isNaN(d)&&d.getFullYear()>2000)return d.toISOString().slice(0,10);return s.slice(0,10);}
@@ -1702,10 +1730,10 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 <script>
 (function(){
   if(typeof NAV==="undefined"||typeof rPnl!=="function"){return;}
-  var OPEN=["lead","proposta"];
+  var OPEN=["lead","validar","proposta"];
   var FUP_STATUS=["Por contactar","A aguardar cliente","Proposta em revisão","Reunião marcada","Em negociação","A adjudicar","Risco / sem resposta"];
   var PROB_STATUS={"A adjudicar":0.85,"Em negociação":0.60,"Reunião marcada":0.45,"Proposta em revisão":0.35,"A aguardar cliente":0.30,"Por contactar":0.20,"Risco / sem resposta":0.10};
-  var STAGE_PROB={lead:0.10,proposta:0.40,projeto:0.75};
+  var STAGE_PROB={lead:0.10,validar:0.20,proposta:0.40,projeto:0.75};
   var AGE=45;
   var ui={sort:"days",stalled:false,leads:false,search:"",page:0,mSearch:""};
 
@@ -2186,7 +2214,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
       var r=await sb.from("app_state").select("data").eq("id",stateId()).single();
       if(r.error)throw r.error;
       var d=r.data&&r.data.data;
-      if(d&&Object.keys(d).length){D=d;}
+      if(d&&Object.keys(d).length){D=d;try{__lastData=JSON.stringify(d);__lastRev=d._rev||null;}catch(e){}}   // base = o que está no servidor (antes das correções automáticas)
       else if(currentRole!=="viewer"){await sb.from("app_state").upsert({id:stateId(),data:syncPayload()});} // semeia 1ª vez (linha da organização)
     }catch(e){toastSafe("Erro a carregar dados: "+(e.message||e));}
     try{if(typeof migrate==="function")migrate();}catch(e){}
@@ -2245,7 +2273,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
   var __syncSetup=false;
   function setupSync(){
     if(__syncSetup)return;__syncSetup=true;
-    try{__lastData=JSON.stringify(syncPayload());__lastRev=D._rev||null;}catch(e){}
+    try{if(__lastData==null){__lastData=JSON.stringify(syncPayload());__lastRev=D._rev||null;}}catch(e){}
     // 1) ao voltar ao separador
     try{document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")reloadState(false);});}catch(e){}
     try{window.addEventListener("focus",function(){reloadState(false);});}catch(e){}
@@ -4370,7 +4398,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     h+='</div>';h+=arrContratosCard(canEdit);app.innerHTML=app.innerHTML+h;
   }
   // ---- Cenários de orçamento (pessimista / base / otimista) ----
-  function scenData(){var arrBase=(D.deals||[]).filter(function(d){return d.stage==="ganho"||d.stage==="concluido"||d.stage==="projeto";}).reduce(function(a,d){return a+(Number(d.arr)||0);},0);var pipeOpen=(D.deals||[]).filter(function(d){return d.stage==="lead"||d.stage==="proposta";}).reduce(function(a,d){return a+(Number(d.value)||0);},0);return {arrBase:arrBase,pipeOpen:pipeOpen,obj:Number(D.budget)||0};}
+  function scenData(){var arrBase=(D.deals||[]).filter(function(d){return d.stage==="ganho"||d.stage==="concluido"||d.stage==="projeto";}).reduce(function(a,d){return a+(Number(d.arr)||0);},0);var pipeOpen=(D.deals||[]).filter(function(d){return d.stage==="lead"||d.stage==="validar"||d.stage==="proposta";}).reduce(function(a,d){return a+(Number(d.value)||0);},0);return {arrBase:arrBase,pipeOpen:pipeOpen,obj:Number(D.budget)||0};}
   function scenCfg(){if(!D.budgetScen)D.budgetScen={renov:{p:80,b:90,o:97},conv:{p:15,b:30,o:50},newBiz:{p:0,b:10000,o:25000}};return D.budgetScen;}
   function scenCalc(k){var d=scenData(),c=scenCfg();var arrR=d.arrBase*((c.renov[k]||0)/100),pipeC=d.pipeOpen*((c.conv[k]||0)/100),nb=Number(c.newBiz[k])||0;return {arrR:arrR,pipeC:pipeC,nb:nb,total:arrR+pipeC+nb};}
   function injectScenariosCard(){
@@ -6865,7 +6893,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   };
 
   // ===================== COMERCIAL · FORECAST (Passo 1) =====================
-  var FC_PROB={lead:0.20,proposta:0.50,ganho:0.90,projeto:0.95};
+  var FC_PROB={lead:0.20,validar:0.30,proposta:0.50,ganho:0.90,projeto:0.95};
   var MESES_F=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   function fcProb(d){var p=FC_PROB[d.stage];return p==null?0.3:p;}
   function fcCloseISO(d){return d.closeDate||d.nextDate||d.date||todayISO();}
@@ -6911,7 +6939,7 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     var winRate=(ganhosAno.length+perdidosAno.length)?Math.round(ganhosAno.length/(ganhosAno.length+perdidosAno.length)*100):0;
     var valGanho=ganhosAno.reduce(function(a,d){return a+(d.value||0);},0);var valPerd=perdidosAno.reduce(function(a,d){return a+(d.value||0);},0);
     // funil por estágio (todos os deals do ano, abertos+fechados)
-    var STAGES_F=[["lead","Lead"],["proposta","Proposta"],["ganho","Ganho"],["projeto","Projeto"],["concluido","Concluído"],["perdido","Perdido"]];
+    var STAGES_F=[["lead","Oportunidade identificada"],["validar","Por validar"],["proposta","Proposta submetida"],["ganho","Adjudicado e sem NE"],["projeto","Em projeto"],["concluido","Concluído"],["perdido","Perdido"]];
     var funil={};STAGES_F.forEach(function(s){funil[s[0]]=0;});(D.deals||[]).forEach(function(d){if((d.date||"").slice(0,4)==String(y)&&funil[d.stage]!=null)funil[d.stage]++;});
     h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">Análise '+y+' — conversão</div>';
     h+='<div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:12px">'+
@@ -8570,30 +8598,65 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
   function subRenewDays(d){if(!d||!d.renewDate)return null;return Math.round((new Date(d.renewDate)-new Date(todayISO()))/86400000);}
   window.subDeals=subDeals;
   window.subSetRenew=function(id,v){if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}var d=(D.deals||[]).filter(function(x){return x.id===id;})[0];if(!d)return;d.renewDate=v||"";if(typeof logAct==="function")logAct("Comercial","Renovação atualizada — "+cn(d.clientId)+(v?" ("+fmtD(v)+")":""));save();try{if(typeof updateBell==="function")updateBell();}catch(e){}};
+  window.unirTodasSub=function(){
+    if(typeof isReadOnlyNow==="function"&&isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var subs=(typeof subDeals==="function"?subDeals():[]);var g={};
+    subs.forEach(function(d){if(!d.clientId)return;(g[d.clientId]=g[d.clientId]||[]).push(d);});
+    var ks=Object.keys(g);var multi=ks.filter(function(k){return g[k].length>1;});
+    var jaUnidos=ks.filter(function(k){return g[k].length===1&&(Number(g[k][0].renovacoesCount)||1)>1;}).length;
+    var arch=multi.reduce(function(a,k){return a+g[k].length-1;},0);
+    if(!multi.length){toastSafe("Todas as subscrições já estão unidas por cliente ("+jaUnidos+" clientes com renovações unidas).","ok");return;}
+    var rk=function(d){return (d.renewDate||d.adj||d.date||"")+"|"+(d.date||"");};
+    var doIt=function(){
+      var nCli=0,nArch=0;
+      multi.forEach(function(k){
+        var arr=g[k].slice().sort(function(a,b){var ra=rk(a),rb=rk(b);return ra<rb?-1:(ra>rb?1:0);});
+        var keep=arr[arr.length-1];
+        var total=arr.reduce(function(a,d){return a+(Number(d.renovacoesCount)||1);},0);
+        var desde=keep.subDesde||keep.date||"";
+        // ARR do cliente = soma do último ciclo (12 meses até à renovação da capa), para não perder subscrições em paralelo
+        var ref=keep.renewDate||keep.adj||keep.date||"";var lim="";
+        if(ref){var dt=new Date(ref+"T00:00:00");dt.setMonth(dt.getMonth()-11);lim=dt.toISOString().slice(0,10);}
+        var arrCiclo=0,vistos={};arr.slice().reverse().forEach(function(d){var r=d.renewDate||d.adj||d.date||"";if(ref&&!(r>lim&&r<=ref))return;var pk=String(d.product||"").trim().toLowerCase();if(pk&&vistos[pk])return;vistos[pk]=1;arrCiclo+=(d.arrCliente!=null?Number(d.arrCliente):Number(d.arr))||0;});
+        arr.forEach(function(d){if(d===keep)return;var dd=d.subDesde||d.date||"";if(dd&&(!desde||dd<desde))desde=dd;
+          (D.deals||[]).forEach(function(x){if(x._subMergedInto===d.id)x._subMergedInto=keep.id;});
+          d._subMergedInto=keep.id;delete d.arrCliente;nArch++;});
+        keep.renovacoesCount=total;if(desde)keep.subDesde=desde;
+        if(Math.abs(arrCiclo-(Number(keep.arr)||0))>0.5)keep.arrCliente=Math.round(arrCiclo*100)/100;else delete keep.arrCliente;
+        nCli++;
+      });
+      if(typeof logAct==="function")logAct("Comercial","Subscrições unidas por cliente — "+nCli+" clientes, "+nArch+" arquivadas (capa = a que renova mais tarde)");
+      save();clM();ren();toastSafe(nCli+" clientes unidos · "+nArch+" subscrições arquivadas nas capas.","ok");
+    };
+    var msg="Unir as subscrições de "+multi.length+" clientes?\n\nEm cada cliente fica como capa a que renova mais tarde. As outras "+arch+" são arquivadas dentro dela e somam à contagem de renovações.\n\nO ARR da capa passa a ser o do último ciclo (11 meses até à renovação), para não se perder nenhuma subscrição em paralelo."+(jaUnidos?"\n\n"+jaUnidos+" clientes já estavam unidos e mantêm-se.":"")+"\n\nPode anular-se logo a seguir (Anular), na Auditoria, ou separar uma a uma.";
+    if(typeof confirmM==="function")confirmM(msg,doIt,{yesLabel:"Unir todas",danger:false});else doIt();
+  };
   function renderSubscricoes(){
     var app=document.getElementById("app");if(!app)return;
     var canEdit=!(typeof isReadOnlyNow==="function"&&isReadOnlyNow());
-    var fCli=window.__subCli||"";
-    var _subYr=String(activeYear());var _subSoAno=(window.__subSoAno!==false)&&_subYr!=="all";
-    var list=recurItems(fCli).filter(function(x){if(!_subSoAno)return true;if(String(x.renov||"").slice(0,4)===_subYr)return true;return !x.renov&&!/Encerr/.test(x.estado||"");}).sort(function(a,b){var ra=a.renov||"9999-99",rb=b.renov||"9999-99";return ra.localeCompare(rb);});
-    var _subSemData=list.filter(function(x){return !x.renov;}).length;
-    var allF=recurItems("");
+    var fCli=window.__subCli||"";var _sy=String(activeYear());var _sAll=!!window.__subAll;
+    // por omissão só as renovações do ano ativo (ex.: 2026); "Todas" mostra toda a recorrência
+    var _inY=function(x){return _sAll||String(x.renov||"").slice(0,4)===_sy;};
+    var list=recurItems(fCli).filter(_inY).sort(function(a,b){var ra=a.renov||"9999-99",rb=b.renov||"9999-99";return ra.localeCompare(rb);});
+    var allF=recurItems("").filter(_inY);
     var arrTot=allF.reduce(function(a,x){return a+(Number(x.arr)||0);},0);
     var arrNext=allF.reduce(function(a,x){return a+(Number(x.arr)||0)*(1+(Number(x.aum)||0)/100);},0);
     var valTot=allF.reduce(function(a,x){return a+(Number(x.valor)||0);},0);
     var days=function(dt){return dt?Math.round((new Date(dt+"T00:00:00")-new Date(todayISO()+"T00:00:00"))/86400000):null;};
-    var soon=allF.filter(function(x){var dd=days(x.renov);return dd!=null&&dd<=60;});
-    var h=pgHead("🔁","Subscrições / AT & Contratos",yearPicker()+(canEdit?' <button class="btn bs" style="background:'+TEAL+'" onclick="openUnirSub()">⤵ Unir subscrições</button>':""));
+    // a renovar: só o que ainda não foi faturado (as linhas do Faturação já faturadas estão renovadas)
+    var soon=allF.filter(function(x){var dd=days(x.renov);if(x.obj&&x.obj.stFat==="Facturado")return false;return dd!=null&&dd<=60;});
+    var h=pgHead("🔁","Subscrições / AT & Contratos",canEdit?'<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bs" style="background:'+TEAL+'" onclick="unirTodasSub()">⤵ Unir todas por cliente</button><button class="btn bs" style="background:#fff;color:'+TEAL+';border:1px solid '+TEAL+'" onclick="openUnirSub()">Unir manualmente</button></span>':"");
+    h+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px"><span style="font-size:12px;color:#5F6B75;font-weight:600">Renovações:</span>'+[[false,"Só "+_sy],[true,"Todas"]].map(function(o){var on=_sAll===o[0];return '<button onclick="window.__subAll='+o[0]+';rPnl()" style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(on?R:"#E4E8EB")+';background:'+(on?R:"#fff")+';color:'+(on?"#fff":"#1B2733")+'">'+o[1]+'</button>';}).join("")+'</div>';
     h+='<div style="font-size:12px;color:#5F6B75;margin:-4px 0 12px">Receita recorrente do cliente num só sítio — subscrições/AT (negócios ganhos) e contratos/licenças. Não geram projeto. O <b>ARR</b> daqui é a base dos orçamentos; a <b>caixa de aumento (%)</b> projeta o ARR do próximo ano.</div>';
-    h+='<div class="kr">'+kpi("Itens",String(allF.length),"subscrições + contratos",PUR,PUR)+kpi("ARR total",fmt(arrTot),"receita recorrente/ano",GRN,GRN)+kpi("ARR próx. ano",fmt(Math.round(arrNext)),"com aumentos aplicados",BLU,BLU)+kpi("A renovar (60d)",String(soon.length),"próximas renovações",soon.length?GD:SL,soon.length?GD:SL)+'</div>';
+    h+='<div class="kr">'+kpi("Itens",String(allF.length),_sAll?"subscrições + contratos":"renovam em "+_sy,PUR,PUR)+kpi(_sAll?"ARR total":"ARR a renovar "+_sy,fmt(arrTot),"receita recorrente/ano",GRN,GRN)+kpi("ARR próx. ano",fmt(Math.round(arrNext)),"com aumentos aplicados",BLU,BLU)+kpi("A renovar (60d)",String(soon.length),"por faturar · próximas/atrasadas",soon.length?GD:SL,soon.length?GD:SL)+'</div>';
     if(soon.length){
       h+='<div style="background:'+rgba(GD,.1)+';border:1px solid '+rgba(GD,.35)+';border-radius:10px;padding:11px 13px;margin-bottom:12px"><div style="font-weight:700;font-size:12.5px;color:#8a6d1a;margin-bottom:5px">⏰ Renovações nos próximos 60 dias ('+soon.length+')</div>';
       soon.slice().sort(function(a,b){return (a.renov||"").localeCompare(b.renov||"");}).forEach(function(x){var dd=days(x.renov);h+='<div style="font-size:12px;color:#414D57;padding:2px 0">'+esc(cn(x.clientId))+' — '+esc(String(x.nome||"").slice(0,44))+' · <b>'+fmtD(x.renov)+'</b> '+(dd<0?'<span style="color:'+R+'">(em atraso '+(-dd)+'d)</span>':'<span style="color:#8a6d1a">(faltam '+dd+'d)</span>')+'</div>';});
       h+='</div>';
     }
     var clis={};allF.forEach(function(x){if(x.clientId)clis[x.clientId]=1;});
-    h+='<div class="cd"><div class="ch"><div class="ct2">'+(_subSoAno?'Renovações de '+_subYr+' ('+(list.length-_subSemData)+' · ARR '+fmt(list.filter(function(x){return x.renov;}).reduce(function(a,x){return a+(Number(x.arr)||0);},0))+')'+(_subSemData?' <span style="font-size:11px;font-weight:600;color:'+GD+';text-transform:none;letter-spacing:0">+ '+_subSemData+' ativa(s) sem data de renovação</span>':''):'Recorrência — todas ('+list.length+')')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(_subYr!=="all"?'<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:#5F6B75;cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_subSoAno?"checked":"")+' onchange="window.__subSoAno=this.checked;rPnl()" style="accent-color:'+R+'"> só renovações de '+_subYr+'</label>':'')+(Object.keys(clis).length>1?'<select onchange="window.__subCli=this.value;rPnl()" style="border:1px solid #E4E8EB;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os clientes</option>'+Object.keys(clis).map(function(c){return '<option value="'+esc(c)+'"'+(fCli===c?" selected":"")+'>'+esc(cn(c))+'</option>';}).join("")+'</select>':'')+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openContrato(\'\')">+ Contrato</button>':'')+'</div></div>';
-    if(!list.length)h+='<div style="font-size:12.5px;color:#6B7680;margin-top:8px">'+(_subSoAno&&allF.length?'Nenhuma subscrição ou contrato renova em '+_subYr+'. Desmarca «só renovações de '+_subYr+'» para veres toda a recorrência.':'Sem subscrições nem contratos.')+' Um negócio AT/Subscrição ganho aparece aqui; contratos/licenças adiciona com «+ Contrato».</div>';
+    h+='<div class="cd"><div class="ch"><div class="ct2">Recorrência ('+list.length+')</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+(Object.keys(clis).length>1?'<select onchange="window.__subCli=this.value;rPnl()" style="border:1px solid #E4E8EB;border-radius:8px;padding:6px 9px;font-size:12px"><option value="">Todos os clientes</option>'+Object.keys(clis).map(function(c){return '<option value="'+esc(c)+'"'+(fCli===c?" selected":"")+'>'+esc(cn(c))+'</option>';}).join("")+'</select>':'')+(canEdit?'<button class="btn bs" style="background:'+R+'" onclick="openContrato(\'\')">+ Contrato</button>':'')+'</div></div>';
+    if(!list.length)h+='<div style="font-size:12.5px;color:#6B7680;margin-top:8px">Sem subscrições nem contratos. Um negócio AT/Subscrição ganho aparece aqui; contratos/licenças adiciona com «+ Contrato».</div>';
     else{
       h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Item</th><th>Tipo</th><th style="text-align:right">Valor</th><th style="text-align:right">ARR</th><th style="text-align:right">Aumento</th><th style="text-align:right">ARR próx.</th><th>Renovação</th><th>Estado</th>'+(canEdit?'<th></th>':'')+'</tr></thead><tbody>';
       list.forEach(function(x){
@@ -8615,13 +8678,12 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
         '</tr>';
       });
       h+='</tbody></table></div>';
-      if(_subSoAno&&_subSemData)h+='<div style="font-size:11.5px;color:#6B7680;margin-top:8px">As subscrições ativas <b>sem data de renovação</b> aparecem no fim da lista para lhes definires a data; só entram nas renovações de '+_subYr+' (e na Projeção do ano) quando tiverem data.</div>';
     }
     var merged=(D.deals||[]).filter(function(d){return d._subMergedInto&&(typeof isWon==="function"&&isWon(d))&&(typeof isSubDeal==="function"&&isSubDeal(d));});
     if(fCli)merged=merged.filter(function(d){return d.clientId===fCli;});
     if(merged.length&&canEdit){
       h+='<div class="cd" style="margin-top:12px"><div class="ct2" style="margin-bottom:6px">Subscrições arquivadas / unidas ('+merged.length+')</div><div style="font-size:11.5px;color:#6B7680;margin-bottom:8px">Renovações antigas unidas noutra subscrição — não contam para o ARR. Podes separá-las outra vez.</div><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Item</th><th>Renovava em</th><th>Unida na subscrição que renova</th><th></th></tr></thead><tbody>';
-      merged.slice().sort(function(a,b){return (a.renewDate||"").localeCompare(b.renewDate||"");}).forEach(function(d){var into=(D.deals||[]).filter(function(x){return x.id===d._subMergedInto;})[0];h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#5F6B75">'+esc(String(d.product||"").slice(0,34))+'</td><td style="color:#5F6B75">'+(d.renewDate?fmtD(d.renewDate):"—")+'</td><td style="color:#5F6B75">'+(into?(into.renewDate?fmtD(into.renewDate):"—"):"—")+'</td><td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="desunirSub(\''+d.id+'\')">Separar</button></td></tr>';});
+      merged.slice().sort(function(a,b){return (a.renewDate||"").localeCompare(b.renewDate||"");}).forEach(function(d){var into=_dById(d._subMergedInto);h+='<tr><td style="font-weight:600">'+esc(cn(d.clientId))+'</td><td style="color:#5F6B75">'+esc(String(d.product||"").slice(0,34))+'</td><td style="color:#5F6B75">'+(d.renewDate?fmtD(d.renewDate):"—")+'</td><td style="color:#5F6B75">'+(into?(into.renewDate?fmtD(into.renewDate):"—"):"—")+'</td><td style="text-align:right"><button class="btn bs" style="background:'+SL+'" onclick="desunirSub(\''+d.id+'\')">Separar</button></td></tr>';});
       h+='</tbody></table></div></div>';
     }
     h+='</div>';
@@ -9139,7 +9201,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   // ===================== ACESSO POR DEPARTAMENTO (Fase 1) =====================
   var DEPT_GROUPS=[
     {group:"Direção",i:"🧭",dept:"direcao",items:[
-      {id:"dashboard",l:"Visão geral"},{id:"estrategia",l:"Análise & insights"},{id:"projecao",l:"Projeção do ano"},{id:"orc2027",l:"Orçamento próximo ano",dept:"orcamento"},{id:"arr",l:"ARR",dept:"orcamento"}]},
+      {id:"dashboard",l:"Visão geral"},{id:"estrategia",l:"Análise & insights"},{id:"objexec",l:"Objetivos & Execução"},{id:"projecao",l:"Projeção do ano"},{id:"orc2027",l:"Orçamento próximo ano",dept:"orcamento"},{id:"arr",l:"ARR",dept:"orcamento"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
       {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"propostas",l:"Propostas"},{id:"subscricoes",l:"Subscrições/AT"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"objetivos",l:"Objetivos comerciais"},{id:"roicomercial",l:"Retorno comercial"},{id:"perdidas",l:"Perdidas"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
@@ -9203,7 +9265,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   }
   // reconstrói o menu por departamentos (substitui o NAV antigo)
   if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,always:g.always,items:g.items});});}
-  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","reembolsos","kb","cronograma","inventario","comparacao","salarios2024","salarios2025","salarios2026","vendasproj","horasTodas","horasCustos","vencimentos","manual","projecao","objetivos","novasvendas"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
+  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","reembolsos","kb","cronograma","inventario","comparacao","salarios2024","salarios2025","salarios2026","vendasproj","horasTodas","horasCustos","vencimentos","manual","projecao","objetivos","novasvendas","objexec"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
 
   // menu: admin vê tudo; membro vê os seus departamentos + os grupos de acesso geral (Férias)
   if(typeof rTabs==="function"){
@@ -9579,7 +9641,59 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   }
 
   // ---- encaminhamento dos ecrãs (fica por fora de todos os outros) ----
-  var ES_TABS={projecao:renderProjecao,objetivos:renderObjetivos,novasvendas:renderNovasVendas};
+  
+  // ===================== DIREÇÃO · OBJETIVOS & EXECUÇÃO (igual ao ERP Mobilwave) =====================
+  // Objetivos por ano em D.orcamento[ano] = {vendas, at, totalProv, totalCusto}; o ano corrente usa o objetivo anual das Definições se ainda não tiver valores.
+  function objExecAnos(){
+    var O=D.orcamento&&typeof D.orcamento==="object"?D.orcamento:{};var out={};
+    Object.keys(O).forEach(function(y){if(/^\d{4}$/.test(y))out[y]=O[y];});
+    var cy=String(new Date().getFullYear());
+    if(!out[cy]){var tot=Number(D.budget)||0;var nv=(typeof esNvGoal==="function"?esNvGoal():0)||0;if(tot||nv)out[cy]={vendas:nv,at:Math.max(0,tot-nv),totalProv:Math.max(tot,nv),totalCusto:0,auto:true};}
+    return out;
+  }
+  function objProvReal(y){var s=0;(D.invoices||[]).forEach(function(i){if(!i.anulado&&String(i.date||"").slice(0,4)===y)s+=Number(i.amount)||0;});return s;}
+  function objCustoReal(y){var cy=String(new Date().getFullYear());if(y>=cy)return null;var s=0,n=0;(D.expenses||[]).forEach(function(e){if(String(e.date||"").slice(0,4)===y){s+=Math.abs(Number(e.amount)||0);n++;}});return n?s:null;}
+  window.openObjAno=function(y){
+    if(isReadOnlyNow()){toastSafe("Sem permissão.");return;}
+    var O=objExecAnos();y=y||String(new Date().getFullYear());var o=O[y]||{};
+    document.getElementById("mArea").innerHTML=mWrap("Objetivos "+y,fld("Ano",'<input type="number" id="oy_a" value="'+esc(y)+'">')+'<div class="r2">'+fld("Novas vendas (€)",'<input type="number" id="oy_v" value="'+(o.vendas||0)+'">')+fld("AT / manutenção (€)",'<input type="number" id="oy_t" value="'+(o.at||0)+'">')+'</div>'+fld("Custos (€)",'<input type="number" id="oy_c" value="'+(o.totalCusto||0)+'">')+'<div style="font-size:11.5px;color:#6B7680;margin:2px 0 10px">O objetivo de proveitos é a soma de novas vendas e AT.</div><button class="btn" style="background:'+R+';width:100%" onclick="svObjAno()">Guardar</button>');
+  };
+  window.svObjAno=function(){
+    var y=String(document.getElementById("oy_a").value||"").trim();if(!/^\d{4}$/.test(y)){toastSafe("Ano inválido.");return;}
+    var v=Number(document.getElementById("oy_v").value)||0,t=Number(document.getElementById("oy_t").value)||0,c=Number(document.getElementById("oy_c").value)||0;
+    if(!D.orcamento||typeof D.orcamento!=="object")D.orcamento={};
+    D.orcamento[y]={vendas:v,at:t,totalProv:v+t,totalCusto:c};
+    if(typeof logAct==="function")logAct("Definições","Objetivos "+y+": proveitos "+fmt(v+t)+", custos "+fmt(c));
+    save();clM();ren();
+  };
+  function renderObjExec(){
+    var app=document.getElementById("app");if(!app)return;var O=objExecAnos();var canEdit=!isReadOnlyNow();
+    var anos=Object.keys(O).sort();
+    var btn=canEdit?'<button class="btn" style="background:'+R+'" onclick="openObjAno()">Definir objetivos</button>':'';
+    if(!anos.length){app.innerHTML=pgHead("🎯","Objetivos & Execução",btn)+'<div class="cd">Ainda não há objetivos. Define os objetivos do ano em «Definir objetivos».</div>';return;}
+    var _sel=window.__objAno||"todos";if(_sel!=="todos"&&!O[_sel])_sel="todos";
+    var h=pgHead("🎯","Objetivos & Execução",btn);
+    h+='<div class="cd" style="padding:10px 12px;margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:12px;color:#5F6B75;font-weight:600">Ano:</span>';
+    h+='<button onclick="window.__objAno=\'todos\';rPnl()" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(_sel==="todos"?TEAL:"#E4E8EB")+';background:'+(_sel==="todos"?TEAL:"#fff")+';color:'+(_sel==="todos"?"#fff":"#1B2733")+'">Todos</button>';
+    anos.forEach(function(y){h+='<button onclick="window.__objAno=\''+y+'\';rPnl()" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(_sel===y?TEAL:"#E4E8EB")+';background:'+(_sel===y?TEAL:"#fff")+';color:'+(_sel===y?"#fff":"#1B2733")+'">'+y+'</button>';});
+    h+='</div>';
+    var show=(_sel==="todos")?anos:[_sel];
+    var ky=(_sel==="todos")?anos[anos.length-1]:_sel;var oP=O[ky]||{};var pr=objProvReal(ky),cr=objCustoReal(ky);
+    h+='<div class="kr">'+kpi("Objetivo proveitos "+ky,fmt(oP.totalProv||0),oP.auto?"do objetivo anual das Definições":"",BLU,BLU)+kpi("Realizado "+ky,fmt(pr),oP.totalProv?pc(pr,oP.totalProv)+"% do objetivo":"",pr>=(oP.totalProv||0)?GRN:GD,pr>=(oP.totalProv||0)?GRN:GD)+kpi("Objetivo custos "+ky,fmt(oP.totalCusto||0),"",R,R)+kpi("Margem objetivo "+ky,fmt((oP.totalProv||0)-(oP.totalCusto||0)),cr!=null?"real "+fmt(pr-cr):"ano em curso",PUR,PUR)+'</div>';
+    var RA=' style="text-align:right"';
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">PROVEITOS — OBJETIVO vs REALIZADO</div><div style="overflow-x:auto"><table><tr><th>Ano</th><th'+RA+'>Novas vendas (obj)</th><th'+RA+'>AT (obj)</th><th'+RA+'>Objetivo total</th><th'+RA+'>Realizado</th><th'+RA+'>Execução</th>'+(canEdit?'<th></th>':'')+'</tr>';
+    show.forEach(function(y){var o=O[y]||{};var pv=objProvReal(y);var ex=o.totalProv?Math.round(pv/o.totalProv*100):0;h+='<tr><td style="font-weight:600">'+y+'</td><td'+RA+'>'+fmt(o.vendas||0)+'</td><td'+RA+'>'+fmt(o.at||0)+'</td><td'+RA+' style="font-weight:600">'+fmt(o.totalProv||0)+'</td><td'+RA+'>'+fmt(pv)+'</td><td'+RA+'>'+bdg(ex+"%",ex>=95?GRN:(ex>=80?GD:DNG))+'</td>'+(canEdit?'<td style="text-align:right"><button class="btn bs" style="background:#EFF1F4;color:#1B2733" onclick="openObjAno(\''+y+'\')">Editar</button></td>':'')+'</tr>';});
+    h+='</table></div></div>';
+    h+='<div class="cd"><div class="ct2" style="margin-bottom:10px">CUSTOS & MARGEM — OBJETIVO vs REALIZADO</div><div style="overflow-x:auto"><table><tr><th>Ano</th><th'+RA+'>Custos (obj)</th><th'+RA+'>Custos (real)</th><th'+RA+'>Margem obj.</th><th'+RA+'>Margem real</th></tr>';
+    show.forEach(function(y){var o=O[y]||{};var cr2=objCustoReal(y);var pv=objProvReal(y);var mo=(o.totalProv||0)-(o.totalCusto||0);var mr=(cr2!=null)?(pv-cr2):null;h+='<tr><td style="font-weight:600">'+y+'</td><td'+RA+'>'+fmt(o.totalCusto||0)+'</td><td'+RA+'>'+(cr2!=null?fmt(cr2):'<span style="color:#6B7680">em curso</span>')+'</td><td'+RA+'>'+fmt(mo)+'</td><td'+RA+' style="font-weight:700;color:'+(mr!=null&&mr<0?DNG:GRN)+'">'+(mr!=null?fmt(mr):'—')+'</td></tr>';});
+    h+='</table></div><div style="font-size:12px;color:#6B7680;margin-top:8px">Realizado dos proveitos = faturas emitidas no ano (s/IVA). Realizado dos custos = despesas registadas (anos fechados).</div></div>';
+    if(_sel==="todos"){var mx=Math.max.apply(null,anos.map(function(y){return Math.max(O[y].totalProv||0,objProvReal(y));}).concat([1]));
+      h+='<div class="cd"><div class="ct2" style="margin-bottom:12px">PROVEITOS: OBJETIVO vs REALIZADO POR ANO</div>';
+      anos.forEach(function(y){var o=O[y].totalProv||0,pv=objProvReal(y);h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><b>'+y+'</b><span style="color:#5F6B75">'+fmt(pv)+' / '+fmt(o)+'</span></div><div style="position:relative;background:#EDF0F2;border-radius:5px;height:16px"><div style="position:absolute;left:0;top:0;height:16px;border-radius:5px;background:'+(pv>=o?GRN:GD)+';width:'+Math.min(100,pv/mx*100)+'%"></div><div style="position:absolute;top:-2px;height:20px;border-left:2px dashed #1B2733;left:'+Math.min(100,o/mx*100)+'%"></div></div></div>';});
+      h+='<div style="font-size:12px;color:#6B7680">Barra = realizado · linha tracejada = objetivo.</div></div>';}
+    app.innerHTML=h;
+  }
+  var ES_TABS={projecao:renderProjecao,objetivos:renderObjetivos,novasvendas:renderNovasVendas,objexec:renderObjExec};
   if(typeof rPnl==="function"){
     var _esR=rPnl;
     rPnl=function(){
@@ -9610,8 +9724,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   // produto e data da venda ficam sempre como estão em Espanha.
   // As decisões (ligar, criar, ignorar) ficam na tabela erp_link, partilhada por todos os utilizadores.
   var ERP_ST_ORD={lead:0,validar:0.5,proposta:1,ganho:2,projeto:3,concluido:4};
-  var ERP_TYPE={EV:"NV",DV:"NV",HV:"NV",NV:"NV",SV:"SV",AT:"AT",SUB:"SUB"};
-  var ERP_LBL={stage:"Etapa",value:"Valor",arr:"ARR",renewDate:"Renovação",collected:"Recebida",collDate:"Recebida em",amount:"Valor",nif:"NIF/CIF",num:"Número",date:"Data",doneDate:"Concluída em",lostDate:"Perdida em"};
+  var ERP_TYPE={}; // os tipos passam iguais aos do ERP (NV, AT, SUB, SV, EV, HV, DV)
+  var ERP_LBL={vendedor:"Vendedor",gestorConta:"Gestor de conta",sub:"Subscrição",cloud:"Cloud",saas:"SaaS",stage:"Etapa",value:"Valor",arr:"ARR",renewDate:"Renovação",collected:"Recebida",collDate:"Recebida em",amount:"Valor",nif:"NIF/CIF",num:"Número",date:"Data",doneDate:"Concluída em",lostDate:"Perdida em"};
   var ERP_KLBL={cliente:"Cliente",venda:"Venda",fatura:"Fatura"};
   var ERP={inbox:[],links:{},meta:null,loaded:false,loadedAt:0,busy:false,err:"",plan:[],tab:"rever",lastRunSeen:null};
   window.__ERP=ERP;
@@ -9623,6 +9737,19 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   var ERP_STOP={stendoscopia:1,medical7:1,hosp:1,hospital:1,hospitais:1,clinica:1,centro:1,medico:1,del:1,las:1,los:1,sau:1,grand:1,gran:1,canaria:1,palmas:1,madrid:1,siglo:1,xxi:1,fuji:1,almeria:1,servei:1,andorra:1};
   function erpToks(s){var o={};erpNorm(s).split(/\s+/).forEach(function(t){if(t.length>=3&&!ERP_STOP[t])o[t]=1;});return o;}
   function erpSim(a,b){var A=erpToks(a),B=erpToks(b),i=0,u=0,k;for(k in A){u++;if(B[k])i++;}for(k in B)if(!A[k])u++;return u?i/u:0;}
+  var ERP_CRIAR={cl0535:1};
+  // 8, 9, 10: vendas e faturas antigas do ERP sem equivalente em Espanha → ignorar
+  // 11: MWP061 liga à venda de Torrecárdenas de 40 780 €; MWP163 (12 000 €) ignora-se (Espanha tem-na dividida em três)
+  // 12: oportunidades do CRM de Rocío, Pascual, Arnau Vilanova e Greencube/VOT ligam à venda sugerida
+  var ERP_DEC={"venda|crm_08814a52e8":"d7","venda|crm_f5fee3a076":"__ignorar"};
+  var ERP_ACEITA_SUG={"venda|crm_c3dc4878de":1,"venda|crm_4a8bdd5a7d":1,"venda|crm_f825be41de":1,"venda|crm_68943d2b4e":1};
+  function erpDecAuto(key,L,sug){
+    if(ERP_DEC[key])return ERP_DEC[key];
+    if(ERP_ACEITA_SUG[key]&&sug)return sug;
+    if(L&&L.estado==="pendente"&&/^sem (venda|fatura) equivalente em Espanha/.test(L.nota||""))return "__ignorar";
+    return null;
+  } // decidido pelo Hugo (30/09): «Centro de Especialidades Sanitarias de Alta Resolución» é criado em Espanha
+  function erpExactCli(p){var n=erpNorm(erpCleanName(p.name)).replace(/\s+/g," ").trim();if(!n)return null;if(p.esId){var _bi=erpById(D.clients,p.esId);if(_bi)return _bi;}return (D.clients||[]).filter(function(c){return c.id==="erp_"+p.id||erpNorm(c.name).replace(/\s+/g," ").trim()===n;})[0]||null;}
   function erpCleanName(n){return String(n||"").replace(/^STEndoscopia(\s*\([^)]*\))?\s*-\s*/i,"").trim();}
   function erpById(arr,id){if(!id)return null;for(var i=0;i<(arr||[]).length;i++)if(arr[i].id===id)return arr[i];return null;}
   function erpMoney(v){return typeof fmt==="function"?fmt(v):String(v);}
@@ -9645,9 +9772,9 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     var rg=p.region||p.regiao||(/andorra/i.test(String(p.pais||""))?"Andorra":"");
     var c={id:"erp_"+p.id,name:erpCleanName(nm),region:rg,channel:ch,erpIds:[p.id]};if(p.nif)c.nif=p.nif;return c;}
   function erpNewVenda(p,esCli){
-    var st=p.stage==="validar"?"lead":((ERP_ST_ORD[p.stage]!=null||p.stage==="perdido")?p.stage:"lead");
-    var d={id:"erp_"+p.id,clientId:esCli,date:p.date||erpToday(),type:ERP_TYPE[p.type]||"NV",stage:st,value:Number(p.value)||0,arr:Number(p.arr)||0,product:p.product||"",specialty:p.specialty||"Gastro",erpId:p.id};
-    if(p.renewDate)d.renewDate=p.renewDate;if(p.vendedor)d.erpVendedor=p.vendedor;
+    var st=(ERP_ST_ORD[p.stage]!=null||p.stage==="perdido")?p.stage:"lead";
+    var d={id:"erp_"+p.id,clientId:esCli,date:p.date||erpToday(),type:p.type||"NV",stage:st,value:Number(p.value)||0,arr:Number(p.arr)||0,product:p.product||"",specialty:p.specialty||"Gastro",erpId:p.id};
+    if(p.renewDate)d.renewDate=p.renewDate;if(p.vendedor){d.vendedor=p.vendedor;d.erpVendedor=p.vendedor;}if(p.gestorConta)d.gestorConta=p.gestorConta;if(p.sub)d.sub=true;if(p.cloud)d.cloud=true;
     var _ec=erpById(D.clients,esCli);if(_ec&&_ec.stResp)d.stResp=_ec.stResp; // herda o responsável ST do cliente
     if(st==="perdido"){d.lostDate=p.lostDate||d.date;if(p.lostReason)d.lostReason=p.lostReason;}
     if(st==="concluido")d.doneDate=p.date||erpToday();
@@ -9664,11 +9791,15 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     if(se&&se!==sd){
       if(se==="perdido"){if(!(sd==="ganho"||sd==="projeto"||sd==="concluido"))ch.push([d.id,"stage",sd,se]);}
       else if(sd==="perdido"){if(ERP_ST_ORD[se]>=2)ch.push([d.id,"stage",sd,se]);} // só reabre se o ERP a der como ganha
-      else if(ERP_ST_ORD[se]!=null&&ERP_ST_ORD[se]>(ERP_ST_ORD[sd]||0)&&se!=="validar")ch.push([d.id,"stage",sd,se]);
+      else if(ERP_ST_ORD[se]!=null&&ERP_ST_ORD[se]>(ERP_ST_ORD[sd]||0))ch.push([d.id,"stage",sd,se]);
     }
     var v=Number(p.value);if(!isNaN(v)&&v>0&&Math.abs(v-(Number(d.value)||0))>=1)ch.push([d.id,"value",d.value,v]);
     var a=Number(p.arr)||0;if(a>0&&Math.abs(a-(Number(d.arr)||0))>=1)ch.push([d.id,"arr",d.arr,a]);
     if(p.renewDate&&(!d.renewDate||p.renewDate>d.renewDate)&&(d.type==="AT"||d.type==="SUB"))ch.push([d.id,"renewDate",d.renewDate||"",p.renewDate]); // só avança
+    if(p.vendedor&&!d.vendedor)ch.push([d.id,"vendedor","",p.vendedor]);
+    if(p.gestorConta&&!d.gestorConta)ch.push([d.id,"gestorConta","",p.gestorConta]);
+    if(p.sub!=null&&!!p.sub!==!!d.sub)ch.push([d.id,"sub",!!d.sub,!!p.sub]);
+    if(p.cloud!=null&&!!p.cloud!==!!d.cloud)ch.push([d.id,"cloud",!!d.cloud,!!p.cloud]);
     return ch;
   }
   function erpInvTargets(esId){var i=erpById(D.invoices,esId);if(!i)return [];if(!i.num)return [i];return (D.invoices||[]).filter(function(x){return x.num===i.num;});}
@@ -9707,12 +9838,21 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       function A(o){for(var x in base)o[x]=base[x];return o;}
       var coll=r.kind==="cliente"?D.clients:r.kind==="venda"?D.deals:D.invoices;
       if(r.deleted){
+        // cliente juntado a outro (ou apagado) no ERP: em Espanha o cliente fica; a ligação deixa de contar
+        if(r.kind==="cliente"){if(L&&L.estado!=="ignorado")plan.push(A({op:"ignorar",motivo:"Juntado a outro cliente ou removido no ERP"}));return;}
         if(L&&L.estado==="ligado"){var rec=erpById(coll,L.es_id);if(rec&&!rec.erpRemovido)a=A({op:"removido",es_id:rec.id,motivo:"Removido no ERP"});}
         if(a)plan.push(a);return;
       }
       if(L&&L.estado==="ignorado")return;
+      // cliente com o mesmo nome nos dois lados (o ERP usa agora os nomes do MW Espanha): liga sozinho
+      if(r.kind==="cliente"&&(!L||L.estado==="pendente")){var _ex=erpExactCli(p);
+        if(_ex){vl[key]={estado:"ligado",es_id:_ex.id};plan.push(A({op:"atualizar",es_id:_ex.id,changes:(p.nif&&!_ex.nif)?[[_ex.id,"nif","",p.nif]]:[],novoLink:true,motivo:"Mesmo nome nos dois lados"}));return;}
+        if(L&&!L.es_id&&ERP_CRIAR[r.erp_id]){var _nc=erpNewCliente(p);vl[key]={estado:"ligado",es_id:_nc.id};plan.push(A({op:"criar",es_id:_nc.id,newRec:_nc,linkExiste:true}));return;}}
       if(L&&L.estado==="pendente"){var sg=L.es_id;
         if(!sg&&r.kind==="venda"&&Number(p.value)>0){var gv=Number(p.value);var g=(D.deals||[]).filter(function(d){return !linkedEs.venda[d.id]&&d.stage!=="perdido"&&d.stage!=="concluido"&&gv>=1000&&Math.abs((Number(d.value)||0)-gv)<=Math.max(2,gv*0.005);})[0];if(g)sg=g.id;}
+        var _dec=erpDecAuto(key,L,sg);
+        if(_dec==="__ignorar"){plan.push(A({op:"ignorar",motivo:"Decidido: não entra em Espanha"}));vl[key]={estado:"ignorado"};return;}
+        if(_dec&&r.kind==="venda"&&erpById(D.deals,_dec)){vl[key]={estado:"ligado",es_id:_dec};linkedEs.venda[_dec]=1;var _dd=erpById(D.deals,_dec);plan.push(A({op:"atualizar",es_id:_dec,changes:erpDealChanges(_dd,p),novoLink:true,motivo:"Decidido: é a mesma venda"}));return;}
         plan.push(A({op:"rever",sugestao:sg,motivo:L.nota||"Por decidir",existe:true}));return;}
       if(L&&L.estado==="ligado"){
         if(L.hash_aplicado===r.hash&&!erpPerdido(r.kind,L.es_id))return; // já aplicado — salvo se o registo criado pelo ERP se perdeu sem ter sido apagado em Espanha
@@ -9721,6 +9861,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
           var c=erpById(D.clients,L.es_id);
           if(!c){if(/^erp_/.test(L.es_id||"")){plan.push(A({op:"criar",es_id:L.es_id,newRec:erpNewCliente(p),linkExiste:true}));}else plan.push(A({op:"rever",motivo:"O cliente ligado já não existe em Espanha",existe:true}));return;}
           var ch=[];if(p.nif&&!c.nif)ch.push([c.id,"nif","",p.nif]);
+          ["cloud","saas"].forEach(function(k){if(p[k]!=null&&!!p[k]!==!!c[k])ch.push([c.id,k,!!c[k],!!p[k]]);});if(p.gestorConta&&!c.gestorConta)ch.push([c.id,"gestorConta","",p.gestorConta]);
           plan.push(A({op:"atualizar",es_id:c.id,changes:ch}));return;
         }
         if(r.kind==="venda"){
@@ -9749,6 +9890,9 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
           if(v>0)return Math.abs((Number(d.value)||0)-v)<=Math.max(2,v*0.01);
           return d.stage!=="perdido"&&d.stage!=="concluido"&&(erpSim(p.product,d.product)>=0.25||!(Number(d.value)||0));})[0];
         if(!dup&&v>0)dup=(D.deals||[]).filter(function(d){return !linkedEs.venda[d.id]&&d.stage!=="perdido"&&d.stage!=="concluido"&&Math.abs((Number(d.value)||0)-v)<=Math.max(2,v*0.005)&&v>=1000;})[0]; // mesmo valor noutro cliente (ex.: Almería)
+        var _dn=erpDecAuto(key,null,dup?dup.id:null);
+        if(_dn==="__ignorar"){plan.push(A({op:"ignorar",motivo:"Decidido: não entra em Espanha"}));vl[key]={estado:"ignorado"};return;}
+        if(_dn&&erpById(D.deals,_dn)&&!linkedEs.venda[_dn]){var _dd3=erpById(D.deals,_dn);vl[key]={estado:"ligado",es_id:_dn};linkedEs.venda[_dn]=1;plan.push(A({op:"atualizar",es_id:_dn,changes:erpDealChanges(_dd3,p),novoLink:true,motivo:"Decidido: é a mesma venda"}));return;}
         if(dup){plan.push(A({op:"rever",sugestao:dup.id,motivo:"Parece ser a venda «"+(dup.product||dup.type)+"» de "+(typeof cn==="function"?cn(dup.clientId):"Espanha")+" ("+erpMoney(dup.value)+")"}));vl[key]={estado:"pendente"};return;}
         var nd=erpNewVenda(p,cl.es_id);vl[key]={estado:"ligado",es_id:nd.id};linkedEs.venda[nd.id]=1;plan.push(A({op:"criar",es_id:nd.id,newRec:nd}));return;
       }
