@@ -10084,6 +10084,10 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     var ds=(D.deals||[]).filter(function(d){return d.clientId===esCli&&!taken[d.id];});if(!ds.length)return null;
     var best=null,bs=-1;ds.forEach(function(d){var s=erpSim(p.nome||"",d.product||"")+(/^(ganho|projeto|concluido)$/.test(d.stage||"")?0.2:0)+((D.projectos||[]).some(function(x){return x.dealId===d.id&&!x.erpProjId;})?0.3:0);if(s>bs){bs=s;best=d;}});
     return best?best.id:null;}
+  // custo/hora: o do colaborador no ERP; se não vier, o valor/hora do colaborador em Espanha; só em último caso o valor padrão
+  function erpVH(h){var v=Number(h.valorHora);if(h.valorHora!=null&&h.valorHora!==""&&!isNaN(v)&&v>0)return Math.round(v*100)/100;
+    try{if(typeof hrRateFor==="function"){var r=Number(hrRateFor(h.colaborador||"",h.data||""));if(r>0)return Math.round(r*100)/100;}}catch(e){}
+    try{return typeof hrRate==="function"?hrRate():30;}catch(e){return 30;}}
   function erpApplyProj(r,rec){var p=r.payload||{};
     ["status","gestor","gestorConta","inicio","fimPrev","fimReal","statusExt","saudeOdoo","odooKey","tipo"].forEach(function(k){if(p[k]!=null&&p[k]!=="")rec[k]=p[k];});
     if(!rec.nome)rec.nome=p.nome||"";
@@ -10096,7 +10100,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     rec.tarefas=tk.concat(mine);
     var erpH={};(p.horas||[]).forEach(function(h){erpH[(h.data||"")+"|"+_f(h.colaborador)+"|"+(Math.round((Number(h.horas)||0)*100)/100)]=1;});
     var hm=(rec.horas||[]).filter(function(h){if(h.erpHoraId)return false;if(erpH[(h.data||"")+"|"+_f(h.colaborador)+"|"+(Math.round((Number(h.horas)||0)*100)/100)])return false;return true;}).map(function(h){if(h.tarefaId&&remap[h.tarefaId])h.tarefaId=remap[h.tarefaId];return h;});
-    var hs=(p.horas||[]).map(function(h){return {id:"erph_"+h.id,erpHoraId:h.id,colaborador:h.colaborador||"",data:h.data||"",horas:Number(h.horas)||0,tarefaId:h.tarefaId?("erpt_"+h.tarefaId):"",nota:h.nota||"",origem:"ERP"};});
+    var hs=(p.horas||[]).map(function(h){return {id:"erph_"+h.id,erpHoraId:h.id,colaborador:h.colaborador||"",data:h.data||"",horas:Number(h.horas)||0,tarefaId:h.tarefaId?("erpt_"+h.tarefaId):"",nota:h.nota||"",origem:"ERP",valorHora:erpVH(h)};});
     rec.horas=hs.concat(hm);rec.erpProjId=r.erp_id;rec._erpHash=r.hash;}
   async function erpProjTick(){
     if(ERPP.off||!ready||!sb)return null;var n={criados:0,ligados:0,atualizados:0,removidos:0,semVenda:0};
