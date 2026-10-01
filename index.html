@@ -9855,13 +9855,17 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       if(r.deleted){
         // cliente juntado a outro (ou apagado) no ERP: em Espanha o cliente fica; a ligação deixa de contar
         if(r.kind==="cliente"){if(L&&L.estado!=="ignorado")plan.push(A({op:"ignorar",motivo:"Juntado a outro cliente ou removido no ERP"}));return;}
-        if(L&&L.estado==="ligado"){var rec=erpById(coll,L.es_id);if(rec&&!rec.erpRemovido)a=A({op:"removido",es_id:rec.id,motivo:"Removido no ERP"});}
+        if(L&&L.estado==="ligado"){var rec=erpById(coll,L.es_id);
+          // o registo do ERP era um duplicado e foi fundido noutro que continua ligado ao mesmo registo de Espanha: não é uma remoção
+          var _outro=ERP.inbox.some(function(x){if(x===r||x.deleted||x.kind!==r.kind)return false;var l2=vl[erpKey(x.kind,x.erp_id)];return (l2&&l2.estado==="ligado"&&l2.es_id===L.es_id)||((x.payload||{}).esId===L.es_id);});
+          if(_outro){plan.push(A({op:"ignorar",motivo:"Duplicado fundido no ERP"}));return;}
+          if(rec&&!rec.erpRemovido)a=A({op:"removido",es_id:rec.id,motivo:"Removido no ERP"});}
         if(a)plan.push(a);return;
       }
       if(L&&L.estado==="ignorado"&&!(r.kind==="venda"&&/^Valor 0/.test(L.nota||"")&&/^(lead|validar|proposta)$/.test(p.stage||"")))return;
       var _ign0=!!(L&&L.estado==="ignorado");if(_ign0)L=undefined;
       // registo que nasceu em Espanha e foi juntado ao ERP (id «es_<id de Espanha>»): liga sozinho ao original, sem duplicar nem ir a «Por rever»
-      if(/^es_/.test(String(r.erp_id))&&(!L||L.estado==="pendente")){var _oid=String(r.erp_id).slice(3),_orec=erpById(coll,_oid);
+      if((/^es_/.test(String(r.erp_id))||(p.esId&&r.kind!=="cliente"))&&(!L||L.estado==="pendente")){var _oid=/^es_/.test(String(r.erp_id))?String(r.erp_id).slice(3):String(p.esId),_orec=erpById(coll,_oid);if(_orec&&linkedEs[r.kind]&&linkedEs[r.kind][_oid])_orec=null;
         if(_orec){vl[key]={estado:"ligado",es_id:_oid};if(linkedEs[r.kind])linkedEs[r.kind][_oid]=1;
           var _och=r.kind==="venda"?erpDealChanges(_orec,p):r.kind==="fatura"?erpInvChanges([_orec],p):[];
           plan.push(A({op:"atualizar",es_id:_oid,changes:_och,novoLink:true,motivo:"Nasceu em Espanha e foi juntado ao ERP"}));return;}}
