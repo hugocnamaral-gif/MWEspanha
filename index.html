@@ -131,7 +131,7 @@ tr:hover td{background:#EFF1F4}
 <nav class="sbar" id="tbar"></nav>
 <div class="main">
 <div class="ct" id="app"></div>
-<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 6 out 2026 (g)</div>
+<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 6 out 2026 (i)</div>
 </div>
 </div>
 <div id="mArea"></div>
@@ -882,7 +882,7 @@ window.__NAVSVG={
   "Pessoas":'<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5"/><path d="M15 14a5.5 5.5 0 0 1 5.5 6"/>',
   "Suporte":'<path d="M5 13v-1a7 7 0 0 1 14 0v1"/><rect x="3.5" y="13" width="3.6" height="6" rx="1.4"/><rect x="16.9" y="13" width="3.6" height="6" rx="1.4"/><path d="M19 19a4 4 0 0 1-4 3h-1.5"/>',
   "A minha área":'<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
-"Apresentações":'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M10 8l5 2.5-5 2.5z"/><path d="M8 20h8M12 16v4"/>',
+"Ações e Marketing":'<path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/>',
   "Definições":'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5"/>',
   "__home":'<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10.5V19h11v-8.5"/>',
   "dashboard":'<path d="M4 20V10M12 20V4M20 20v-7"/><path d="M3 20h18"/>',
@@ -9570,7 +9570,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       clM();apAfter(cli);apMsg(p?"Apresentação guardada.":"Apresentação importada e marcada na agenda.","ok");
     }catch(e){if(ok){ok.disabled=false;ok.textContent=p?"Guardar":"Importar apresentação";}err("Não foi possível guardar: "+((e&&e.message)||e));}};
   window.apresRemover=function(id){var p=apGet(id);if(!p)return;if(!apCanEdit()){apMsg("Sem permissão.");return;}var cli=p.clientId;var back=document.querySelector("[data-apres-cli]")?cli:null;
-    var go=async function(){D.apresentacoes=apList().filter(function(x){return x.id!==id;});D.agenda=(D.agenda||[]).filter(function(e){return e.id!==apAgId(p);});
+    var go=async function(){D.apresentacoes=apList().filter(function(x){return x.id!==id;});(D.viagens||[]).forEach(function(v){if(v.ligTipo==="apres"&&v.ligId===id){v.ligTipo="";v.ligId="";}});D.agenda=(D.agenda||[]).filter(function(e){return e.id!==apAgId(p);});
       try{if(typeof logAct==="function")logAct("Apresentações","Apresentação removida — "+apCliName(cli));}catch(e){}save();try{if(p.path)await sb.storage.from(ATT_BUCKET).remove([p.path]);}catch(e){}
       try{clM();}catch(e){}apAfter(back);};
     if(typeof confirmM==="function")confirmM('Remover a apresentação "'+apEsc(p.titulo||p.fileName||"")+'" de '+apEsc(apCliName(cli)||"sem cliente")+'?\n\nSai também da agenda.',go,{yesLabel:"Remover"});else go();};
@@ -9578,7 +9578,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     try{if(cliAberto&&window.__apFicha===cliAberto&&typeof window.openClient==="function")window.openClient(cliAberto);}catch(e){}}
   // --- linha de uma apresentação (lista e ficha do cliente) ---
   function apBtns(p){var ed=apCanEdit();return '<button type="button" class="btn bs" style="background:#2E8C93" onclick="apresVer(\''+apEsc(p.id)+'\')">▶ Apresentar</button> <button type="button" class="btn bs" style="background:#5F6B75" onclick="apresExportar(\''+apEsc(p.id)+'\')">⬇ Exportar</button>'
-      +(ed?' <button type="button" class="btn bs" style="background:#fff;color:#414D57;border:1px solid #E4E8EB" onclick="apresForm(\''+apEsc(p.id)+'\')">✎ Editar</button> <button type="button" class="btn bs" style="background:#fff;color:#B94A3E;border:1px solid #E7C1BC" title="Remover" onclick="apresRemover(\''+apEsc(p.id)+'\')">✕</button>':'');}
+      +(ed?' <button type="button" class="btn bs" style="background:#fff;color:#414D57;border:1px solid #E4E8EB" onclick="apresForm(\''+apEsc(p.id)+'\')">✎ Editar</button> <button type="button" class="btn bs" style="background:#fff;color:#B94A3E;border:1px solid #E7C1BC" title="Remover" onclick="apresRemover(\''+apEsc(p.id)+'\')">✕ Remover</button>':'');}
   function apCliHtml(clientId){var l=apSort(apList().filter(function(p){return p.clientId===clientId;}));
     return (l.length?l.map(function(p){return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 11px;border:1px solid #E4E8EB;border-radius:10px;margin-bottom:7px;background:#fff"><div style="flex:1;min-width:170px"><div style="font-weight:700;font-size:13px">📽 '+apEsc(p.titulo||p.fileName||"Apresentação")+'</div><div style="font-size:11.5px;color:#6B7680;margin-top:2px">'+(p.data?apData(p.data)+(p.hora?" "+apEsc(p.hora):""):'<span style="color:#B7791F">sem data</span>')+' · '+apEsc(apPessoa(p.comercial)||"sem comercial")+' · '+apKB(p.size)+'</div></div><div style="white-space:nowrap">'+apBtns(p)+'</div></div>';}).join(""):'<div style="font-size:12.5px;color:#6B7680;margin-bottom:8px">Ainda não há apresentações para este cliente.</div>')
       +(apCanEdit()?'<button type="button" class="btn bs" style="background:#2E8C93;margin-top:2px" onclick="apresForm(\'\',\''+apEsc(clientId)+'\')">+ Importar apresentação</button>':'');}
@@ -9636,12 +9636,12 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       +'<span style="font-size:12px;color:#6B7680">'+vis.length+' de '+all.length+'</span></div>';
     if(!all.length)h+='<div style="font-size:13px;color:#6B7680;padding:8px 0">Ainda não há apresentações. Carrega em «Importar apresentação», escolhe o HTML, o cliente, a data e quem apresenta.</div>';
     else if(!vis.length)h+='<div style="font-size:13px;color:#6B7680;padding:8px 0">Nenhuma apresentação com estes filtros.</div>';
-    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cliente</th><th>Apresentação</th><th>Comercial</th><th style="text-align:right">Tamanho</th><th></th></tr></thead><tbody>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cliente</th><th>Apresentação</th><th>Comercial</th><th>Viagem</th><th style="text-align:right">Tamanho</th><th></th></tr></thead><tbody>';
       vis.forEach(function(p){var fut=p.data&&p.data>=hoje;
         h+='<tr><td style="white-space:nowrap;font-weight:700;color:'+(p.data?(fut?TEAL:"#28313A"):GD)+'">'+(p.data?apData(p.data)+(p.hora?'<div style="font-size:11px;font-weight:500;color:#6B7680">'+apEsc(p.hora)+'</div>':''):"sem data")+'</td>'
           +'<td>'+(p.clientId?'<a onclick="openClient(\''+apEsc(p.clientId)+'\')" style="cursor:pointer;font-weight:600;color:#28313A;text-decoration:underline;text-decoration-color:#C6CDD4">'+apEsc(apCliName(p.clientId)||"(cliente removido)")+'</a>':'<span style="color:'+GD+';font-weight:600">por indicar</span>')+'</td>'
           +'<td><div style="font-weight:600">'+apEsc(p.titulo||p.fileName||"")+'</div><div style="font-size:11px;color:#6B7680">'+apEsc(p.fileName||"")+'</div></td>'
-          +'<td>'+apEsc(apPessoa(p.comercial)||"—")+'</td><td style="text-align:right;white-space:nowrap;color:#6B7680">'+apKB(p.size)+'</td><td style="text-align:right;white-space:nowrap">'+apBtns(p)+'</td></tr>';});
+          +'<td>'+apEsc(apPessoa(p.comercial)||"—")+'</td><td>'+((window.mkViagemTag&&window.mkViagemTag("apres",p.id))||'<span style="color:#9AA4AD" title="Sem viagem associada">online</span>')+'</td><td style="text-align:right;white-space:nowrap;color:#6B7680">'+apKB(p.size)+'</td><td style="text-align:right;white-space:nowrap">'+apBtns(p)+((ed&&p.clientId)?' <button type="button" class="btn bs" style="background:#fff;color:#414D57;border:1px solid #E4E8EB" title="Registar a viagem desta apresentação" onclick="vgForm(\'\',\'apres\',\''+apEsc(p.id)+'\')">✈ Viagem</button>':'')+'</td></tr>';});
       h+='</tbody></table></div>';}
     h+='</div>';app.innerHTML=h;
     var qi=document.getElementById("ap_q");if(qi)qi.oninput=function(){AP.q=qi.value;var pos=qi.selectionStart;renderApresent();var n=document.getElementById("ap_q");if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
@@ -9650,6 +9650,175 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   window.renderApresent=renderApresent;
   (function(){try{if(!TABS.some(function(t){return t.id==="apresent";}))TABS.push({id:"apresent"});}catch(e){}
     var _rPa=rPnl;rPnl=function(){if(typeof cTab!=="undefined"&&(cTab==="apresent"||cTab==="pesqmod"||/^pq_/.test(cTab))){cTab="apresent";try{renderApresent();}catch(e){if(window.__scrErr)window.__scrErr(e,"apresentações");}try{applyRoleGating();}catch(e){}return;}return _rPa.apply(this,arguments);};})();
+
+  // ---------- AÇÕES E MARKETING: congressos e viagens (mesmo sistema das apresentações) + mapa das viagens ----------
+  var MK2={cg:{q:"",com:"",ano:""},vg:{q:"",com:"",ano:"",tipo:""},map:null};window.__MK2=MK2;
+  var MK_AZUL="#1F6FEB",MK_VERDE="#2E9E5B",MK_CINZA="#7A8691";
+  // cidades com coordenadas (para o mapa); outras ficam na lista mas sem ponto, salvo se vierem de um cliente com morada no mapa
+  var MK_CID={"Madrid":[40.4168,-3.7038],"Barcelona":[41.3874,2.1686],"Valencia":[39.4699,-0.3763],"Sevilla":[37.3891,-5.9845],"Zaragoza":[41.6488,-0.8891],"Málaga":[36.7213,-4.4214],"Murcia":[37.9922,-1.1307],"Palma de Mallorca":[39.5696,2.6502],"Las Palmas de Gran Canaria":[28.1235,-15.4363],"Bilbao":[43.263,-2.935],"Alicante":[38.3452,-0.481],"Córdoba":[37.8882,-4.7794],"Valladolid":[41.6523,-4.7245],"Vigo":[42.2406,-8.7207],"Gijón":[43.5322,-5.6611],"A Coruña":[43.3623,-8.4115],"Granada":[37.1773,-3.5986],"Vitoria-Gasteiz":[42.8467,-2.6716],"Elche":[38.2669,-0.6984],"Oviedo":[43.3619,-5.8494],"Santa Cruz de Tenerife":[28.4636,-16.2518],"Pamplona":[42.8125,-1.6458],"Cartagena":[37.6257,-0.9966],"Almería":[36.834,-2.4637],"San Sebastián":[43.3183,-1.9812],"Burgos":[42.3439,-3.6969],"Santander":[43.4623,-3.81],"Castellón de la Plana":[39.9864,-0.0513],"Albacete":[38.9943,-1.8585],"Logroño":[42.4627,-2.445],"Badajoz":[38.8794,-6.9707],"Salamanca":[40.9701,-5.6635],"Huelva":[37.2614,-6.9447],"Lleida":[41.6176,0.62],"Tarragona":[41.1189,1.2445],"León":[42.5987,-5.5671],"Cádiz":[36.5271,-6.2886],"Jerez de la Frontera":[36.6866,-6.1372],"Jaén":[37.7796,-3.7849],"Ourense":[42.3358,-7.8639],"Girona":[41.9794,2.8214],"Lugo":[43.0097,-7.556],"Santiago de Compostela":[42.8782,-8.5448],"Cáceres":[39.4753,-6.3724],"Toledo":[39.8628,-4.0273],"Ciudad Real":[38.9848,-3.9274],"Guadalajara":[40.6337,-3.1674],"Cuenca":[40.0704,-2.1374],"Segovia":[40.9429,-4.1088],"Ávila":[40.6566,-4.6818],"Zamora":[41.5035,-5.7446],"Palencia":[42.0096,-4.5288],"Soria":[41.7666,-2.479],"Teruel":[40.3456,-1.1065],"Huesca":[42.1401,-0.4089],"Pontevedra":[42.431,-8.6444],"Marbella":[36.5101,-4.8825],"Alcorcón":[40.3459,-3.8249],"Getafe":[40.3083,-3.7327],"Sabadell":[41.5463,2.1086],"Terrassa":[41.5632,2.0089],"Mérida":[38.9161,-6.3437],"Ibiza":[38.9067,1.4206],"Arrecife":[28.963,-13.5477],"Puerto del Rosario":[28.5004,-13.8627],"Ceuta":[35.8894,-5.3213],"Melilla":[35.2923,-2.9381],"Andorra la Vella":[42.5063,1.5218],"Escaldes-Engordany":[42.5101,1.5341],
+    "Lisboa":[38.7223,-9.1393],"Porto":[41.1579,-8.6291],"Coimbra":[40.2033,-8.4103],"Braga":[41.5454,-8.4265],"Faro":[37.0194,-7.9304],"Aveiro":[40.6405,-8.6538],"Évora":[38.5714,-7.9135],"Funchal":[32.6669,-16.9241],"Ponta Delgada":[37.7412,-25.6756],"Viseu":[40.6566,-7.9125],"Guimarães":[41.4425,-8.2918],"Setúbal":[38.5244,-8.8882],"Leiria":[39.7436,-8.8071],"Vila Nova de Gaia":[41.1239,-8.6118],"Cascais":[38.6979,-9.4215],"Portimão":[37.1366,-8.5377],
+    "Paris":[48.8566,2.3522],"Londres":[51.5074,-0.1278],"Berlim":[52.52,13.405],"Viena":[48.2082,16.3738],"Milão":[45.4642,9.19],"Roma":[41.9028,12.4964],"Amesterdão":[52.3676,4.9041],"Bruxelas":[50.8503,4.3517],"Copenhaga":[55.6761,12.5683],"Estocolmo":[59.3293,18.0686],"Munique":[48.1351,11.582],"Düsseldorf":[51.2277,6.7735],"Genebra":[46.2044,6.1432],"Praga":[50.0755,14.4378],"Dublin":[53.3498,-6.2603],"Atenas":[37.9838,23.7275]};
+  var MK_ALIAS={"seville":"Sevilla","sevilha":"Sevilla","saragoca":"Zaragoza","saragossa":"Zaragoza","corunha":"A Coruña","la coruna":"A Coruña","coruna":"A Coruña","palma":"Palma de Mallorca","las palmas":"Las Palmas de Gran Canaria","tenerife":"Santa Cruz de Tenerife","donostia":"San Sebastián","san sebastian":"San Sebastián","vitoria":"Vitoria-Gasteiz","castellon":"Castellón de la Plana","alicante alacant":"Alicante","pamplona iruna":"Pamplona","andorra":"Andorra la Vella","lisbon":"Lisboa","oporto":"Porto","london":"Londres","berlin":"Berlim","vienna":"Viena","milan":"Milão","milano":"Milão","amsterdam":"Amesterdão","brussels":"Bruxelas","copenhagen":"Copenhaga","stockholm":"Estocolmo","munich":"Munique","geneva":"Genebra","prague":"Praga","athens":"Atenas","jerez":"Jerez de la Frontera","santiago":"Santiago de Compostela","valência":"Valencia","corunha a":"A Coruña"};
+  var MK_IDX=null;function mkCoord(cidade){if(!MK_IDX){MK_IDX={};Object.keys(MK_CID).forEach(function(k){MK_IDX[apNorm(k)]=k;});Object.keys(MK_ALIAS).forEach(function(k){MK_IDX[apNorm(k)]=MK_ALIAS[k];});}
+    var k=MK_IDX[apNorm(cidade)];return k?{lat:MK_CID[k][0],lng:MK_CID[k][1]}:null;}
+  function cgList(){if(!Array.isArray(D.congressos))D.congressos=[];return D.congressos;}
+  function vgList(){if(!Array.isArray(D.viagens))D.viagens=[];return D.viagens;}
+  function cgGet(id){return cgList().filter(function(x){return x.id===id;})[0]||null;}
+  function vgGet(id){return vgList().filter(function(x){return x.id===id;})[0]||null;}
+  function mkPer(a,b){return a?(apData(a)+(b&&b!==a?" – "+apData(b):"")):"";}
+  function mkSt(){return 'width:100%;border:1px solid #E4E8EB;border-radius:9px;padding:9px 11px;font-size:13px;font-family:inherit;background:#fff';}
+  function mkLb(t,req){return '<label style="display:block;font-size:11.5px;font-weight:700;color:#5F6B75;margin:10px 0 4px">'+t+(req?' <span style="color:#B94A3E">*</span>':'')+'</label>';}
+  function mkErr(m){var e=document.getElementById("mk_err");if(e){e.textContent=m;e.style.display="block";}}
+  function mkErrBox(){return '<div id="mk_err" style="display:none;background:#FBEDEB;border:1px solid #E7C1BC;color:#8f3a30;border-radius:9px;padding:9px 11px;font-size:12.5px;margin-bottom:8px"></div>';}
+  function mkV(k){var e=document.getElementById(k);return e?e.value:"";}
+  function mkComOpts(val){return apOpts(apPessoas().map(function(e){return [e,apPessoa(e)];}),val,"— escolher —");}
+  function mkAgSet(id,base){if(!Array.isArray(D.agenda))D.agenda=[];var ev=D.agenda.filter(function(e){return e.id===id;})[0];
+    if(!base){if(ev)D.agenda=D.agenda.filter(function(e){return e.id!==id;});return;}
+    var b=Object.assign({end:"",dept:"comercial",tipo:"evento",allDay:true,startTime:"",endTime:"",repeat:"none",repeatUntil:"",local:""},base);
+    if(ev)Object.assign(ev,b);else{b.id=id;b.createdAt=_hojeLocal();b.createdBy=currentEmail||"";D.agenda.push(b);}}
+  function mkViagemDe(tipo,id){return vgList().filter(function(v){return v.ligTipo===tipo&&v.ligId===id;});}
+  window.mkViagemTag=function(tipo,id){var l=mkViagemDe(tipo,id);return l.length?l.map(function(v){return '<span title="Viagem '+apEsc(mkPer(v.data,v.dataFim))+'" style="display:inline-block;font-size:11px;font-weight:700;color:#414D57;background:#EFF1F4;border-radius:999px;padding:2px 8px;white-space:nowrap">✈ '+apEsc(v.cidade||"")+'</span>';}).join(" "):"";};
+  // ficheiro opcional de um congresso (programa, apresentação…)
+  async function mkBuf(path){var r=await sb.storage.from(ATT_BUCKET).download(path);if(r&&r.data&&!r.error)return await r.data.arrayBuffer();var s=await sb.storage.from(ATT_BUCKET).createSignedUrl(path,600);if(!s||s.error||!s.data)throw (r&&r.error)||new Error("ficheiro em falta");var f=await fetch(s.data.signedUrl);if(!f.ok)throw new Error("ficheiro em falta");return await f.arrayBuffer();}
+  window.cgAbrir=async function(id){var c=cgGet(id);if(!c||!c.path)return;
+    try{if(/\.html?$/i.test(c.fileName||"")){try{clM();}catch(e){}var old=document.getElementById("apresOv");if(old)old.remove();
+        var ov=document.createElement("div");ov.id="apresOv";ov.style.cssText="position:fixed;inset:0;z-index:100500;background:#1F2A33;display:flex;flex-direction:column";
+        ov.innerHTML='<div id="apresBar" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#263340;color:#fff;font:600 13px/1.2 system-ui,sans-serif;flex:none"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+apEsc(c.nome)+' · '+apEsc(c.fileName)+'</span><button type="button" class="btn bs" style="background:#2E8C93" onclick="apresEcra()">⛶ Ecrã inteiro</button><button type="button" class="btn bs" style="background:#5F6B75" onclick="cgExportar(\''+apEsc(id)+'\')">⬇ Exportar</button><button type="button" class="btn bs" style="background:#B94A3E" onclick="apresFechar()">✕ Fechar</button></div><div id="apresBody" style="flex:1;min-height:0;background:#fff"></div>';
+        document.body.appendChild(ov);var buf=await mkBuf(c.path);var fr=document.createElement("iframe");fr.id="apresFrame";fr.setAttribute("sandbox","allow-scripts allow-popups");fr.style.cssText="width:100%;height:100%;border:0;display:block;background:#fff";fr.srcdoc=new TextDecoder("utf-8").decode(buf);document.getElementById("apresBody").appendChild(fr);}
+      else{var s=await sb.storage.from(ATT_BUCKET).createSignedUrl(c.path,600);if(s.error)throw s.error;window.open(s.data.signedUrl,"_blank");}
+    }catch(e){apMsg("Não foi possível abrir: "+((e&&e.message)||e));}};
+  window.cgExportar=async function(id){var c=cgGet(id);if(!c||!c.path)return;try{var buf=await mkBuf(c.path);var a=document.createElement("a");var u=URL.createObjectURL(new Blob([buf]));a.href=u;a.download=c.fileName||"ficheiro";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},60000);}catch(e){apMsg("Não foi possível exportar: "+((e&&e.message)||e));}};
+  // ===== Congressos =====
+  window.cgForm=function(id){if(!apCanEdit()){apMsg("Sem permissão.");return;}var c=id?cgGet(id):null;var st=mkSt();
+    var b=mkErrBox()+mkLb("Congresso / evento",true)+'<input id="cg_nome" value="'+apEsc(c?c.nome:"")+'" placeholder="ex.: Congreso SEPD 2026" style="'+st+'">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div>'+mkLb("Cidade",true)+'<input id="cg_cid" list="mk_cids" value="'+apEsc(c?c.cidade:"")+'" style="'+st+'"></div><div>'+mkLb("Local / recinto")+'<input id="cg_local" value="'+apEsc(c?c.local||"":"")+'" style="'+st+'"></div></div>'
+      +'<datalist id="mk_cids">'+Object.keys(MK_CID).map(function(k){return '<option value="'+apEsc(k)+'">';}).join("")+'</datalist>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div>'+mkLb("Data de início",true)+'<input id="cg_d1" type="date" value="'+apEsc(c?c.data:"")+'" style="'+st+'"></div><div>'+mkLb("Data de fim")+'<input id="cg_d2" type="date" value="'+apEsc(c?c.dataFim||"":"")+'" style="'+st+'"></div></div>'
+      +mkLb("Comercial que vai",true)+'<select id="cg_com" style="'+st+'">'+mkComOpts(c?c.comercial:(currentEmail||""))+'</select>'
+      +mkLb(c&&c.fileName?"Ficheiro (deixa vazio para manter «"+apEsc(c.fileName)+"»)":"Ficheiro (programa, apresentação…) — opcional")+'<input id="cg_file" type="file" style="'+st+'">'
+      +mkLb("Notas")+'<textarea id="cg_notas" rows="2" style="'+st+'">'+apEsc(c?c.notas||"":"")+'</textarea>'
+      +'<div style="display:flex;gap:8px;margin-top:14px"><button type="button" class="btn" style="background:#EFF1F4;color:#1F2A33;flex:1" onclick="clM()">Cancelar</button><button type="button" id="mk_ok" class="btn" style="background:'+MK_VERDE+';flex:2" onclick="cgGuardar(\''+apEsc(id||"")+'\')">'+(c?"Guardar":"Adicionar congresso")+'</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(c?"Editar congresso":"Novo congresso",b);};
+  window.cgGuardar=async function(id){var c=id?cgGet(id):null;var nome=mkV("cg_nome").trim(),cid=mkV("cg_cid").trim(),d1=mkV("cg_d1"),d2=mkV("cg_d2"),com=mkV("cg_com");var fi=document.getElementById("cg_file");var f=fi&&fi.files&&fi.files[0];
+    if(!nome)return mkErr("Indica o nome do congresso.");if(!cid)return mkErr("Indica a cidade.");if(!/^\d{4}-\d{2}-\d{2}$/.test(d1))return mkErr("Indica a data de início.");if(d2&&d2<d1)return mkErr("A data de fim é anterior à de início.");if(!com)return mkErr("Indica o comercial que vai.");
+    if(f&&f.size>20*1024*1024)return mkErr("O ficheiro tem mais de 20 MB.");
+    var ok=document.getElementById("mk_ok");if(ok){ok.disabled=true;ok.textContent="A guardar…";}
+    try{var rec=c||{id:"cg"+uid(),createdAt:new Date().toISOString(),createdBy:currentEmail||""};var oldPath=null;
+      if(f){var path="deals/congressos/"+rec.id+"-"+Date.now().toString(36)+"-"+f.name.replace(/[^\w.\-]+/g,"_");var up=await sb.storage.from(ATT_BUCKET).upload(path,f,{contentType:f.type||undefined,upsert:false});if(up&&up.error)throw up.error;oldPath=rec.path||null;rec.path=path;rec.fileName=f.name;rec.size=f.size;}
+      rec.nome=nome;rec.cidade=cid;rec.local=mkV("cg_local").trim();rec.data=d1;rec.dataFim=(d2&&d2!==d1)?d2:"";rec.comercial=com;rec.notas=mkV("cg_notas").trim();rec.updatedAt=new Date().toISOString();
+      if(!c)cgList().push(rec);
+      mkAgSet("ag_cg_"+rec.id,{date:rec.data,end:rec.dataFim||"",owner:com,titulo:"Congresso — "+nome,local:cid+(rec.local?" · "+rec.local:""),congrId:rec.id});
+      try{if(typeof logAct==="function")logAct("Congressos",(c?"Congresso alterado":"Congresso adicionado")+" — "+nome+" · "+cid);}catch(e){}
+      save();if(oldPath&&oldPath!==rec.path){try{await sb.storage.from(ATT_BUCKET).remove([oldPath]);}catch(e){}}
+      clM();ren();apMsg(c?"Congresso guardado.":"Congresso adicionado e marcado na agenda.","ok");
+    }catch(e){if(ok){ok.disabled=false;ok.textContent=c?"Guardar":"Adicionar congresso";}mkErr("Não foi possível guardar: "+((e&&e.message)||e));}};
+  window.cgRemover=function(id){var c=cgGet(id);if(!c||!apCanEdit())return;var go=async function(){D.congressos=cgList().filter(function(x){return x.id!==id;});mkAgSet("ag_cg_"+id,null);vgList().forEach(function(v){if(v.ligTipo==="congr"&&v.ligId===id){v.ligTipo="";v.ligId="";}});
+      try{if(typeof logAct==="function")logAct("Congressos","Congresso removido — "+c.nome);}catch(e){}save();try{if(c.path)await sb.storage.from(ATT_BUCKET).remove([c.path]);}catch(e){}try{clM();}catch(e){}ren();};
+    if(typeof confirmM==="function")confirmM('Remover o congresso "'+apEsc(c.nome)+'"?\n\nSai também da agenda. As viagens ligadas ficam, sem ligação.',go,{yesLabel:"Remover"});else go();};
+  function mkFiltros(F,prefix,recs,extra){var anos={},coms={};recs.forEach(function(r){if(r.data)anos[r.data.slice(0,4)]=1;if(r.comercial)coms[r.comercial]=1;});
+    var st='border:1px solid #E4E8EB;border-radius:9px;padding:8px 11px;font-size:13px;font-family:inherit;background:#fff;color:#28313A';
+    return '<input id="'+prefix+'_q" value="'+apEsc(F.q)+'" placeholder="🔍 Procurar…" style="flex:1;min-width:170px;'+st+'">'+(extra||"")
+      +'<select id="'+prefix+'_fcom" style="'+st+';max-width:200px">'+apOpts(Object.keys(coms).map(function(e){return [e,apPessoa(e)];}).sort(function(a,b){return a[1].localeCompare(b[1]);}),F.com,"Todos os comerciais")+'</select>'
+      +'<select id="'+prefix+'_fano" style="'+st+'">'+apOpts(Object.keys(anos).sort().reverse().map(function(y){return [y,y];}),F.ano,"Todos os anos")+'</select>';}
+  function mkBind(F,prefix,fn,extraIds){var qi=document.getElementById(prefix+"_q");if(qi)qi.oninput=function(){F.q=qi.value;var pos=qi.selectionStart;fn();var n=document.getElementById(prefix+"_q");if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
+    [["_fcom","com"],["_fano","ano"]].concat(extraIds||[]).forEach(function(x){var e=document.getElementById(prefix+x[0]);if(e)e.onchange=function(){F[x[1]]=e.value;fn();};});}
+  function renderCongressos(){var app=document.getElementById("app");if(!app)return;var ed=apCanEdit();var F=MK2.cg;var hoje=_hojeLocal();
+    var all=cgList().slice().sort(function(a,b){return String(b.data||"").localeCompare(String(a.data||""));});var q=apNorm(F.q);
+    var vis=all.filter(function(c){if(F.com&&c.comercial!==F.com)return false;if(F.ano&&String(c.data||"").slice(0,4)!==F.ano)return false;return !q||apNorm(c.nome+" "+c.cidade+" "+(c.local||"")+" "+apPessoa(c.comercial)).indexOf(q)>=0;});
+    var h=pgHead("🎤","Congressos",ed?'<button class="btn bs" style="background:'+MK_VERDE+'" onclick="cgForm(\'\')">+ Novo congresso</button>':"");
+    h+='<div class="kr">'+kpi("Congressos",""+all.length,"registados",MK_VERDE,MK_VERDE)+kpi("Próximos",""+all.filter(function(c){return (c.dataFim||c.data)>=hoje;}).length,"de hoje em diante",BLU,BLU)+kpi("Cidades",""+Object.keys(all.reduce(function(o,c){o[apNorm(c.cidade)]=1;return o;},{})).length,"diferentes",SL,SL)+'</div>';
+    h+='<div class="cd"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">'+mkFiltros(F,"cg",all)+'<span style="font-size:12px;color:#6B7680">'+vis.length+' de '+all.length+'</span></div>';
+    if(!all.length)h+='<div style="font-size:13px;color:#6B7680;padding:8px 0">Ainda não há congressos. Carrega em «Novo congresso» e indica o nome, a cidade, as datas e quem vai.</div>';
+    else if(!vis.length)h+='<div style="font-size:13px;color:#6B7680;padding:8px 0">Nenhum congresso com estes filtros.</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Datas</th><th>Congresso</th><th>Cidade</th><th>Comercial</th><th>Viagem</th><th></th></tr></thead><tbody>';
+      vis.forEach(function(c){var fut=(c.dataFim||c.data)>=hoje;
+        h+='<tr><td style="white-space:nowrap;font-weight:700;color:'+(fut?MK_VERDE:"#28313A")+'">'+apEsc(mkPer(c.data,c.dataFim))+'</td><td><div style="font-weight:600">'+apEsc(c.nome)+'</div>'+((c.notas||c.fileName)?'<div style="font-size:11px;color:#6B7680">'+apEsc(c.fileName?"📎 "+c.fileName+(c.notas?" · ":""):"")+apEsc(c.notas||"")+'</div>':'')+'</td><td>'+apEsc(c.cidade)+(c.local?'<div style="font-size:11px;color:#6B7680">'+apEsc(c.local)+'</div>':'')+'</td><td>'+apEsc(apPessoa(c.comercial))+'</td><td>'+(window.mkViagemTag("congr",c.id)||'<span style="color:#9AA4AD">—</span>')+'</td>'
+          +'<td style="text-align:right;white-space:nowrap">'+(c.path?'<button type="button" class="btn bs" style="background:#2E8C93" onclick="cgAbrir(\''+apEsc(c.id)+'\')">Abrir ficheiro</button> ':'')+(ed?'<button type="button" class="btn bs" style="background:#fff;color:#414D57;border:1px solid #E4E8EB" onclick="vgForm(\'\',\'congr\',\''+apEsc(c.id)+'\')">✈ Viagem</button> <button type="button" class="btn bs" style="background:#fff;color:#414D57;border:1px solid #E4E8EB" onclick="cgForm(\''+apEsc(c.id)+'\')">✎ Editar</button> <button type="button" class="btn bs" style="background:#fff;color:#B94A3E;border:1px solid #E7C1BC" title="Remover" onclick="cgRemover(\''+apEsc(c.id)+'\')">✕ Remover</button>':'')+'</td></tr>';});
+      h+='</tbody></table></div>';}
+    h+='</div>';app.innerHTML=h;mkBind(F,"cg",renderCongressos);}
+  // ===== Viagens =====
+  function vgMotivo(v){if(v.ligTipo==="apres"){var p=apGet(v.ligId);return p?{t:"apres",txt:"Apresentação — "+(apCliName(p.clientId)||"")+(p.titulo?" · "+p.titulo:""),cor:MK_AZUL}:{t:"",txt:v.motivo||"",cor:MK_CINZA};}
+    if(v.ligTipo==="congr"){var c=cgGet(v.ligId);return c?{t:"congr",txt:"Congresso — "+c.nome,cor:MK_VERDE}:{t:"",txt:v.motivo||"",cor:MK_CINZA};}
+    return {t:"",txt:v.motivo||"",cor:MK_CINZA};}
+  function vgCoord(v){var c=mkCoord(v.cidade);if(c)return c;
+    if(v.ligTipo==="congr"){var g=cgGet(v.ligId);if(g){c=mkCoord(g.cidade);if(c)return c;}}
+    if(v.ligTipo==="apres"){var p=apGet(v.ligId);var cl=p?apCli(p.clientId):null;if(cl&&isFinite(Number(cl.lat))&&isFinite(Number(cl.lng))&&(Number(cl.lat)||Number(cl.lng)))return {lat:Number(cl.lat),lng:Number(cl.lng)};}
+    return null;}
+  function vgLigOpts(tipo,id){var hoje=_hojeLocal();var sel=function(t,i){return (t===tipo&&i===id)?" selected":"";};
+    var ap=apSort(apList()).filter(function(p){return p.clientId;});var cg=cgList().slice().sort(function(a,b){return String(b.data||"").localeCompare(String(a.data||""));});
+    return '<option value="">— sem ligação —</option>'+(ap.length?'<optgroup label="Apresentações">'+ap.map(function(p){return '<option value="apres:'+apEsc(p.id)+'"'+sel("apres",p.id)+'>'+apEsc((p.data?apData(p.data)+" · ":"")+apCliName(p.clientId)+(p.titulo?" · "+p.titulo:""))+'</option>';}).join("")+'</optgroup>':"")
+      +(cg.length?'<optgroup label="Congressos">'+cg.map(function(c){return '<option value="congr:'+apEsc(c.id)+'"'+sel("congr",c.id)+'>'+apEsc(apData(c.data)+" · "+c.nome+" · "+c.cidade)+'</option>';}).join("")+'</optgroup>':"");}
+  window.vgForm=function(id,preTipo,preId){if(!apCanEdit()){apMsg("Sem permissão.");return;}var v=id?vgGet(id):null;var st=mkSt();var t=v?v.ligTipo:(preTipo||""),li=v?v.ligId:(preId||"");
+    var pre={cid:"",d1:"",d2:"",com:currentEmail||""};
+    if(!v&&t==="congr"){var c=cgGet(li);if(c)pre={cid:c.cidade,d1:c.data,d2:c.dataFim||"",com:c.comercial||pre.com};}
+    if(!v&&t==="apres"){var p=apGet(li);if(p)pre={cid:"",d1:p.data||"",d2:"",com:p.comercial||pre.com};}
+    var b=mkErrBox()+mkLb("Ligada a (apresentação ou congresso)")+'<select id="vg_lig" onchange="vgLigMudou()" style="'+st+'">'+vgLigOpts(t,li)+'</select>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div>'+mkLb("Cidade de destino",true)+'<input id="vg_cid" list="mk_cids" value="'+apEsc(v?v.cidade:pre.cid)+'" style="'+st+'"></div><div>'+mkLb("Comercial que viaja",true)+'<select id="vg_com" style="'+st+'">'+mkComOpts(v?v.comercial:pre.com)+'</select></div></div>'
+      +'<datalist id="mk_cids">'+Object.keys(MK_CID).map(function(k){return '<option value="'+apEsc(k)+'">';}).join("")+'</datalist>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div>'+mkLb("Data de ida",true)+'<input id="vg_d1" type="date" value="'+apEsc(v?v.data:pre.d1)+'" style="'+st+'"></div><div>'+mkLb("Data de regresso")+'<input id="vg_d2" type="date" value="'+apEsc(v?v.dataFim||"":pre.d2)+'" style="'+st+'"></div></div>'
+      +mkLb("Motivo / notas")+'<input id="vg_mot" value="'+apEsc(v?v.motivo||"":"")+'" placeholder="se não estiver ligada a uma apresentação ou congresso" style="'+st+'">'
+      +'<div id="vg_hint" style="font-size:11.5px;color:#6B7680;margin-top:8px">No mapa: azul se for por uma apresentação, verde se for por um congresso.</div>'
+      +'<div style="display:flex;gap:8px;margin-top:14px"><button type="button" class="btn" style="background:#EFF1F4;color:#1F2A33;flex:1" onclick="clM()">Cancelar</button><button type="button" id="mk_ok" class="btn" style="background:#2E8C93;flex:2" onclick="vgGuardar(\''+apEsc(id||"")+'\')">'+(v?"Guardar":"Adicionar viagem")+'</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap(v?"Editar viagem":"Nova viagem",b);};
+  // ao escolher a ligação, preenche o que estiver vazio
+  window.vgLigMudou=function(){var x=mkV("vg_lig").split(":");var set=function(k,val){var e=document.getElementById(k);if(e&&!e.value&&val)e.value=val;};
+    if(x[0]==="congr"){var c=cgGet(x[1]);if(c){set("vg_cid",c.cidade);set("vg_d1",c.data);set("vg_d2",c.dataFim||"");}}
+    if(x[0]==="apres"){var p=apGet(x[1]);if(p){set("vg_d1",p.data);}}};
+  window.vgGuardar=function(id){var v=id?vgGet(id):null;var lig=mkV("vg_lig").split(":"),cid=mkV("vg_cid").trim(),d1=mkV("vg_d1"),d2=mkV("vg_d2"),com=mkV("vg_com");
+    if(!cid)return mkErr("Indica a cidade de destino.");if(!/^\d{4}-\d{2}-\d{2}$/.test(d1))return mkErr("Indica a data de ida.");if(d2&&d2<d1)return mkErr("A data de regresso é anterior à de ida.");if(!com)return mkErr("Indica o comercial que viaja.");
+    var rec=v||{id:"vg"+uid(),createdAt:new Date().toISOString(),createdBy:currentEmail||""};
+    rec.cidade=cid;rec.data=d1;rec.dataFim=(d2&&d2!==d1)?d2:"";rec.comercial=com;rec.ligTipo=(lig[0]==="apres"||lig[0]==="congr")?lig[0]:"";rec.ligId=rec.ligTipo?lig.slice(1).join(":"):"";rec.motivo=mkV("vg_mot").trim();rec.updatedAt=new Date().toISOString();
+    if(!v)vgList().push(rec);var m=vgMotivo(rec);
+    mkAgSet("ag_vg_"+rec.id,{date:rec.data,end:rec.dataFim||"",owner:com,titulo:"Viagem — "+cid+(m.txt?" ("+m.txt+")":""),local:cid,viagId:rec.id});
+    try{if(typeof logAct==="function")logAct("Viagens",(v?"Viagem alterada":"Viagem adicionada")+" — "+cid+" · "+apData(d1));}catch(e){}
+    save();clM();ren();apMsg((v?"Viagem guardada.":"Viagem adicionada e marcada na agenda.")+(vgCoord(rec)?"":" Não conheço as coordenadas de «"+cid+"», por isso não aparece no mapa."),"ok");};
+  window.vgRemover=function(id){var v=vgGet(id);if(!v||!apCanEdit())return;var go=function(){D.viagens=vgList().filter(function(x){return x.id!==id;});mkAgSet("ag_vg_"+id,null);try{if(typeof logAct==="function")logAct("Viagens","Viagem removida — "+v.cidade);}catch(e){}save();try{clM();}catch(e){}ren();};
+    if(typeof confirmM==="function")confirmM('Remover a viagem a '+apEsc(v.cidade)+' ('+apEsc(mkPer(v.data,v.dataFim))+')?\n\nSai também da agenda.',go,{yesLabel:"Remover"});else go();};
+  // pontos do mapa: uma cidade pode ter várias viagens; a cor é a do motivo (azul apresentações, verde congressos)
+  function vgPins(vis){var g={};vis.forEach(function(v){var c=vgCoord(v);if(!c)return;var m=vgMotivo(v);var k=c.lat.toFixed(3)+","+c.lng.toFixed(3)+"|"+m.t;if(!g[k])g[k]={lat:c.lat,lng:c.lng,t:m.t,cor:m.cor,cidade:v.cidade,l:[]};g[k].l.push({v:v,m:m});});
+    var out=Object.keys(g).map(function(k){return g[k];});
+    // dois motivos na mesma cidade: afasta ligeiramente os pontos para se verem os dois
+    var porSitio={};out.forEach(function(p){var k=p.lat.toFixed(3)+","+p.lng.toFixed(3);(porSitio[k]=porSitio[k]||[]).push(p);});
+    Object.keys(porSitio).forEach(function(k){var l=porSitio[k];if(l.length>1)l.forEach(function(p,i){p.lng+=(i-(l.length-1)/2)*0.09;});});
+    return out;}
+  window.__vgPins=function(){return vgPins(vgList());};
+  function vgMapa(vis){var el=document.getElementById("mk-map");if(!el)return;
+    if(typeof L==="undefined"){el.innerHTML='<div style="padding:18px;font-size:13px;color:#6B7680">O mapa precisa de ligação à internet para carregar.</div>';return;}
+    try{if(MK2.map){MK2.map.remove();MK2.map=null;}}catch(e){}
+    var map=L.map("mk-map",{zoomControl:true,scrollWheelZoom:false,zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false}).setView([40.0,-4.0],5,{animate:false});MK2.map=map;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19,subdomains:"abc"}).addTo(map);
+    var pins=vgPins(vis),pts=[];
+    pins.forEach(function(p){pts.push([p.lat,p.lng]);
+      var html='<div style="font:13px Mulish,system-ui,sans-serif;min-width:180px"><div style="font-weight:800;margin-bottom:4px">'+apEsc(p.cidade)+'</div>'+p.l.map(function(x){return '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #EEF0F2"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+p.cor+';margin-right:6px"></span><b>'+apEsc(mkPer(x.v.data,x.v.dataFim))+'</b><br>'+apEsc(x.m.txt||"Viagem")+'<br><span style="color:#6B7680">'+apEsc(apPessoa(x.v.comercial))+'</span></div>';}).join("")+'</div>';
+      L.circleMarker([p.lat,p.lng],{radius:8+Math.min(6,(p.l.length-1)*2),color:"#fff",weight:2,fillColor:p.cor,fillOpacity:.95}).addTo(map).bindPopup(html).bindTooltip(p.cidade+(p.l.length>1?" ("+p.l.length+")":""));});
+    if(pts.length===1)map.setView(pts[0],7,{animate:false});else if(pts.length>1)map.fitBounds(pts,{padding:[40,40],maxZoom:8,animate:false});
+    setTimeout(function(){try{if(MK2.map===map&&document.getElementById("mk-map"))map.invalidateSize({animate:false});}catch(e){}},150);}
+  function renderViagens(){var app=document.getElementById("app");if(!app)return;var ed=apCanEdit();var F=MK2.vg;var hoje=_hojeLocal();
+    var all=vgList().slice().sort(function(a,b){return String(b.data||"").localeCompare(String(a.data||""));});var q=apNorm(F.q);
+    var vis=all.filter(function(v){var m=vgMotivo(v);if(F.tipo&&(F.tipo==="__outras"?!!m.t:m.t!==F.tipo))return false;if(F.com&&v.comercial!==F.com)return false;if(F.ano&&String(v.data||"").slice(0,4)!==F.ano)return false;return !q||apNorm(v.cidade+" "+m.txt+" "+apPessoa(v.comercial)).indexOf(q)>=0;});
+    var nA=all.filter(function(v){return vgMotivo(v).t==="apres";}).length,nC=all.filter(function(v){return vgMotivo(v).t==="congr";}).length;
+    var semV=apList().filter(function(p){return p.clientId&&!mkViagemDe("apres",p.id).length;}).length;
+    var h=pgHead("✈","Viagens",ed?'<button class="btn bs" style="background:#2E8C93" onclick="vgForm(\'\')">+ Nova viagem</button>':"");
+    h+='<div class="kr">'+kpi("Viagens",""+all.length,"registadas",TEAL,TEAL)+kpi("Por apresentações",""+nA,"ponto azul no mapa",MK_AZUL,MK_AZUL)+kpi("Por congressos",""+nC,"ponto verde no mapa",MK_VERDE,MK_VERDE)+kpi("Apresentações sem viagem",""+semV,"online ou sem deslocação",SL,SL)+'</div>';
+    var st='border:1px solid #E4E8EB;border-radius:9px;padding:8px 11px;font-size:13px;font-family:inherit;background:#fff;color:#28313A';
+    var semPonto=vis.filter(function(v){return !vgCoord(v);});
+    h+='<div class="cd"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12.5px;color:#414D57"><b style="font-size:13.5px;color:#28313A">Mapa das viagens</b><span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:'+MK_AZUL+';margin-right:6px;vertical-align:-1px"></span>Apresentações</span><span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:'+MK_VERDE+';margin-right:6px;vertical-align:-1px"></span>Congressos</span><span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:'+MK_CINZA+';margin-right:6px;vertical-align:-1px"></span>Outras</span></div>'
+      +'<div id="mk-map" style="height:400px;border-radius:12px;border:1px solid #E4E8EB;background:#EFF1F4;overflow:hidden"></div>'
+      +(semPonto.length?'<div style="font-size:12px;color:#B7791F;margin-top:8px">Sem ponto no mapa (cidade que não reconheço): '+apEsc(semPonto.map(function(v){return v.cidade;}).filter(function(x,i,a){return a.indexOf(x)===i;}).join(", "))+'. Escolhe a cidade da lista ao editar.</div>':'')+'</div>';
+    h+='<div class="cd"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">'+mkFiltros(F,"vg",all,'<select id="vg_ftipo" style="'+st+'">'+apOpts([["apres","Por apresentações"],["congr","Por congressos"],["__outras","Outras"]],F.tipo,"Todos os motivos")+'</select>')+'<span style="font-size:12px;color:#6B7680">'+vis.length+' de '+all.length+'</span></div>';
+    if(!all.length)h+='<div style="font-size:13px;color:#6B7680;padding:8px 0">Ainda não há viagens. Carrega em «Nova viagem», ou em «✈ Viagem» numa apresentação ou num congresso.</div>';
+    else if(!vis.length)h+='<div style="font-size:13px;color:#6B7680;padding:8px 0">Nenhuma viagem com estes filtros.</div>';
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>Datas</th><th>Cidade</th><th>Motivo</th><th>Comercial</th><th></th></tr></thead><tbody>';
+      vis.forEach(function(v){var m=vgMotivo(v);
+        h+='<tr><td style="white-space:nowrap;font-weight:700;color:'+((v.dataFim||v.data)>=hoje?TEAL:"#28313A")+'">'+apEsc(mkPer(v.data,v.dataFim))+'</td><td style="font-weight:600">'+apEsc(v.cidade)+'</td><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+m.cor+';margin-right:7px"></span>'+apEsc(m.txt||"—")+(m.t&&v.motivo?'<div style="font-size:11px;color:#6B7680;margin-left:16px">'+apEsc(v.motivo)+'</div>':'')+'</td><td>'+apEsc(apPessoa(v.comercial))+'</td>'
+          +'<td style="text-align:right;white-space:nowrap">'+(m.t==="apres"?'<button type="button" class="btn bs" style="background:#2E8C93" onclick="apresVer(\''+apEsc(v.ligId)+'\')">▶ Apresentar</button> ':'')+(ed?'<button type="button" class="btn bs" style="background:#fff;color:#414D57;border:1px solid #E4E8EB" onclick="vgForm(\''+apEsc(v.id)+'\')">✎ Editar</button> <button type="button" class="btn bs" style="background:#fff;color:#B94A3E;border:1px solid #E7C1BC" title="Remover" onclick="vgRemover(\''+apEsc(v.id)+'\')">✕ Remover</button>':'')+'</td></tr>';});
+      h+='</tbody></table></div>';}
+    h+='</div>';app.innerHTML=h;mkBind(F,"vg",renderViagens,[["_ftipo","tipo"]]);
+    var _vis=vis;setTimeout(function(){try{vgMapa(_vis);}catch(e){if(window.__scrErr)window.__scrErr(e,"mapa das viagens");}},60);}
+  window.renderCongressos=renderCongressos;window.renderViagens=renderViagens;
+  (function(){try{["mkcongr","mkviag"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}catch(e){}
+    var _rPm=rPnl;rPnl=function(){if(typeof cTab!=="undefined"&&(cTab==="mkcongr"||cTab==="mkviag")){try{if(cTab==="mkcongr")renderCongressos();else renderViagens();}catch(e){if(window.__scrErr)window.__scrErr(e,cTab);}try{applyRoleGating();}catch(e){}return;}
+      try{if(MK2.map){MK2.map.remove();MK2.map=null;}}catch(e){}return _rPm.apply(this,arguments);};})();
 
   // ---------- arranque ----------
   async function boot(){
@@ -9684,8 +9853,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
       {id:"dashboard",l:"Visão geral"},{id:"estrategia",l:"Análise & insights"},{id:"objexec",l:"Objetivos & Execução"},{id:"projecao",l:"Projeção do ano"},{id:"orc2027",l:"Orçamento próximo ano",dept:"orcamento"},{id:"arr",l:"ARR",dept:"orcamento"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
       {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"propostas",l:"Propostas"},{id:"subscricoes",l:"Subscrições/AT"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"objetivos",l:"Objetivos comerciais"},{id:"roicomercial",l:"Retorno comercial"},{id:"perdidas",l:"Perdidas"}]},
-    {group:"Apresentações",i:"📽",dept:"comercial",items:[
-      {id:"apresent",l:"Repositório"}]},
+    {group:"Ações e Marketing",i:"📣",dept:"comercial",items:[
+      {id:"apresent",l:"Apresentações"},{id:"mkcongr",l:"Congressos"},{id:"mkviag",l:"Viagens"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
       {id:"clientesTotais",l:"Diretório"},{id:"contactos",l:"Contactos"},{id:"carteira",l:"Região & Carteira"},{id:"mapa",l:"Mapa"}]},
     {group:"Suporte",i:"🎧",dept:"suporte",always:true,items:[
@@ -9747,7 +9916,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   }
   // reconstrói o menu por departamentos (substitui o NAV antigo)
   if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,always:g.always,items:g.items});});}
-  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","pesqmod","apresent","pq_repositorio","pq_ficha","pq_pesquisa","pq_agente","pq_definicoes","pq_exportar","pq_parametros","reembolsos","kb","cronograma","inventario","comparacao","salarios2024","salarios2025","salarios2026","vendasproj","horasTodas","horasCustos","vencimentos","manual","projecao","objetivos","novasvendas","objexec"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
+  if(typeof TABS!=="undefined"){["followup","logs","colaboradores","projetos","suporte","ferias","agenda","rh","minhaarea","forecast","tesouraria","carteira","rentabilidade","faturacao","rgpd","seguranca","horas","dunning","contratos","propostas","pesquisa","pesqmod","apresent","mkcongr","mkviag","pq_repositorio","pq_ficha","pq_pesquisa","pq_agente","pq_definicoes","pq_exportar","pq_parametros","reembolsos","kb","cronograma","inventario","comparacao","salarios2024","salarios2025","salarios2026","vendasproj","horasTodas","horasCustos","vencimentos","manual","projecao","objetivos","novasvendas","objexec"].forEach(function(id){if(!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});});}
 
   // menu: admin vê tudo; membro vê os seus departamentos + os grupos de acesso geral (Férias)
   if(typeof rTabs==="function"){
@@ -10573,6 +10742,8 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   function erpEsDealFor(p){
     var L=ERP.links&&ERP.links[erpKey("venda",p.dealId)];if(L&&L.estado==="ligado"&&L.es_id&&erpById(D.deals,L.es_id))return L.es_id;
     var d0=(D.deals||[]).filter(function(d){return d.erpId===p.dealId;})[0];if(d0)return d0.id;
+    // o projeto do ERP pode estar pendurado numa venda e ter OUTRAS vendas ligadas (ex.: «Piloto 360» com a venda do CRM «Piloto» ligada): qualquer uma delas serve para o encontrar em Espanha
+    var _lk=Array.isArray(p.linkedDeals)?p.linkedDeals:[];for(var _i=0;_i<_lk.length;_i++){var _id=_lk[_i];var L2=ERP.links&&ERP.links[erpKey("venda",_id)];if(L2&&L2.estado==="ligado"&&L2.es_id&&erpById(D.deals,L2.es_id))return L2.es_id;var d1=(D.deals||[]).filter(function(d){return d.erpId===_id;})[0];if(d1)return d1.id;}
     var esCli=p.clientId?erpCliEs(p.clientId):null;if(!esCli)return null;
     var taken={};(D.projectos||[]).forEach(function(x){if(x.erpProjId&&x.erpProjId!==String(p.id))taken[x.dealId]=1;});
     var ds=(D.deals||[]).filter(function(d){return d.clientId===esCli&&!taken[d.id];});if(!ds.length)return null;
