@@ -131,7 +131,7 @@ tr:hover td{background:#EFF1F4}
 <nav class="sbar" id="tbar"></nav>
 <div class="main">
 <div class="ct" id="app"></div>
-<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 8 out 2026 (l)</div>
+<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 9 out 2026 (mel·fus)</div>
 </div>
 </div>
 <div id="mArea"></div>
@@ -10009,7 +10009,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     {group:"Direção",i:"🧭",dept:"direcao",items:[
       {id:"dashboard",l:"Visão geral"},{id:"estrategia",l:"Análise & insights"},{id:"objexec",l:"Objetivos & Execução"},{id:"projecao",l:"Projeção do ano"},{id:"orc2027",l:"Orçamento próximo ano",dept:"orcamento"},{id:"arr",l:"ARR",dept:"orcamento"}]},
     {group:"Comercial",i:"🏥",dept:"comercial",items:[
-      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"propostas",l:"Propostas"},{id:"subscricoes",l:"Subscrições/AT"},{id:"forecast",l:"Forecast"},{id:"clientes",l:"Vendas"},{id:"objetivos",l:"Objetivos comerciais"},{id:"roicomercial",l:"Retorno comercial"},{id:"perdidas",l:"Perdidas"}]},
+      {id:"pipeline",l:"Pipeline"},{id:"followup",l:"Follow-up"},{id:"reunioes",l:"Visitas & Reuniões"},{id:"mwbi",l:"Análise",fam:["mwbi","propostas","subscricoes","forecast","clientes","roicomercial","perdidas"]},{id:"propostas",l:"Propostas",hidden:true},{id:"subscricoes",l:"Subscrições/AT",hidden:true},{id:"forecast",l:"Forecast",hidden:true},{id:"clientes",l:"Vendas",hidden:true},{id:"objetivos",l:"Objetivos comerciais",hidden:true},{id:"roicomercial",l:"Retorno comercial",hidden:true},{id:"perdidas",l:"Perdidas",hidden:true}]},
     {group:"Ações e Marketing",i:"📣",dept:"comercial",items:[
       {id:"apresent",l:"Apresentações"},{id:"mkcongr",l:"Congressos"},{id:"mkviag",l:"Viagens"}]},
     {group:"Clientes",i:"🏢",dept:"clientesg",always:true,items:[
@@ -10021,10 +10021,10 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
     {group:"Integrações",i:"🔌",dept:"integracoes",items:[
       {id:"intg_overview",l:"Overview"},{id:"integracao",l:"Interfaces & Integração"},{id:"intg_colab",l:"Por colaborador",hidden:true},{id:"intg_cliente",l:"Por cliente",hidden:true},{id:"intg_prioridade",l:"Por prioridade",hidden:true},{id:"intg_concluidos",l:"Concluídos",hidden:true}]},
     {group:"Desenvolvimento",i:"💻",dept:"desenvolvimento",items:[
-      {id:"desenvolvimento",l:"Desenvolvimento (Jira)"}]},
+      {id:"desenvolvimento",l:"Desenvolvimento (Jira)"},{id:"pedidoscli",l:"Pedidos de cliente"}]},
     {group:"Financeiro",i:"💶",dept:"financeiro",items:[
       {id:"pl",l:"P&L"},{id:"financeiro",sub:"orcamento",l:"Orçamento"},{id:"rentabcli",l:"Rentabilidade por cliente"},{id:"tesouraria",l:"Tesouraria"},{id:"novasvendas",l:"Novas vendas"},{id:"historico",l:"Histórico"},
-      {id:"financeiro",sub:"faturas",l:"Faturas / Movimentos"},{id:"faturacao",l:"Faturação legal"},{id:"financeiro",sub:"cobrancas",l:"Cobranças pendentes (aging)"},{id:"dunning",l:"Cobrança de vencidos"},{id:"financeiro",sub:"despesas",l:"Despesas"}]},
+      {id:"financeiro",sub:"faturas",l:"Faturas / Movimentos"},{id:"mwfat",l:"Faturação a emitir"},{id:"faturacao",l:"Faturação legal"},{id:"financeiro",sub:"cobrancas",l:"Cobranças pendentes (aging)"},{id:"dunning",l:"Cobrança de vencidos"},{id:"financeiro",sub:"despesas",l:"Despesas"}]},
     {group:"Pessoas",i:"👥",dept:"rh",always:true,items:[
       {id:"rh",l:"Equipa / RH",dept:"rh"},{id:"horas",l:"Registar horas",dept:"horas",always:true},{id:"horasTodas",l:"Todas as horas",dept:"horas",always:true},{id:"horasCustos",l:"Custos por projeto",dept:"horas",always:true},{id:"mapahoras",l:"Mapa de horas",dept:"horas",always:true},
       {id:"ferias",l:"Férias & ausências",dept:"ferias",always:true},{id:"reembolsos",l:"Reembolsos",dept:"rh"},
@@ -11147,6 +11147,502 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   }catch(e){window.__scrErr&&window.__scrErr(e,"menu Ligação ERP");}
   // ===================== fim · LIGAÇÃO AO ERP =====================
 
+
+  /* ===== MELHORIAS OUT 2026 (inserido) ===== */
+/* ===================== MELHORIAS OUT 2026 =====================
+   A. Financeiro — Faturação (a emitir / emitida, nº fatura, auto ao adjudicar)
+   B. Comercial — Análise BI (4 vistas do MWBI)
+   C. Desenvolvimento — Pedidos e Sugestões de Cliente
+   Bloco interno (acesso total ao scope da app). Não altera a paleta do ERP. */
+(function(){
+  if(window.__mwMel2610) return; window.__mwMel2610=1;
+
+  /* ---------- helpers locais ---------- */
+  function A(x){return Array.isArray(x)?x:[];}
+  function H(){try{return _hojeLocal();}catch(e){return new Date().toISOString().slice(0,10);}}
+  function ME(){try{if(window.__mwEmail)return String(window.__mwEmail).toLowerCase();}catch(e){} try{return String(currentEmail||"").toLowerCase();}catch(e){} return "";}
+  function ROLE(){try{return currentRole||window.__mwRole||"";}catch(e){return "";}}
+  function ADMIN(){return ROLE()==="admin";}
+  function PRIV(){try{return typeof window.__rvPriv==="function"?window.__rvPriv():ADMIN();}catch(e){return ADMIN();}}
+  function COMEDIT(){try{return !!(ADMIN()||(typeof userLevel==="function"&&userLevel("comercial")==="edit"));}catch(e){return ADMIN();}}
+  function EUR(v){try{return fmt(v);}catch(e){return Math.round(Number(v)||0)+"€";}}
+  function CN(id){try{return cn(id);}catch(e){return "—";}}
+  function SV(){try{if(typeof save==="function")save();}catch(e){}}
+  function RE(){try{if(typeof ren==="function")ren();else if(window.rPnl)window.rPnl();}catch(e){}}
+  function APP(){return document.getElementById("app");}
+  function gating(){try{if(typeof applyRoleGating==="function")applyRoleGating();}catch(e){}}
+  function combo(){try{if(window.mwComboScan)setTimeout(window.mwComboScan,20);}catch(e){}}
+  function esc2(s){try{return esc(s);}catch(e){return String(s==null?"":s);}}
+  function k(n){n=Number(n)||0;var a=Math.abs(n);if(a>=1000)return (n<0?"-":"")+Math.round(a/1000)+" k€";return (n<0?"-":"")+Math.round(a)+" €";}
+  function pct(a,b){b=Number(b)||0;if(!b)return "—";return Math.round((Number(a)||0)/b*100)+"%";}
+  function ym(d){d=String(d||"");return d.length>=7?d.slice(0,7):"";}
+  var MESN=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+  function ymLbl(s){if(!s||s.length<7)return "—";var p=s.split("-");return MESN[(Number(p[1])||1)-1]+" "+p[0].slice(2);}
+  var AMB="#C98F34",GRE="#3E9E7A",BLE="#4E86B0",REDx="#C0564A",SLx="#5F6B75",PURx="#37506A",TEALx="#2E8C93";
+
+  /* ---------- modelos em D ---------- */
+  function fatL(){if(!Array.isArray(D.faturacao))D.faturacao=[];return D.faturacao;}
+  function pedL(){if(!Array.isArray(D.pedidosCliente))D.pedidosCliente=[];return D.pedidosCliente;}
+  function comObj(){if(!D.comObjetivos||typeof D.comObjetivos!=="object")D.comObjetivos={anual:600000,porGestor:{},porConta:{}};if(!D.comObjetivos.porGestor)D.comObjetivos.porGestor={};if(!D.comObjetivos.porConta)D.comObjetivos.porConta={};return D.comObjetivos;}
+  function devCfg(){if(!D.devCfg||typeof D.devCfg!=="object")D.devCfg={jiraProj:"",dono:""};return D.devCfg;}
+
+  /* =====================================================================
+     A. FATURAÇÃO
+     ===================================================================== */
+  var FAT_TIPOS=[["EV","Especialidade vendida"],["M","Manutenção / AT"],["HV","Equipamento / hardware"],["DV","DOCbase vendido"],["SMV","Serviço de mensagens"],["SUV","Suporte vendido"],["SV","Serviços vendidos"],["-","(sem tipo)"]];
+  var FAT_TLBL={};FAT_TIPOS.forEach(function(t){FAT_TLBL[t[0]]=t[1];});
+  function tipoDeal(dl){var t=(dl&&dl.type||"").toUpperCase();if(t==="AT"||t==="SUB")return "M";if(t==="SV")return "SV";if(t==="NV")return "-";return "-";}
+  function dealInvoiced(dl){try{return A(D.invoices).some(function(iv){return iv&&iv.dealId===dl.id;})||A(D.faturas).some(function(f){return f&&f.dealId===dl.id;});}catch(e){return false;}}
+  function dealNumFat(dl){try{var iv=A(D.invoices).filter(function(x){return x&&x.dealId===dl.id&&x.num;})[0];return iv?String(iv.num):"";}catch(e){return "";}}
+  function wonStage(s){return s==="ganho"||s==="projeto"||s==="concluido";}
+  function dealFatBase(dl){var arts=A(dl.artigos);var out=[];
+    if(arts.length){arts.forEach(function(a){var q=Number(a.qtd)||1,pu=Number(a.precoUnit)||0,ds=Number(a.desconto)||0;var v=Math.round(q*pu*(1-ds/100));out.push({desc:(a.desc||dl.product||"Linha"),valor:v});});}
+    else out.push({desc:(dl.product||"Adjudicação"),valor:Math.round(Number(dl.value)||0)});
+    return out;}
+  function fatElegivel(dl){
+    // "a emitir" = adjudicado e sem NE (stage 'ganho') que ainda não tem fatura gerada
+    if(!dl||dl.fromProj||dl.src==="crm"||dl.esHist)return false;
+    if(dl.stage!=="ganho")return false;
+    if(dealInvoiced(dl))return false;
+    return true;}
+  function gerarFatDeal(dl){
+    if(!dl||dl._fatGerada)return 0;
+    if(!fatElegivel(dl))return 0;
+    var mes=ym(dl.stageDate||dl.date||H());
+    var n=0;
+    dealFatBase(dl).forEach(function(b){
+      fatL().push({id:uid(),dealId:dl.id,clientId:dl.clientId,descricao:b.desc,tipo:tipoDeal(dl),
+        valor:b.valor,mesAdj:mes,estado:"pendente",numFatura:"",dataFatura:"",
+        pago:false,dataPago:"",origem:"auto",vendedor:(dl.vendedor||dl.gestorConta||""),
+        criadoPor:ME(),criadoEm:H(),hist:[]});n++;});
+    dl._fatGerada=true;return n;}
+  function fatReconcile(silent){
+    var ch=0;
+    try{A(D.deals).forEach(function(dl){if(dl&&!dl._fatGerada&&fatElegivel(dl))ch+=gerarFatDeal(dl);});}catch(e){}
+    if(ch&&!silent)SV();
+    return ch;}
+  window.__fatReconcile=fatReconcile;
+
+  function fatEmAtraso(f){if(f.estado!=="pendente")return false;var cur=H().slice(0,7);return f.mesAdj&&f.mesAdj<cur;}
+  function canEditFat(f){return PRIV()||(f&&f.vendedor&&f.vendedor===ME())||COMEDIT();}
+  function fatStamp(f,campo,de,para){if(!Array.isArray(f.hist))f.hist=[];f.hist.unshift({quem:ME(),quando:H(),campo:campo,de:String(de),para:String(para)});}
+
+  window.mwFatFaturar=function(id){
+    if(!PRIV()){toast("Só o Financeiro/Direção pode emitir a fatura.","error");return;}
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    var b='<div style="font-size:13px;color:'+SLx+';margin-bottom:12px">'+esc2(CN(f.clientId))+' · '+esc2(f.descricao)+' · <b>'+EUR(f.valor)+'</b></div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:150px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Nº de fatura *</label><input id="mwf_num" value="'+esc2(f.numFatura||"")+'" placeholder="FT 2026/..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>'
+      +'<div style="flex:1;min-width:150px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Data da fatura *</label><input id="mwf_dt" type="date" value="'+esc2(f.dataFatura||H())+'" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div></div>'
+      +'<div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwFatFaturarOK(\''+id+'\')" style="background:'+GRE+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Marcar faturada</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap("Marcar como faturada",b);};
+  window.mwFatFaturarOK=function(id){
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    var num=(document.getElementById("mwf_num").value||"").trim();var dt=(document.getElementById("mwf_dt").value||"").trim();
+    if(!num){toast("Indica o nº de fatura.","error");return;}
+    if(!dt){toast("Indica a data da fatura.","error");return;}
+    fatStamp(f,"estado",f.estado,"faturada");f.estado="faturada";f.numFatura=num;f.dataFatura=dt;
+    SV();clM();RE();toast("Fatura emitida — movimento marcado como emitida.","ok");};
+  window.mwFatRepor=function(id){
+    if(!PRIV()){toast("Sem permissão.","error");return;}
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    confirmM("Repor este movimento como «a emitir»? Limpa o nº e a data de fatura.",function(){fatStamp(f,"estado",f.estado,"pendente");f.estado="pendente";f.numFatura="";f.dataFatura="";f.pago=false;f.dataPago="";SV();RE();toast("Reposto como a emitir.","ok");},{yesLabel:"Repor"});};
+  window.mwFatPago=function(id){
+    if(!PRIV()){toast("Sem permissão.","error");return;}
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    f.pago=!f.pago;f.dataPago=f.pago?H():"";fatStamp(f,"pago",!f.pago,f.pago);SV();RE();};
+  window.mwFatAnular=function(id){
+    if(!PRIV()){toast("Sem permissão.","error");return;}
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    confirmM("Marcar como anulada (nota de crédito / desistência)? Sai dos valores a emitir/emitida.",function(){fatStamp(f,"estado",f.estado,"anulada");f.estado="anulada";SV();RE();toast("Movimento anulado.","ok");},{yesLabel:"Anular"});};
+  window.mwFatEdit=function(id){
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    if(!canEditFat(f)){toast("Só o responsável comercial ou a direção podem editar.","error");return;}
+    var tops=FAT_TIPOS.map(function(t){return '<option value="'+t[0]+'"'+(f.tipo===t[0]?' selected':'')+'>'+esc2(t[0]+" — "+t[1])+'</option>';}).join("");
+    var b='<div style="display:flex;flex-direction:column;gap:10px">'
+      +'<div><label style="font-size:11px;color:'+SLx+';font-weight:600">Descrição</label><input id="mwf_d" value="'+esc2(f.descricao||"")+'" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:130px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Valor (€, s/ IVA)</label><input id="mwf_v" type="number" value="'+(Number(f.valor)||0)+'" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>'
+      +'<div style="flex:1;min-width:130px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Tipo</label><select id="mwf_t" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px">'+tops+'</select></div>'
+      +'<div style="flex:1;min-width:120px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Mês adjudicação</label><input id="mwf_m" value="'+esc2(f.mesAdj||"")+'" placeholder="2026-06" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div></div>'
+      +'<div style="font-size:11.5px;color:'+SLx+'">Movimento '+(f.origem==="auto"?'gerado do deal':'manual')+(f.dealId?' · deal '+esc2(f.dealId):'')+'</div></div>'
+      +'<div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwFatEditOK(\''+id+'\')" style="background:'+TEALx+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap("Editar movimento",b);combo();};
+  window.mwFatEditOK=function(id){
+    var f=fatL().filter(function(x){return x.id===id;})[0];if(!f)return;
+    var nd=(document.getElementById("mwf_d").value||"").trim();var nv=Math.round(Number(document.getElementById("mwf_v").value)||0);
+    var nt=document.getElementById("mwf_t").value;var nm=(document.getElementById("mwf_m").value||"").trim();
+    if(f.valor!=nv)fatStamp(f,"valor",f.valor,nv);
+    f.descricao=nd;f.valor=nv;f.tipo=nt;f.mesAdj=nm;SV();clM();RE();toast("Movimento atualizado.","ok");};
+  window.mwFatNovo=function(){
+    if(!PRIV()&&!COMEDIT()){toast("Sem permissão.","error");return;}
+    var cs=A(D.clients).slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}).map(function(c){return '<option value="'+c.id+'">'+esc2(c.name)+'</option>';}).join("");
+    var tops=FAT_TIPOS.map(function(t){return '<option value="'+t[0]+'">'+esc2(t[0]+" — "+t[1])+'</option>';}).join("");
+    var b='<div style="display:flex;flex-direction:column;gap:10px">'
+      +'<div><label style="font-size:11px;color:'+SLx+';font-weight:600">Cliente</label><select id="mwfn_c" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px">'+cs+'</select></div>'
+      +'<div><label style="font-size:11px;color:'+SLx+';font-weight:600">Descrição</label><input id="mwfn_d" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Valor (€)</label><input id="mwfn_v" type="number" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>'
+      +'<div style="flex:1;min-width:120px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Tipo</label><select id="mwfn_t" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px">'+tops+'</select></div>'
+      +'<div style="flex:1;min-width:120px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Mês adj.</label><input id="mwfn_m" value="'+H().slice(0,7)+'" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div></div></div>'
+      +'<div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwFatNovoOK()" style="background:'+GRE+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Criar movimento</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap("Novo movimento a emitir",b);combo();};
+  window.mwFatNovoOK=function(){
+    var c=document.getElementById("mwfn_c").value;var d=(document.getElementById("mwfn_d").value||"").trim();
+    var v=Math.round(Number(document.getElementById("mwfn_v").value)||0);var t=document.getElementById("mwfn_t").value;var m=(document.getElementById("mwfn_m").value||"").trim();
+    if(!d){toast("Indica a descrição.","error");return;}
+    fatL().push({id:uid(),dealId:"",clientId:c,descricao:d,tipo:t,valor:v,mesAdj:m,estado:"pendente",numFatura:"",dataFatura:"",pago:false,dataPago:"",origem:"manual",vendedor:ME(),criadoPor:ME(),criadoEm:H(),hist:[]});
+    SV();clM();RE();toast("Movimento criado.","ok");};
+
+  function renderMwFat(){
+    fatReconcile();
+    var app=APP();if(!app)return;
+    var pode=PRIV()||COMEDIT();
+    var fl=fatL().filter(function(f){return f.estado!=="anulada"||window.__fatVerAnul;});
+    var fEstado=window.__fatEstado||"";var fTxt=(window.__fatTxt||"").toLowerCase();var fAtraso=!!window.__fatAtraso;
+    var rows=fl.filter(function(f){
+      if(fEstado&&f.estado!==fEstado)return false;
+      if(fAtraso&&!fatEmAtraso(f))return false;
+      if(fTxt){var s=(CN(f.clientId)+" "+f.descricao+" "+f.numFatura+" "+(FAT_TLBL[f.tipo]||"")).toLowerCase();if(s.indexOf(fTxt)<0)return false;}
+      return true;});
+    rows.sort(function(a,b){return String(b.mesAdj).localeCompare(String(a.mesAdj));});
+    var all=fatL();
+    var vAdj=0,vEmit=0,vFat=0,vRec=0;
+    all.forEach(function(f){if(f.estado==="anulada")return;vAdj+=f.valor;if(f.estado==="pendente")vEmit+=f.valor;if(f.estado==="faturada"){vFat+=f.valor;if(!f.pago)vRec+=f.valor;}});
+    // barras por mês
+    var byM={};all.forEach(function(f){if(f.estado==="anulada")return;var m=f.mesAdj||"?";if(!byM[m])byM[m]={e:0,f:0};if(f.estado==="pendente")byM[m].e+=f.valor;else if(f.estado==="faturada")byM[m].f+=f.valor;});
+    var ms=Object.keys(byM).filter(function(x){return x!=="?";}).sort();if(ms.length>12)ms=ms.slice(-12);
+    var mx=1;ms.forEach(function(m){mx=Math.max(mx,byM[m].e+byM[m].f);});
+    var bars="";ms.forEach(function(m){var o=byM[m];var he=Math.round(o.e/mx*120),hf=Math.round(o.f/mx*120);
+      bars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0"><div title="A emitir '+EUR(o.e)+' · Emitida '+EUR(o.f)+'" style="width:60%;display:flex;flex-direction:column;justify-content:flex-end;height:130px"><div style="height:'+he+'px;background:'+AMB+'"></div><div style="height:'+hf+'px;background:'+GRE+'"></div></div><div style="font-size:10px;color:'+SLx+';margin-top:4px">'+ymLbl(m)+'</div></div>';});
+
+    var h='<div style="max-width:1120px;margin:0 auto">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px"><div><h2 style="margin:0">Faturação — a emitir e emitida</h2><div style="color:'+SLx+';font-size:13px">Movimentos gerados ao adjudicar no pipeline. '+(PRIV()?"":"Vê os valores; edição limitada.")+'</div></div>';
+    if(pode)h+='<button onclick="mwFatNovo()" style="background:'+TEALx+';color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600">+ Movimento manual</button>';
+    h+='</div>';
+    // KPIs
+    h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:14px 0">';
+    h+=kp("Adjudicado",EUR(vAdj),"#F2F7F7",TEALx);
+    h+=kp("A emitir",EUR(vEmit),"#FDF5E7",AMB);
+    h+=kp("Emitida",EUR(vFat),"#EAF6EE",GRE);
+    h+=kp("% emitido",pct(vFat,vAdj),"#EAF6EE",GRE);
+    h+=kp("Por receber",EUR(vRec),"#ECF2F9",BLE);
+    h+='</div>';
+    // barras
+    if(ms.length)h+='<div style="border:1px solid #e6eef0;border-radius:12px;padding:14px 16px;margin-bottom:14px"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Por mês de adjudicação</div><div style="font-size:12px;color:'+SLx+';margin-bottom:8px"><span style="display:inline-block;width:10px;height:10px;background:'+AMB+';border-radius:2px"></span> A emitir &nbsp; <span style="display:inline-block;width:10px;height:10px;background:'+GRE+';border-radius:2px"></span> Emitida</div><div style="display:flex;gap:6px;align-items:flex-end">'+bars+'</div></div>';
+    // filtros
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
+    h+='<select onchange="window.__fatEstado=this.value;window.rPnl&&window.rPnl()" style="padding:7px;border:1px solid #ddd;border-radius:7px"><option value=""'+(!fEstado?' selected':'')+'>Todos os estados</option><option value="pendente"'+(fEstado==="pendente"?' selected':'')+'>A emitir</option><option value="faturada"'+(fEstado==="faturada"?' selected':'')+'>Emitida</option></select>';
+    h+='<label style="font-size:12.5px;color:'+SLx+'"><input type="checkbox" '+(fAtraso?"checked":"")+' onchange="window.__fatAtraso=this.checked;window.rPnl&&window.rPnl()"> só em atraso</label>';
+    h+='<label style="font-size:12.5px;color:'+SLx+'"><input type="checkbox" '+(window.__fatVerAnul?"checked":"")+' onchange="window.__fatVerAnul=this.checked;window.rPnl&&window.rPnl()"> ver anuladas</label>';
+    h+='<input value="'+esc2(window.__fatTxt||"")+'" oninput="window.__fatTxt=this.value;clearTimeout(window.__fatT);window.__fatT=setTimeout(function(){window.rPnl&&window.rPnl()},250)" placeholder="pesquisar cliente/descrição/nº" style="flex:1;min-width:180px;padding:7px;border:1px solid #ddd;border-radius:7px">';
+    h+='<span style="font-size:12px;color:'+SLx+'">'+rows.length+' movimento(s)</span></div>';
+    // tabela
+    h+='<div style="border:1px solid #e6eef0;border-radius:12px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#F2F7F7;color:'+TEALx+'">'
+      +'<th style="text-align:left;padding:8px">Cliente</th><th style="text-align:left;padding:8px">Descrição</th><th style="padding:8px">Tipo</th><th style="text-align:right;padding:8px">Valor</th><th style="padding:8px">Mês</th><th style="padding:8px">Estado</th><th style="text-align:left;padding:8px">Nº fatura</th><th style="padding:8px">Ações</th></tr>';
+    if(!rows.length)h+='<tr><td colspan="8" style="padding:18px;text-align:center;color:'+SLx+'">Sem movimentos. Ao adjudicar um deal no pipeline (etapa «Adjudicado»), aparece aqui automaticamente.</td></tr>';
+    var totalRows=rows.length;if(rows.length>400)rows=rows.slice(0,400);
+    rows.forEach(function(f){
+      var atr=fatEmAtraso(f);
+      var badge=f.estado==="pendente"?('<span style="background:#FDF5E7;color:#b9791f;border:1px solid #F0D9A8;padding:1px 8px;border-radius:999px;font-size:11px">A emitir</span>'):f.estado==="faturada"?('<span style="background:#EAF6EE;color:#15694f;border:1px solid #BEE3CC;padding:1px 8px;border-radius:999px;font-size:11px">Emitida</span>'):('<span style="background:#f3f4f4;color:'+SLx+';padding:1px 8px;border-radius:999px;font-size:11px">Anulada</span>');
+      var neg=f.valor<0;
+      var acts="";
+      if(f.estado==="pendente"){if(PRIV())acts+='<button onclick="mwFatFaturar(\''+f.id+'\')" style="background:'+GRE+';color:#fff;border:0;border-radius:6px;padding:4px 9px;font-size:12px;margin:1px">Faturar</button>';if(canEditFat(f))acts+='<button onclick="mwFatEdit(\''+f.id+'\')" style="background:#eef3f4;border:0;border-radius:6px;padding:4px 9px;font-size:12px;margin:1px">Editar</button>';if(PRIV())acts+='<button onclick="mwFatAnular(\''+f.id+'\')" style="background:#fbeceb;color:'+REDx+';border:0;border-radius:6px;padding:4px 9px;font-size:12px;margin:1px">Anular</button>';}
+      else if(f.estado==="faturada"){acts+='<button onclick="mwFatPago(\''+f.id+'\')" style="background:'+(f.pago?GRE:'#ECF2F9')+';color:'+(f.pago?'#fff':BLE)+';border:0;border-radius:6px;padding:4px 9px;font-size:12px;margin:1px">'+(f.pago?'Pago ✓':'Marcar pago')+'</button>';if(PRIV())acts+='<button onclick="mwFatRepor(\''+f.id+'\')" style="background:#eef3f4;border:0;border-radius:6px;padding:4px 9px;font-size:12px;margin:1px">Repor</button>';}
+      h+='<tr style="border-top:1px solid #eef3f4'+(atr?';background:#fdf1f0':'')+'"><td style="padding:8px">'+esc2(CN(f.clientId))+(atr?' <span title="Mês de adjudicação já passou" style="color:'+REDx+'">⚠</span>':'')+'</td><td style="padding:8px">'+esc2(f.descricao)+(f.origem==="auto"?' <span style="font-size:10px;color:'+SLx+'">(auto)</span>':'')+'</td><td style="padding:8px;text-align:center"><span title="'+esc2(FAT_TLBL[f.tipo]||"")+'">'+esc2(f.tipo)+'</span></td><td style="padding:8px;text-align:right;font-variant-numeric:tabular-nums'+(neg?';color:'+REDx:'')+'">'+EUR(f.valor)+'</td><td style="padding:8px;text-align:center;font-size:12px">'+ymLbl(f.mesAdj)+'</td><td style="padding:8px;text-align:center">'+badge+'</td><td style="padding:8px;font-size:12px">'+esc2(f.numFatura||"—")+(f.dataFatura?'<br><span style="color:'+SLx+'">'+esc2(f.dataFatura)+'</span>':'')+'</td><td style="padding:8px;text-align:center;white-space:nowrap">'+(acts||'—')+'</td></tr>';
+    });
+    h+='</table></div>';
+    if(totalRows>400)h+='<div style="font-size:12px;color:'+SLx+';margin-top:6px">A mostrar 400 de '+totalRows+' — refina com os filtros.</div>';
+    h+='<div style="font-size:11.5px;color:'+SLx+';margin-top:8px">Os movimentos nascem ao adjudicar (um por artigo do deal). Valores editáveis pelo responsável comercial e pela direção; a emissão (nº de fatura) é do Financeiro/Direção.</div>';
+    h+='</div>';
+    app.innerHTML=h;gating();combo();
+  }
+  function kp(l,v,bg,col){return '<div style="border:1px solid #e6eef0;border-radius:12px;padding:12px 14px;background:'+(bg||"#F2F7F7")+'"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:'+SLx+';font-weight:600">'+esc2(l)+'</div><div style="font-size:19px;font-weight:700;margin-top:3px;color:'+(col||"#1c2b2e")+'">'+v+'</div></div>';}
+  window.renderMwFat=renderMwFat;
+
+  /* =====================================================================
+     B. ANÁLISE COMERCIAL (BI) — 4 vistas
+     ===================================================================== */
+  function realDeals(){return A(D.deals).filter(function(d){return d&&!d.fromProj&&d.src!=="crm"&&!d.esHist;});}
+  function dYear(d){return String(d.date||d.stageDate||"").slice(0,4);}
+  function vendOf(d){return d.vendedor||d.gestorConta||"—";}
+  function anoAtual(){return H().slice(0,4);}
+
+  function biAgg(){
+    var yr=window.__biAno||anoAtual();
+    var ds=realDeals().filter(function(d){return (dYear(d)===yr)||((d.stageDate||"").slice(0,4)===yr);});
+    var adj=0,pipe=0;var porConta={},porGestor={};
+    ds.forEach(function(d){
+      var v=Number(d.value)||0;var won=(typeof isWon==="function"?isWon(d):wonStage(d.stage));
+      if(won){adj+=v;}
+      else if(d.stage==="lead"||d.stage==="validar"||d.stage==="proposta"){pipe+=v;}
+      var cName=CN(d.clientId);
+      if(!porConta[cName])porConta[cName]={fat:0,adjPorFat:0,pipe:0};
+      if(!porGestor[vendOf(d)])porGestor[vendOf(d)]={adj:0,fat:0};
+      if(won){porConta[cName].adjPorFat+=v;porGestor[vendOf(d)].adj+=v;}
+      else if(d.stage==="lead"||d.stage==="validar"||d.stage==="proposta"){porConta[cName].pipe+=v;}
+    });
+    // faturado real: dos movimentos emitidos no ano
+    var fat=0;A(D.faturacao).forEach(function(f){if(f.estado!=="faturada")return;if((f.mesAdj||"").slice(0,4)!==yr)return;fat+=f.valor;
+      var cn2=CN(f.clientId);if(porConta[cn2]){porConta[cn2].fat+=f.valor;porConta[cn2].adjPorFat=Math.max(0,porConta[cn2].adjPorFat-f.valor);}
+      if(f.vendedor&&porGestor[f.vendedor])porGestor[f.vendedor].fat+=f.valor;});
+    return {yr:yr,ds:ds,adj:adj,pipe:pipe,fat:fat,porConta:porConta,porGestor:porGestor};
+  }
+
+  function biSub(){return window.__biSub||"visao";}
+  window.mwBiTab=function(t){window.__biSub=t;if(window.rPnl)window.rPnl();};
+  window.mwBiAno=function(v){window.__biAno=v;if(window.rPnl)window.rPnl();};
+
+  function renderMwBi(){
+    var app=APP();if(!app)return;fatReconcile(true);
+    var ag=biAgg();var O=comObj();
+    var anos=[];for(var y=Number(anoAtual());y>=Number(anoAtual())-3;y--)anos.push(String(y));
+    var h='<div style="max-width:1120px;margin:0 auto">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px"><div><h2 style="margin:0">Análise comercial</h2><div style="color:'+SLx+';font-size:13px">Objetivos, adjudicado, faturado e pipeline — ao vivo.</div></div>';
+    h+='<select onchange="mwBiAno(this.value)" style="padding:7px;border:1px solid #ddd;border-radius:7px">'+anos.map(function(a){return '<option'+(a===ag.yr?' selected':'')+'>'+a+'</option>';}).join("")+'</select></div>';
+    // sub-tabs
+    var tabs=[["visao","Visão global"],["objetivos","Objetivos"],["atividade","Atividade comercial"],["propostas","Propostas"]];
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0">'+tabs.map(function(t){var on=biSub()===t[0];return '<button onclick="mwBiTab(\''+t[0]+'\')" style="border:1px solid '+PURx+';color:'+(on?'#fff':PURx)+';background:'+(on?PURx:'#fff')+';border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600">'+t[1]+'</button>';}).join("")+'</div>';
+
+    if(biSub()==="visao"){
+      var desvio=ag.adj-O.anual;
+      h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">';
+      h+=kp("Objetivo anual",EUR(O.anual),"#fff",AMB);
+      h+=kp("Adjudicadas",EUR(ag.adj),"#F2F7F7",TEALx);
+      h+=kp("Cumpr. adjudicado",pct(ag.adj,O.anual),"#F2F7F7",TEALx);
+      h+=kp("Desvio",(desvio>=0?"+":"")+k(desvio),"#F2F7F7",desvio>=0?GRE:REDx);
+      h+=kp("Pipeline potencial",EUR(ag.pipe),"#FDF5E7",AMB);
+      h+='</div>';
+      h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">';
+      h+=kp("Faturadas",EUR(ag.fat),"#EAF6EE",GRE);
+      h+=kp("Cumpr. faturado",pct(ag.fat,O.anual),"#EAF6EE",GRE);
+      h+=kp("Falta faturar",EUR(Math.max(0,O.anual-ag.fat)),"#F2F7F7",SLx);
+      h+=kp("Adjudicado + pipeline",EUR(ag.adj+ag.pipe),"#F2F7F7",SLx);
+      h+='</div>';
+      // barras por conta (top 12 por total)
+      var conts=Object.keys(ag.porConta).map(function(n){var o=ag.porConta[n];return {n:n,fat:o.fat,apf:o.adjPorFat,pipe:o.pipe,tot:o.fat+o.adjPorFat+o.pipe};}).filter(function(x){return x.tot>0;}).sort(function(a,b){return b.tot-a.tot;}).slice(0,12);
+      var mxc=1;conts.forEach(function(c){mxc=Math.max(mxc,c.tot);});
+      h+='<div style="border:1px solid #e6eef0;border-radius:12px;padding:14px 16px"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Cumprimento por conta</div><div style="font-size:12px;color:'+SLx+';margin-bottom:10px"><span style="display:inline-block;width:10px;height:10px;background:'+GRE+';border-radius:2px"></span> Faturado &nbsp; <span style="display:inline-block;width:10px;height:10px;background:'+BLE+';border-radius:2px"></span> Adjudicado por faturar &nbsp; <span style="display:inline-block;width:10px;height:10px;background:'+AMB+';border-radius:2px"></span> Pipeline</div>';
+      if(!conts.length)h+='<div style="color:'+SLx+';font-size:13px">Sem dados para '+ag.yr+'.</div>';
+      conts.forEach(function(c){var wf=Math.round(c.fat/mxc*100),wa=Math.round(c.apf/mxc*100),wp=Math.round(c.pipe/mxc*100);
+        h+='<div style="display:grid;grid-template-columns:190px 1fr 64px;gap:10px;align-items:center;margin:6px 0;font-size:12.5px"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc2(c.n)+'">'+esc2(c.n)+'</div><div style="background:#f0f4f5;border-radius:5px;height:16px;position:relative;overflow:hidden"><div style="position:absolute;left:0;height:16px;width:'+wf+'%;background:'+GRE+'"></div><div style="position:absolute;left:'+wf+'%;height:16px;width:'+wa+'%;background:'+BLE+'"></div><div style="position:absolute;left:'+(wf+wa)+'%;height:16px;width:'+wp+'%;background:'+AMB+'"></div></div><div style="text-align:right;color:'+SLx+'">'+k(c.tot)+'</div></div>';});
+      h+='</div>';
+    }
+    else if(biSub()==="objetivos"){
+      if(ADMIN()||PRIV())h+='<div style="margin-bottom:10px"><button onclick="mwBiObj()" style="background:'+TEALx+';color:#fff;border:0;border-radius:8px;padding:8px 13px;font-weight:600">Definir objetivos</button></div>';
+      h+='<div style="border:1px solid #e6eef0;border-radius:12px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#F2F7F7;color:'+TEALx+'"><th style="text-align:left;padding:8px">Gestor comercial</th><th style="text-align:right;padding:8px">Adjudicado</th><th style="text-align:right;padding:8px">Faturado</th><th style="text-align:right;padding:8px">Objetivo</th><th style="text-align:right;padding:8px">Cumpr.</th><th style="text-align:right;padding:8px">Desvio</th></tr>';
+      var gs=Object.keys(ag.porGestor).sort(function(a,b){return ag.porGestor[b].adj-ag.porGestor[a].adj;});
+      if(!gs.length)h+='<tr><td colspan="6" style="padding:16px;text-align:center;color:'+SLx+'">Sem vendas no ano.</td></tr>';
+      gs.forEach(function(g){var o=ag.porGestor[g];var obj=Number(O.porGestor[g])||0;var dv=o.adj-obj;
+        h+='<tr style="border-top:1px solid #eef3f4"><td style="padding:8px">'+esc2(g)+'</td><td style="padding:8px;text-align:right">'+EUR(o.adj)+'</td><td style="padding:8px;text-align:right">'+EUR(o.fat)+'</td><td style="padding:8px;text-align:right">'+(obj?EUR(obj):'—')+'</td><td style="padding:8px;text-align:right">'+(obj?pct(o.adj,obj):'—')+'</td><td style="padding:8px;text-align:right;color:'+(dv>=0?GRE:REDx)+'">'+(obj?((dv>=0?"+":"")+k(dv)):'—')+'</td></tr>';});
+      h+='</table></div>';
+    }
+    else if(biSub()==="atividade"){
+      var ds=ag.ds;
+      var enviadas=ds.filter(function(d){return d.stage!=="lead";}).length;
+      var adjud=ds.filter(function(d){return (typeof isWon==="function"?isWon(d):wonStage(d.stage));}).length;
+      var valProp=ds.reduce(function(s,d){return s+(Number(d.value)||0);},0);
+      var taxa=enviadas?Math.round(adjud/enviadas*100):0;
+      h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">';
+      h+=kp("Oportunidades",""+ds.length,"#F0EEFA",PURx);
+      h+=kp("Valor em jogo",EUR(valProp),"#F0EEFA",PURx);
+      h+=kp("Adjudicadas",""+adjud,"#F0EEFA",PURx);
+      h+=kp("Taxa adjudicação",taxa+"%","#F0EEFA",PURx);
+      h+='</div>';
+      // estados
+      var est={};ds.forEach(function(d){var e=d.stage==="perdido"?"Perdida":(typeof isWon==="function"?isWon(d):wonStage(d.stage))?"Adjudicada":(d.stage==="proposta"?"Proposta":"Em curso");est[e]=(est[e]||0)+1;});
+      h+='<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:14px">';
+      h+='<div style="border:1px solid #e6eef0;border-radius:12px;padding:14px 16px"><div style="font-weight:600;font-size:13px;margin-bottom:8px">Estado das oportunidades</div>';
+      var ecol={Adjudicada:GRE,Proposta:BLE,"Em curso":AMB,Perdida:REDx};
+      Object.keys(est).forEach(function(e){h+='<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(ecol[e]||SLx)+';margin-right:7px"></span>'+e+'</span><b>'+est[e]+'</b></div>';});
+      h+='</div>';
+      // evolução mensal
+      var em={};ds.forEach(function(d){var m=ym(d.date||d.stageDate);if(!m)return;if(!em[m])em[m]={env:0,adj:0};if(d.stage!=="lead")em[m].env++;if(typeof isWon==="function"?isWon(d):wonStage(d.stage))em[m].adj++;});
+      var mk=Object.keys(em).sort();var mmx=1;mk.forEach(function(m){mmx=Math.max(mmx,em[m].env);});
+      var bb="";mk.forEach(function(m){var he=Math.round(em[m].env/mmx*90),ha=Math.round(em[m].adj/mmx*90);bb+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0"><div style="display:flex;gap:2px;align-items:flex-end;height:95px"><div style="width:7px;height:'+he+'px;background:'+BLE+'"></div><div style="width:7px;height:'+ha+'px;background:'+PURx+'"></div></div><div style="font-size:9px;color:'+SLx+';margin-top:3px">'+ymLbl(m)+'</div></div>';});
+      h+='<div style="border:1px solid #e6eef0;border-radius:12px;padding:14px 16px"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Evolução mensal</div><div style="font-size:12px;color:'+SLx+';margin-bottom:8px"><span style="display:inline-block;width:10px;height:10px;background:'+BLE+';border-radius:2px"></span> Enviadas &nbsp; <span style="display:inline-block;width:10px;height:10px;background:'+PURx+';border-radius:2px"></span> Adjudicadas</div><div style="display:flex;gap:4px;align-items:flex-end">'+(bb||'<span style="color:'+SLx+';font-size:12px">sem dados</span>')+'</div></div>';
+      h+='</div>';
+    }
+    else if(biSub()==="propostas"){
+      var fp=window.__biProp||"";
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+[["","Todas"],["won","Adjudicadas"],["proposta","Em proposta"],["perdido","Perdidas"]].map(function(x){var on=fp===x[0];return '<button onclick="window.__biProp=\''+x[0]+'\';window.rPnl&&window.rPnl()" style="border:1px solid #ccd;border-radius:7px;padding:5px 10px;font-size:12px;background:'+(on?PURx:'#fff')+';color:'+(on?'#fff':'#333')+'">'+x[1]+'</button>';}).join("")+'</div>';
+      var dsp=ag.ds.filter(function(d){if(fp==="won")return (typeof isWon==="function"?isWon(d):wonStage(d.stage));if(fp==="proposta")return d.stage==="proposta";if(fp==="perdido")return d.stage==="perdido";return true;});
+      dsp.sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""));});
+      var tot=dsp.reduce(function(s,d){return s+(Number(d.value)||0);},0);
+      h+='<div style="border:1px solid #e6eef0;border-radius:12px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#F2F7F7;color:'+TEALx+'"><th style="text-align:left;padding:8px">Cliente</th><th style="text-align:left;padding:8px">Produto</th><th style="text-align:left;padding:8px">Gestor</th><th style="padding:8px">Data</th><th style="padding:8px">Estado</th><th style="text-align:right;padding:8px">Valor</th></tr>';
+      dsp.slice(0,200).forEach(function(d){var e=d.stage==="perdido"?"Perdida":(typeof isWon==="function"?isWon(d):wonStage(d.stage))?"Adjudicada":(SL2[d.stage]||d.stage);
+        h+='<tr style="border-top:1px solid #eef3f4"><td style="padding:8px">'+esc2(CN(d.clientId))+'</td><td style="padding:8px">'+esc2(d.product||"—")+'</td><td style="padding:8px">'+esc2(vendOf(d))+'</td><td style="padding:8px;text-align:center;font-size:12px">'+esc2(d.date||"—")+'</td><td style="padding:8px;text-align:center;font-size:12px">'+esc2(e)+'</td><td style="padding:8px;text-align:right">'+EUR(d.value)+'</td></tr>';});
+      h+='<tr style="border-top:2px solid #e6eef0;font-weight:700"><td colspan="5" style="padding:8px;text-align:right">Total</td><td style="padding:8px;text-align:right">'+EUR(tot)+'</td></tr>';
+      h+='</table></div>';
+    }
+    h+='</div>';
+    app.innerHTML=h;gating();combo();
+  }
+  window.renderMwBi=renderMwBi;
+  window.mwBiObj=function(){
+    if(!(ADMIN()||PRIV())){toast("Sem permissão.","error");return;}
+    var O=comObj();var ag=biAgg();
+    var gs=Object.keys(ag.porGestor).sort();
+    var rows=gs.map(function(g){return '<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><div style="flex:1;font-size:13px">'+esc2(g)+'</div><input id="mwo_'+btoa(unescape(encodeURIComponent(g))).replace(/=/g,"")+'" type="number" value="'+(Number(O.porGestor[g])||0)+'" style="width:130px;padding:6px;border:1px solid #ddd;border-radius:7px"></div>';}).join("");
+    var b='<div style="margin-bottom:10px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Objetivo anual (€)</label><input id="mwo_anual" type="number" value="'+(Number(O.anual)||0)+'" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>'
+      +'<div style="font-size:12px;color:'+SLx+';font-weight:600;margin-bottom:4px">Objetivo por gestor (€)</div>'+(rows||'<div style="color:'+SLx+';font-size:12px">Sem gestores com vendas.</div>')
+      +'<div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwBiObjOK()" style="background:'+TEALx+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Guardar</button></div>';
+    window.__mwoGs=gs;
+    document.getElementById("mArea").innerHTML=mWrap("Objetivos comerciais",b);};
+  window.mwBiObjOK=function(){
+    var O=comObj();O.anual=Math.round(Number(document.getElementById("mwo_anual").value)||0);
+    (window.__mwoGs||[]).forEach(function(g){var el=document.getElementById("mwo_"+btoa(unescape(encodeURIComponent(g))).replace(/=/g,""));if(el)O.porGestor[g]=Math.round(Number(el.value)||0);});
+    SV();clM();RE();toast("Objetivos guardados.","ok");};
+
+  /* =====================================================================
+     C. PEDIDOS E SUGESTÕES DE CLIENTE
+     ===================================================================== */
+  var PED_ORIG=[["comercial","Comercial"],["implementacao","Implementações"],["integracao","Integrações"],["suporte","Suporte"],["cliente","Cliente"]];
+  var PED_OLBL={};PED_ORIG.forEach(function(o){PED_OLBL[o[0]]=o[1];});
+  var PED_EST=[["novo","Novo"],["analise","Em análise"],["aceite","Aceite (Jira)"],["desenvolvimento","Em desenvolvimento"],["concluido","Concluído"],["recusado","Recusado"]];
+  var PED_ELBL={};PED_EST.forEach(function(e){PED_ELBL[e[0]]=e[1];});
+  var PED_ECOL={novo:AMB,analise:AMB,aceite:GRE,desenvolvimento:BLE,concluido:GRE,recusado:REDx};
+
+  window.mwPedForm=function(preset){
+    preset=preset||{};
+    var cs=A(D.clients).slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}).map(function(c){return '<option value="'+c.id+'"'+(preset.clientId===c.id?' selected':'')+'>'+esc2(c.name)+'</option>';}).join("");
+    var os=PED_ORIG.map(function(o){return '<option value="'+o[0]+'"'+(preset.origem===o[0]?' selected':'')+'>'+esc2(o[1])+'</option>';}).join("");
+    var b='<div style="display:flex;flex-direction:column;gap:10px">'
+      +'<div><label style="font-size:11px;color:'+SLx+';font-weight:600">Cliente</label><select id="mwp_c" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px">'+cs+'</select></div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:130px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Origem</label><select id="mwp_o" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px">'+os+'</select></div>'
+      +'<div style="flex:1;min-width:120px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Tipo</label><select id="mwp_t" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"><option value="pedido"'+(preset.tipo!=="sugestao"?' selected':'')+'>Pedido</option><option value="sugestao"'+(preset.tipo==="sugestao"?' selected':'')+'>Sugestão</option></select></div>'
+      +'<div style="flex:1;min-width:120px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Prioridade</label><select id="mwp_p" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"><option value="media">Média</option><option value="alta">Alta</option><option value="baixa">Baixa</option></select></div></div>'
+      +'<div><label style="font-size:11px;color:'+SLx+';font-weight:600">Descrição do pedido/sugestão</label><textarea id="mwp_d" rows="4" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px">'+esc2(preset.descricao||"")+'</textarea></div>'
+      +(preset.fonte?'<div style="font-size:11.5px;color:'+SLx+'">Origem ligada: '+esc2(preset.fonte)+'</div>':'')+'</div>'
+      +'<div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwPedFormOK()" style="background:'+GRE+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Registar</button></div>';
+    window.__mwpFonte=preset.fonte||"manual";
+    document.getElementById("mArea").innerHTML=mWrap("Registar pedido / sugestão de cliente",b);combo();};
+  window.mwPedFormOK=function(){
+    var d=(document.getElementById("mwp_d").value||"").trim();if(!d){toast("Descreve o pedido.","error");return;}
+    pedL().push({id:uid(),clientId:document.getElementById("mwp_c").value,origem:document.getElementById("mwp_o").value,tipo:document.getElementById("mwp_t").value,prioridade:document.getElementById("mwp_p").value,descricao:d,estado:"novo",fonte:window.__mwpFonte||"manual",jiraProj:devCfg().jiraProj||"",jiraRef:"",dono:devCfg().dono||"",criadoPor:ME(),criadoEm:H(),respostas:[],updatedAt:H()});
+    SV();clM();RE();toast("Pedido registado — foi para a caixa de Pedidos de cliente.","ok");};
+  window.mwPedEstado=function(id,ev){
+    var p=pedL().filter(function(x){return x.id===id;})[0];if(!p)return;var nv=ev&&ev.target?ev.target.value:ev;
+    if(nv==="aceite"&&!p.jiraRef){
+      var b='<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:130px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Projeto Jira</label><input id="mwpj_p" value="'+esc2(p.jiraProj||devCfg().jiraProj||"")+'" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div><div style="flex:1;min-width:130px"><label style="font-size:11px;color:'+SLx+';font-weight:600">Referência Jira</label><input id="mwpj_r" placeholder="PROJ-123" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div></div><div style="margin-top:16px;text-align:right"><button onclick="clM();window.rPnl&&window.rPnl()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwPedAceitarOK(\''+id+'\')" style="background:'+GRE+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Aceitar</button></div>';
+      document.getElementById("mArea").innerHTML=mWrap("Aceitar e enviar para o Jira",b);return;
+    }
+    p.estado=nv;p.updatedAt=H();SV();RE();};
+  window.mwPedAceitarOK=function(id){var p=pedL().filter(function(x){return x.id===id;})[0];if(!p)return;p.jiraProj=(document.getElementById("mwpj_p").value||"").trim();p.jiraRef=(document.getElementById("mwpj_r").value||"").trim();p.estado="aceite";p.updatedAt=H();SV();clM();RE();toast("Pedido aceite e ligado ao Jira.","ok");};
+  window.mwPedResp=function(id){
+    var p=pedL().filter(function(x){return x.id===id;})[0];if(!p)return;
+    var b='<div><label style="font-size:11px;color:'+SLx+';font-weight:600">Resposta / seguimento</label><textarea id="mwpr_t" rows="4" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></textarea></div><label style="font-size:12.5px;color:'+SLx+';display:block;margin-top:8px"><input type="checkbox" id="mwpr_cli"> visível para o cliente (MYMW)</label><div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwPedRespOK(\''+id+'\')" style="background:'+TEALx+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Responder</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap("Responder ao pedido",b);};
+  window.mwPedRespOK=function(id){var p=pedL().filter(function(x){return x.id===id;})[0];if(!p)return;var t=(document.getElementById("mwpr_t").value||"").trim();if(!t){clM();return;}if(!Array.isArray(p.respostas))p.respostas=[];p.respostas.unshift({quem:ME(),quando:H(),texto:t,paraCliente:document.getElementById("mwpr_cli").checked});p.updatedAt=H();SV();clM();RE();toast("Resposta registada.","ok");};
+  window.mwPedDel=function(id){var p=pedL().filter(function(x){return x.id===id;})[0];if(!p)return;if(!(PRIV()||(p.criadoPor&&p.criadoPor===ME()))){toast("Sem permissão.","error");return;}confirmM("Eliminar este pedido?",function(){D.pedidosCliente=pedL().filter(function(x){return x.id!==id;});SV();RE();},{yesLabel:"Eliminar"});};
+  window.mwPedCfg=function(){
+    if(!(ADMIN()||PRIV())){toast("Sem permissão.","error");return;}
+    var c=devCfg();
+    var b='<div style="display:flex;flex-direction:column;gap:10px"><div><label style="font-size:11px;color:'+SLx+';font-weight:600">Projeto Jira por omissão</label><input id="mwpc_j" value="'+esc2(c.jiraProj||"")+'" placeholder="Ex.: ROADMAP" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div><div><label style="font-size:11px;color:'+SLx+';font-weight:600">Dono da caixa (email)</label><input id="mwpc_d" value="'+esc2(c.dono||"")+'" placeholder="sandrina@..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div></div><div style="margin-top:16px;text-align:right"><button onclick="clM()" style="background:#eee;border:0;border-radius:8px;padding:9px 14px;margin-right:6px">Cancelar</button><button onclick="mwPedCfgOK()" style="background:'+TEALx+';color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600">Guardar</button></div>';
+    document.getElementById("mArea").innerHTML=mWrap("Configurar Pedidos de cliente",b);};
+  window.mwPedCfgOK=function(){var c=devCfg();c.jiraProj=(document.getElementById("mwpc_j").value||"").trim();c.dono=(document.getElementById("mwpc_d").value||"").trim();SV();clM();RE();toast("Configuração guardada.","ok");};
+
+  function renderPedidos(){
+    var app=APP();if(!app)return;
+    var fEst=window.__pedEst||"";var fTxt=(window.__pedTxt||"").toLowerCase();var fOrig=window.__pedOrig||"";
+    var all=pedL();
+    var rows=all.filter(function(p){if(fEst&&p.estado!==fEst)return false;if(fOrig&&p.origem!==fOrig)return false;if(fTxt){var s=(CN(p.clientId)+" "+p.descricao+" "+(p.jiraRef||"")).toLowerCase();if(s.indexOf(fTxt)<0)return false;}return true;});
+    rows.sort(function(a,b){return String(b.updatedAt||b.criadoEm).localeCompare(String(a.updatedAt||a.criadoEm));});
+    var cNovo=all.filter(function(p){return p.estado==="novo";}).length;
+    var cAnal=all.filter(function(p){return p.estado==="analise";}).length;
+    var cAceite=all.filter(function(p){return p.estado==="aceite"||p.estado==="desenvolvimento";}).length;
+    var cDone=all.filter(function(p){return p.estado==="concluido";}).length;
+    var h='<div style="max-width:1120px;margin:0 auto">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px"><div><h2 style="margin:0">Pedidos e sugestões de cliente</h2><div style="color:'+SLx+';font-size:13px">Roadmap / backlog — o que as equipas trazem dos clientes. Não é suporte.</div></div><div>';
+    h+='<button onclick="mwPedForm({})" style="background:'+GRE+';color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600">+ Novo pedido</button>';
+    if(ADMIN()||PRIV())h+=' <button onclick="mwPedCfg()" style="background:#eef3f4;border:0;border-radius:8px;padding:9px 12px">⚙</button>';
+    h+='</div></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0">'+kp("Novos",""+cNovo,"#FDF5E7",AMB)+kp("Em análise",""+cAnal,"#FDF5E7",AMB)+kp("Aceites / em dev",""+cAceite,"#ECF2F9",BLE)+kp("Concluídos",""+cDone,"#EAF6EE",GRE)+'</div>';
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><select onchange="window.__pedEst=this.value;window.rPnl&&window.rPnl()" style="padding:7px;border:1px solid #ddd;border-radius:7px"><option value="">Todos os estados</option>'+PED_EST.map(function(e){return '<option value="'+e[0]+'"'+(fEst===e[0]?' selected':'')+'>'+e[1]+'</option>';}).join("")+'</select>';
+    h+='<select onchange="window.__pedOrig=this.value;window.rPnl&&window.rPnl()" style="padding:7px;border:1px solid #ddd;border-radius:7px"><option value="">Todas as origens</option>'+PED_ORIG.map(function(o){return '<option value="'+o[0]+'"'+(fOrig===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join("")+'</select>';
+    h+='<input value="'+esc2(window.__pedTxt||"")+'" oninput="window.__pedTxt=this.value;clearTimeout(window.__pedT);window.__pedT=setTimeout(function(){window.rPnl&&window.rPnl()},250)" placeholder="pesquisar" style="flex:1;min-width:160px;padding:7px;border:1px solid #ddd;border-radius:7px"><span style="font-size:12px;color:'+SLx+'">'+rows.length+'</span></div>';
+    if(!rows.length)h+='<div style="border:1px dashed #cfe0e2;border-radius:12px;padding:24px;text-align:center;color:'+SLx+'">Sem pedidos. Regista a partir de uma reunião, de um ticket, de um projeto, ou com «+ Novo pedido».</div>';
+    rows.forEach(function(p){
+      var estSel=PED_EST.map(function(e){return '<option value="'+e[0]+'"'+(p.estado===e[0]?' selected':'')+'>'+e[1]+'</option>';}).join("");
+      var podeEst=PRIV()||ADMIN()||(p.dono&&p.dono===ME());
+      h+='<div style="border:1px solid #e6eef0;border-left:4px solid '+(PED_ECOL[p.estado]||SLx)+';border-radius:10px;padding:12px 14px;margin-bottom:8px">';
+      h+='<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><b>'+esc2(CN(p.clientId))+'</b> <span style="font-size:11px;color:'+SLx+';background:#f3f6f6;padding:1px 7px;border-radius:999px">'+esc2(p.tipo==="sugestao"?"Sugestão":"Pedido")+'</span> <span style="font-size:11px;color:'+SLx+'">· '+esc2(PED_OLBL[p.origem]||p.origem)+'</span>'+(p.jiraRef?' <span style="font-size:11px;color:'+BLE+'">· '+esc2(p.jiraRef)+'</span>':'')+'<div style="margin-top:4px;font-size:13.5px">'+esc2(p.descricao)+'</div></div>';
+      h+='<div style="text-align:right">'+(podeEst?'<select onchange="mwPedEstado(\''+p.id+'\',event)" style="padding:5px;border:1px solid #ddd;border-radius:7px;font-size:12px">'+estSel+'</select>':'<span style="font-size:12px;color:'+(PED_ECOL[p.estado]||SLx)+'">'+esc2(PED_ELBL[p.estado]||p.estado)+'</span>')+'</div></div>';
+      // respostas
+      if(A(p.respostas).length){h+='<div style="margin-top:8px;border-top:1px solid #eef3f4;padding-top:6px">';p.respostas.slice(0,3).forEach(function(r){h+='<div style="font-size:12px;color:#333;margin:3px 0">'+(r.paraCliente?'<span title="visível ao cliente" style="color:'+GRE+'">◉</span> ':'<span style="color:'+SLx+'">•</span> ')+esc2(r.texto)+' <span style="color:'+SLx+'">— '+esc2(r.quem||"")+' '+esc2(r.quando||"")+'</span></div>';});h+='</div>';}
+      h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button onclick="mwPedResp(\''+p.id+'\')" style="background:#eef3f4;border:0;border-radius:6px;padding:4px 10px;font-size:12px">Responder</button>';
+      if(podeEst)h+='<button onclick="mwPedDel(\''+p.id+'\')" style="background:#fbeceb;color:'+REDx+';border:0;border-radius:6px;padding:4px 10px;font-size:12px">Eliminar</button>';
+      h+='<span style="font-size:11px;color:'+SLx+';align-self:center">registado por '+esc2(p.criadoPor||"—")+' · '+esc2(p.criadoEm||"")+(p.fonte&&p.fonte!=="manual"?' · '+esc2(p.fonte):'')+'</span></div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    app.innerHTML=h;gating();combo();
+  }
+  window.renderPedidos=renderPedidos;
+
+  /* =====================================================================
+     GANCHOS DE CAPTURA (reunião, ticket, projeto)
+     ===================================================================== */
+  // reunião
+  try{var _or=window.openReuniao;if(typeof _or==="function"&&!_or.__mwped){var wR=function(id,pc,pd){var r=_or.apply(this,arguments);try{var rec=id?reuList().filter(function(x){return x.id===id;})[0]:null;var cid=(rec&&rec.clientId)||pc||"";setTimeout(function(){injBtn("reuniao:"+(id||"novo"),cid,"comercial");},40);}catch(e){}return r;};wR.__mwped=1;window.openReuniao=wR;try{openReuniao=wR;}catch(e){}}}catch(e){}
+  // ticket
+  try{var _ot=window.openTicketM;if(typeof _ot==="function"&&!_ot.__mwped){var wT=function(id){var r=_ot.apply(this,arguments);try{var tk=id?A(D.tickets).filter(function(x){return x.id===id;})[0]:null;var cid=tk?tk.clientId:"";var desc=tk?(tk.titulo||""):"";setTimeout(function(){injBtn("ticket:"+(id||"novo"),cid,"suporte",desc);},40);}catch(e){}return r;};wT.__mwped=1;window.openTicketM=wT;try{openTicketM=wT;}catch(e){}}}catch(e){}
+  function injBtn(fonte,cid,origem,desc){
+    try{var box=document.querySelector("#mArea .mdl");if(!box||box.querySelector("#mwPedInj"))return;
+      var bar=document.createElement("div");bar.id="mwPedInj";bar.style.cssText="margin-top:10px;padding-top:10px;border-top:1px dashed #cfe0e2";
+      bar.innerHTML='<button type="button" style="background:#EAF6EE;color:#15694f;border:1px solid #BEE3CC;border-radius:7px;padding:6px 11px;font-size:12.5px;font-weight:600;cursor:pointer">＋ Registar pedido/sugestão de cliente</button><span style="font-size:11px;color:'+SLx+';margin-left:8px">vai para Desenvolvimento → Pedidos de cliente</span>';
+      bar.firstChild.onclick=function(){window.mwPedForm({clientId:cid||"",origem:origem||"comercial",fonte:fonte,descricao:desc||""});};
+      box.appendChild(bar);
+    }catch(e){}
+  }
+  // projeto (workspace)
+  try{if(typeof renderProjWorkspace==="function"&&!renderProjWorkspace.__mwped){var _rpw=renderProjWorkspace;var wP=function(dealId){var r=_rpw.apply(this,arguments);try{setTimeout(function(){injProj(dealId);},30);}catch(e){}return r;};wP.__mwped=1;try{renderProjWorkspace=wP;}catch(e){}try{window.renderProjWorkspace=wP;}catch(e){}}}catch(e){}
+  function injProj(dealId){
+    try{var app=APP();if(!app||app.querySelector("#mwPedProj"))return;
+      var dl=A(D.deals).filter(function(d){return d.id===dealId;})[0];var cid=dl?dl.clientId:"";
+      var list=pedL().filter(function(p){return p.clientId===cid;});
+      var card=document.createElement("div");card.id="mwPedProj";card.style.cssText="border:1px solid #e6eef0;border-radius:12px;padding:14px 16px;margin-top:14px";
+      var inner='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600">Pedidos de cliente</div><button type="button" style="background:#EAF6EE;color:#15694f;border:1px solid #BEE3CC;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer">＋ Pedido/sugestão</button></div>';
+      if(list.length){inner+='<div style="margin-top:8px">'+list.slice(0,6).map(function(p){return '<div style="font-size:12.5px;padding:3px 0;border-top:1px solid #f0f4f5"><span style="color:'+(PED_ECOL[p.estado]||SLx)+'">●</span> '+esc2(p.descricao)+' <span style="color:'+SLx+'">('+esc2(PED_ELBL[p.estado]||p.estado)+')</span></div>';}).join("")+'</div>';}
+      else inner+='<div style="font-size:12px;color:'+SLx+';margin-top:6px">Sem pedidos deste cliente.</div>';
+      card.innerHTML=inner;
+      card.querySelector("button").onclick=function(){window.mwPedForm({clientId:cid,origem:"implementacao",fonte:"projeto:"+dealId});};
+      app.appendChild(card);
+    }catch(e){}
+  }
+
+  /* =====================================================================
+     MENU + DISPATCH
+     ===================================================================== */
+  function reg(id,label,dept,groupName){
+    try{if(typeof TABS!=="undefined"&&!TABS.some(function(t){return t.id===id;}))TABS.push({id:id});}catch(e){}
+    try{if(typeof DEPT_GROUPS!=="undefined"){var g=DEPT_GROUPS.filter(function(x){return x.group===groupName;})[0];if(g&&!g.items.some(function(it){return it.id===id;}))g.items.push({id:id,l:label,dept:dept});}}catch(e){}
+    try{if(typeof TAB2DEPT!=="undefined")TAB2DEPT[id]=dept;}catch(e){}
+  }
+  reg("mwfat","Faturação (a emitir)","financeiro","Financeiro");
+  reg("mwbi","Análise BI","comercial","Comercial");
+  reg("pedidoscli","Pedidos de cliente","desenvolvimento","Desenvolvimento");
+  try{if(typeof NAV!=="undefined"){NAV.length=0;DEPT_GROUPS.forEach(function(g){NAV.push({group:g.group,i:g.i,always:g.always,items:g.items});});}}catch(e){}
+
+  // dispatch: embrulha rPnl
+  (function(){
+    function wrap(){
+      if(typeof rPnl!=="function"||rPnl.__mwmel)return;
+      var _r=rPnl;
+      var w=function(){
+        var t=(typeof cTab!=="undefined")?cTab:"";
+        if(t==="mwfat"){try{return renderMwFat();}catch(e){}}
+        if(t==="mwbi"){try{return renderMwBi();}catch(e){}}
+        if(t==="pedidoscli"){try{return renderPedidos();}catch(e){}}
+        return _r.apply(this,arguments);
+      };
+      w.__mwmel=1;rPnl=w;try{window.rPnl=w;}catch(e){}
+    }
+    wrap();setTimeout(wrap,0);setTimeout(wrap,800);setTimeout(wrap,2500);
+  })();
+
+  try{if(typeof rTabs==="function")rTabs();}catch(e){}
+  setTimeout(function(){try{fatReconcile(true);if(typeof cTab!=="undefined"&&(cTab==="mwfat"||cTab==="mwbi")&&window.rPnl)window.rPnl();}catch(e){}},1800);
+
+})();
+
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
 })();
 </script>
@@ -11265,6 +11761,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
 
   /* ---------- famílias de páginas (separadores) ---------- */
   var FAM=[
+   [["mwbi","Análise BI"],["propostas","Propostas"],["subscricoes","Subscrições/AT"],["forecast","Forecast"],["clientes","Vendas"],["roicomercial","Retorno comercial"],["perdidas","Perdidas"]],
    [["intg_overview","Overview"],["integracao","Interfaces"],["intg_colab","Por colaborador"],["intg_cliente","Por cliente"],["intg_prioridade","Por prioridade"],["intg_concluidos","Concluídos"]],
    [["reunioes","Comerciais"],["reunioesp","De projeto"]],
    [["horas","Registar"],["horasTodas","Todas as horas"],["horasCustos","Custos por projeto"],["mapahoras","Mapa de horas"]]
