@@ -11639,6 +11639,14 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   })();
 
   try{if(typeof rTabs==="function")rTabs();}catch(e){}
+
+  // Direção + Desenvolvimento + dono acedem a «Pedidos de cliente»
+  try{var _csP=window.canSeeTab;if(typeof _csP==="function"&&!_csP.__ped){var wcsP=function(id){try{if(id==="pedidoscli"){if(ADMIN())return true;if(typeof userLevel==="function"&&(userLevel("desenvolvimento")||userLevel("direcao")))return true;try{var dn=devCfg().dono;if(dn&&ME()&&ME()===String(dn).toLowerCase())return true;}catch(e){}}}catch(e){}return _csP.apply(this,arguments);};wcsP.__ped=1;window.canSeeTab=wcsP;try{canSeeTab=wcsP;}catch(e){}}}catch(e){}
+
+  // Registo de reuniões mais compacto
+  function compactReu(){try{var app=APP();if(!app||app.querySelector("#mwReuCss"))return;var st=document.createElement("style");st.id="mwReuCss";st.textContent='#app [style*="border-left:3px solid"]{padding:7px 10px!important;margin-bottom:5px!important;border-radius:8px!important}#app [style*="border-left:3px solid"] [style*="font-size:13.5px"]{font-size:12.5px!important;margin:2px 0 1px!important}#app [style*="border-left:3px solid"] [style*="max-height:66px"]{max-height:30px!important;font-size:11.5px!important}#app [style*="border-left:3px solid"] .btn.bs{padding:3px 9px!important;font-size:11px!important}';app.insertBefore(st,app.firstChild);}catch(e){}}
+  try{if(typeof renderReunioes==="function"&&!renderReunioes.__mwcomp){var _rrC=renderReunioes;var wrrC=function(){var r=_rrC.apply(this,arguments);try{compactReu();}catch(e){}return r;};wrrC.__mwcomp=1;renderReunioes=wrrC;try{window.renderReunioes=wrrC;}catch(e){}}}catch(e){}
+
   setTimeout(function(){try{fatReconcile(true);if(typeof cTab!=="undefined"&&(cTab==="mwfat"||cTab==="mwbi")&&window.rPnl)window.rPnl();}catch(e){}},1800);
 
 })();
@@ -11761,6 +11769,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
 
   /* ---------- famílias de páginas (separadores) ---------- */
   var FAM=[
+   [["desenvolvimento","Desenvolvimento (Jira)"],["pedidoscli","Pedidos de cliente"]],
    [["mwbi","Análise BI"],["propostas","Propostas"],["subscricoes","Subscrições/AT"],["forecast","Forecast"],["clientes","Vendas"],["roicomercial","Retorno comercial"],["perdidas","Perdidas"]],
    [["intg_overview","Overview"],["integracao","Interfaces"],["intg_colab","Por colaborador"],["intg_cliente","Por cliente"],["intg_prioridade","Por prioridade"],["intg_concluidos","Concluídos"]],
    [["reunioes","Comerciais"],["reunioesp","De projeto"]],
