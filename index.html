@@ -481,7 +481,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible,
 <nav class="sbar" id="tbar"></nav>
 <div class="main">
 <div class="ct" id="app"></div>
-<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 13 out 2026 (design · largura + toque 24px)</div>
+<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 13 out 2026 (design · acabamentos botões)</div>
 </div>
 </div>
 <div id="mArea"></div>
@@ -12485,6 +12485,10 @@ window.catItems=function(){return CAT.map(function(c){return {nome:c[0],ref:c[1]
            "rgb(158,55,0)":"btn--danger-solid","#9e3700":"btn--danger-solid",
            "rgb(80,98,128)":"btn--neutral","#506280":"btn--neutral" };
   var DANGERCOL={ "rgb(158,55,0)":1,"#9e3700":1 };
+  /* cinzas neutros (superfície) usados como botão secundário — mapeados a .btn--secondary.
+     Os tons pastel coloridos e rgba(...) ténues NÃO entram aqui: transmitem estado (on/off). */
+  var GREY={ "#eff1f4":1,"rgb(239,241,244)":1,"#eee":1,"#eeeeee":1,"rgb(238,238,238)":1,
+             "#eef0f2":1,"rgb(238,240,242)":1,"#eef3f4":1,"rgb(238,243,244)":1 };
   function n(s){return String(s||"").trim().toLowerCase().replace(/\s+/g,"");}
   function norm(root){
     if(!root)return; var bs=root.querySelectorAll?root.querySelectorAll("button"):[];
@@ -12493,7 +12497,8 @@ window.catItems=function(){return CAT.map(function(c){return {nome:c[0],ref:c[1]
       if(b.closest && b.closest(".mw-more-menu")){b.__mwbn=1;continue;} // menus "⋯" têm o seu estilo
       var bg=n(b.style.backgroundColor||b.style.background), col=n(b.style.color);
       var v=BG[bg];
-      if(!v){ if(!bg||bg==="transparent"||bg==="rgba(0,0,0,0)"||bg==="#fff"||bg==="#ffffff"||bg==="rgb(255,255,255)"||bg==="white"){ v=(col&&DANGERCOL[col])?"btn--danger":"btn--secondary"; } }
+      if(!v){ if(!bg||bg==="transparent"||bg==="rgba(0,0,0,0)"||bg==="#fff"||bg==="#ffffff"||bg==="rgb(255,255,255)"||bg==="white"){ v=(col&&DANGERCOL[col])?"btn--danger":"btn--secondary"; }
+              else if(GREY[bg]){ v="btn--secondary"; } }
       if(!v){b.__mwbn=1;continue;}
       if(!b.classList.contains("btn"))b.classList.add("btn");
       b.classList.add(v);
