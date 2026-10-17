@@ -481,7 +481,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible,
 <nav class="sbar" id="tbar"></nav>
 <div class="main">
 <div class="ct" id="app"></div>
-<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 13 out 2026 (design · acabamentos botões)</div>
+<div class="ftr" onclick="openCorrecoes()" title="Registo de correções de dados" style="cursor:pointer">© Hugo Amaral — Mobilwave Espanha · Mobilwave Healthcare Solutions · versão 17 out 2026 (holdings · rentabilidade por grupo)</div>
 </div>
 </div>
 <div id="mArea"></div>
@@ -1274,7 +1274,7 @@ function rTabs(){var bar=document.getElementById("tbar");if(!bar)return;
   var h="";
   if(!window.__block){
     h+='<button class="blk-tile" style="background:rgba(0,103,158,.06);border-color:transparent" onclick="goHome()"><span class="blk-tile-ic"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10.5V19h11v-8.5"/></svg></span><span class="blk-tile-lbl">Menu principal</span></button>';
-    h+='<div class="blk-home-lbl">Áreas</div>';
+    h+='<div class="blk-home-lbl">'+(window.T?window.T("Áreas"):"Áreas")+'</div>';
     blocks.forEach(function(n,idx){
       h+='<button class="blk-tile" onclick="enterBlock('+idx+')"><span class="blk-tile-ic">'+navIco(n)+'</span><span class="blk-tile-lbl">'+esc(n.group)+'</span></button>';
     });
@@ -1282,7 +1282,7 @@ function rTabs(){var bar=document.getElementById("tbar");if(!bar)return;
   } else {
     var cur=null;for(var _i=0;_i<blocks.length;_i++){if(blocks[_i].group===window.__block){cur=blocks[_i];break;}}
     if(!cur){window.__block=null;rTabs();return;}
-    h+='<button class="blk-back" onclick="exitBlock()">← Menu principal</button>';
+    h+='<button class="blk-back" onclick="exitBlock()">← '+(window.T?window.T("Menu principal"):"Menu principal")+'</button>';
     h+='<div class="blk-cur"><span>'+navIco(cur)+'</span><span>'+esc(cur.group)+'</span></div>';
     cur.items.forEach(function(it){if(it.hidden)return;if(it.dept&&typeof window.canSeeTab==="function"&&!window.canSeeTab(it.id))return;var on=cTab===it.id&&(!it.sub||finSub===it.sub);
       h+='<button class="sitem'+(on?" on":"")+'" onclick="sTab(\''+it.id+'\',\''+(it.sub||"")+'\')">'+esc(it.l)+'</button>';});
@@ -1295,7 +1295,7 @@ function blockIdxOfTab(id,sub){var bs=window.__navBlocks||[];var i,j,it;for(i=0;
 function syncBlockToTab(){var bs=window.__navBlocks||[];var idx=blockIdxOfTab(cTab,(typeof finSub!=="undefined"?finSub:""));if(idx<0)return;var g=bs[idx].group;if(window.__block!==g){window.__block=g;rTabs();}}
 function renderHome(){var blocks=window.__navBlocks||((typeof NAV!=="undefined"?NAV:[]).filter(function(n){return n.group;}));
   var h='<div style="max-width:1300px;margin:0 auto;padding:10px 4px 30px">';
-  h+='<div style="text-align:center;margin:14px 0 30px"><div style="font-size:30px;font-weight:800;color:#28313A;letter-spacing:-.5px">Menu principal</div><div style="font-size:14px;color:#506280;margin-top:7px">Escolhe uma área para começar</div></div>';
+  h+='<div style="text-align:center;margin:14px 0 30px"><div style="font-size:30px;font-weight:800;color:#28313A;letter-spacing:-.5px">'+(window.T?window.T("Menu principal"):"Menu principal")+'</div><div style="font-size:14px;color:#506280;margin-top:7px">Escolhe uma área para começar</div></div>';
   h+='<div class="home-grid">';
   blocks.forEach(function(n,idx){var c=(n.items||[]).length;h+='<button class="home-tile" onclick="enterBlock('+idx+')"><span class="home-ic">'+navIco(n)+'</span><span class="home-lbl">'+esc(n.group)+'</span><span class="home-cnt">'+c+' '+(c===1?"opção":"opções")+'</span></button>';});
   h+='</div></div>';return h;}
@@ -6267,21 +6267,14 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
 
   
   // ===================== IDIOMA (PT / ES) =====================
-  var I18N_ES={
-    // grupos do menu
-    "A minha área":"Mi área","Direção":"Dirección","Férias & Ausências":"Vacaciones y ausencias","Agenda":"Agenda","Operações":"Operaciones","Clientes":"Clientes","Comercial":"Comercial","Projectos":"Proyectos","Suporte":"Soporte","Administração":"Administración",
-    // itens do menu
-    "Segurança":"Seguridad","Registo de horas":"Registro de horas","Painel executivo":"Panel ejecutivo","Mapa & pedidos":"Mapa y solicitudes","Agenda / Calendário":"Agenda / Calendario","Faturação legal":"Facturación legal","Cobrança de vencidos":"Cobro de vencidos","Orçamento":"Presupuesto","Cobranças":"Cobros","Movimentos":"Movimientos","Pendentes":"Pendientes","Faturação":"Facturación","Despesas":"Gastos","Financeiro":"Financiero","Orçamento previsto próximo ano":"Presupuesto previsto próximo año","Rentabilidade por cliente":"Rentabilidad por cliente","Região & Carteira":"Región y Cartera","Concluídos e Relatórios":"Concluidos e Informes","Settings":"Settings","Contratos & licenças":"Contratos y licencias","Tesouraria":"Tesorería","Rentabilidade":"Rentabilidad","Orçamento 2027":"Presupuesto 2027","Histórico":"Histórico","Estratégia & Insights":"Estrategia e Insights","Recursos Humanos":"Recursos Humanos","Clientes Totais":"Clientes Totales","Contactos":"Contactos","Mapa & carteira":"Mapa y cartera","Pipeline":"Pipeline","Prospeção":"Prospección","Forecast":"Previsión","Seguimento":"Seguimiento","Vendas":"Ventas","Ganhas":"Ganadas","Perdidas":"Perdidas","Mapa":"Mapa","Em curso":"En curso","Concluídas & Relatórios":"Concluidas e Informes","Pedidos":"Solicitudes","Colaboradores & Perfis":"Colaboradores y Perfiles","Auditoria":"Auditoría","Atividades":"Actividades","Definições":"Ajustes","Proteção de dados (RGPD)":"Protección de datos (RGPD)",
-    // títulos de página (pgHead)
-    "Faturação legal (PT / ES)":"Facturación legal (PT / ES)","Proteção de dados (RGPD)":"Protección de datos (RGPD)","Cobrança de vencidos":"Cobro de vencidos","Operações — Rentabilidade por cliente":"Operaciones — Rentabilidad por cliente","Logs — Registo de Movimentos":"Registros — Movimientos","Recursos Humanos":"Recursos Humanos"
-  };
-  function appLang(){return D.lang==="es"?"es":"pt";}
-  function T(s){if(appLang()==="es"&&s&&Object.prototype.hasOwnProperty.call(I18N_ES,s))return I18N_ES[s];return s;}
-  function navT(list){return (list||[]).map(function(g){return {group:T(g.group),i:g.i,always:g.always,items:(g.items||[]).map(function(it){return {id:it.id,sub:it.sub,l:T(it.l),dept:it.dept,always:it.always,hidden:it.hidden};})};});}
-  window.setLang=function(l){D.lang=(l==="es"?"es":"pt");if(typeof logAct==="function")logAct("Definições","Idioma alterado: "+(D.lang==="es"?"Español":"Português"));save();if(typeof rTabs==="function")try{rTabs();}catch(e){}ren();};
-  // traduz o título de qualquer página num único ponto
-  if(typeof pgHead==="function"){var _pgHeadOrig=pgHead;pgHead=function(icon,title,action){return _pgHeadOrig(icon,T(title),action);};}
-  function langCard(){var l=appLang();return '<div class="cd"><div class="ct2" style="margin-bottom:6px">Idioma · Idioma</div><div style="font-size:12px;color:#506280;margin-bottom:8px">Idioma da interface (menu e títulos das páginas). O conteúdo detalhado de cada ecrã está a ser traduzido de forma incremental.</div><select onchange="setLang(this.value)" style="border:1px solid #E4E8EB;border-radius:8px;padding:8px 11px;font-size:14px;font-family:inherit"><option value="pt"'+(l==="pt"?" selected":"")+'>Português</option><option value="es"'+(l==="es"?" selected":"")+'>Español</option></select></div>';}
+  var I18N={es:{"A minha área":"Mi área","Clientes":"Clientes","Comercial":"Comercial","Definições":"Ajustes","Desenvolvimento":"Desarrollo","Direção":"Dirección","Financeiro":"Financiero","Integrações":"Integraciones","Pessoas":"Personas","Projetos":"Proyectos","Suporte":"Soporte","Ações e Marketing":"Acciones y Marketing","ARR":"ARR","Acessos ao portal":"Accesos al portal","Agenda":"Agenda","Análise":"Análisis","Análise & insights":"Análisis e insights","Apresentações":"Presentaciones","Auditoria":"Auditoría","Base de conhecimento":"Base de conocimiento","Bolsa de horas":"Bolsa de horas","Caracterização":"Caracterización","Cobrança de vencidos":"Cobro de vencidos","Cobranças pendentes":"Cobros pendientes","Cobranças pendentes (aging)":"Cobros pendientes (aging)","Colaboradores & Perfis":"Colaboradores y Perfiles","Comparação":"Comparación","Concluídos":"Concluidos","Congressos":"Congresos","Contactos":"Contactos","Cronograma":"Cronograma","Custos por projeto":"Costes por proyecto","Definições & dados":"Ajustes y datos","Desenvolvimento (Jira)":"Desarrollo (Jira)","Despesas":"Gastos","Diretório":"Directorio","Equipa / RH":"Equipo / RR. HH.","Faturas / Movimentos":"Facturas / Movimientos","Faturação a emitir":"Facturación a emitir","Faturação legal":"Facturación legal","Forecast":"Forecast","Férias & ausências":"Vacaciones y ausencias","Gratificações":"Gratificaciones","Guia de estilos":"Guía de estilos","Histórico":"Histórico","Importar & dados":"Importar y datos","Interfaces & Integração":"Interfaces e Integración","Inventário & Equipamentos":"Inventario y Equipos","Início":"Inicio","Manual / Ajuda":"Manual / Ayuda","Mapa":"Mapa","Mapa de horas":"Mapa de horas","Novas vendas":"Nuevas ventas","Objetivos & Execução":"Objetivos y Ejecución","Objetivos comerciais":"Objetivos comerciales","Orçamento":"Presupuesto","Orçamento próximo ano":"Presupuesto próximo año","P&L":"P&L","Pedidos de cliente":"Solicitudes de cliente","Pedidos de suporte":"Solicitudes de soporte","Perdidas":"Perdidas","Pesquisa & avisos":"Búsqueda y avisos","Pipeline":"Pipeline","Por cliente":"Por cliente","Por colaborador":"Por colaborador","Por prioridade":"Por prioridad","Projeção próximo ano":"Proyección próximo año","Projeção do ano":"Proyección del año","Propostas":"Propuestas","Proteção de dados (RGPD)":"Protección de datos (RGPD)","Reembolsos":"Reembolsos","Registar horas":"Registrar horas","Região & Carteira":"Región y Cartera","Rentabilidade (projeto)":"Rentabilidad (proyecto)","Rentabilidade por cliente":"Rentabilidad por cliente","Retorno comercial":"Retorno comercial","Salários":"Salarios","Salários 2024":"Salarios 2024","Salários 2025":"Salarios 2025","Salários 2026":"Salarios 2026","Seguimento":"Seguimiento","Segurança":"Seguridad","Subscrições/Manutenção":"Suscripciones/Mantenimiento","Subscrições/AT":"Suscripciones/AT","Tesouraria":"Tesorería","Todas as horas":"Todas las horas","Vencimentos":"Nóminas","Vendas":"Ventas","Vendas por país":"Ventas por país","Vendas por vendedor":"Ventas por vendedor","Vendas ↔ Projetos":"Ventas ↔ Proyectos","Viagens":"Viajes","Visitas & Reuniões":"Visitas y Reuniones","Visitas & Reuniões (projetos)":"Visitas y Reuniones (proyectos)","Visão geral":"Visión general","Qualidade de dados":"Calidad de datos","Recursos Humanos":"Recursos Humanos","Faturação legal (PT / ES)":"Facturación legal (PT / ES)","Análise BI":"Análisis BI","Interfaces":"Interfaces","Comerciais":"Comerciales","De projeto":"De proyecto","Registar":"Registrar","Menu principal":"Menú principal","Áreas":"Áreas"},en:{"A minha área":"My area","Clientes":"Clients","Comercial":"Sales","Definições":"Settings","Desenvolvimento":"Development","Direção":"Management","Financeiro":"Finance","Integrações":"Integrations","Pessoas":"People","Projetos":"Projects","Suporte":"Support","Ações e Marketing":"Actions & Marketing","ARR":"ARR","Acessos ao portal":"Portal access","Agenda":"Agenda","Análise":"Analytics","Análise & insights":"Analysis & insights","Apresentações":"Presentations","Auditoria":"Audit","Base de conhecimento":"Knowledge base","Bolsa de horas":"Hours bank","Caracterização":"Breakdown","Cobrança de vencidos":"Overdue collection","Cobranças pendentes":"Pending collections","Cobranças pendentes (aging)":"Pending collections (aging)","Colaboradores & Perfis":"Staff & Profiles","Comparação":"Comparison","Concluídos":"Completed","Congressos":"Congresses","Contactos":"Contacts","Cronograma":"Timeline","Custos por projeto":"Costs by project","Definições & dados":"Settings & data","Desenvolvimento (Jira)":"Development (Jira)","Despesas":"Expenses","Diretório":"Directory","Equipa / RH":"Team / HR","Faturas / Movimentos":"Invoices / Entries","Faturação a emitir":"Invoicing to issue","Faturação legal":"Legal invoicing","Forecast":"Forecast","Férias & ausências":"Leave & absences","Gratificações":"Bonuses","Guia de estilos":"Style guide","Histórico":"History","Importar & dados":"Import & data","Interfaces & Integração":"Interfaces & Integration","Inventário & Equipamentos":"Inventory & Equipment","Início":"Home","Manual / Ajuda":"Manual / Help","Mapa":"Map","Mapa de horas":"Hours map","Novas vendas":"New sales","Objetivos & Execução":"Goals & Execution","Objetivos comerciais":"Sales goals","Orçamento":"Budget","Orçamento próximo ano":"Next-year budget","P&L":"P&L","Pedidos de cliente":"Client requests","Pedidos de suporte":"Support tickets","Perdidas":"Lost","Pesquisa & avisos":"Search & alerts","Pipeline":"Pipeline","Por cliente":"By client","Por colaborador":"By staff","Por prioridade":"By priority","Projeção próximo ano":"Next-year projection","Projeção do ano":"Year projection","Propostas":"Proposals","Proteção de dados (RGPD)":"Data protection (GDPR)","Reembolsos":"Reimbursements","Registar horas":"Log hours","Região & Carteira":"Region & Portfolio","Rentabilidade (projeto)":"Profitability (project)","Rentabilidade por cliente":"Profitability by client","Retorno comercial":"Sales ROI","Salários":"Salaries","Salários 2024":"Salaries 2024","Salários 2025":"Salaries 2025","Salários 2026":"Salaries 2026","Seguimento":"Follow-up","Segurança":"Security","Subscrições/Manutenção":"Subscriptions/Maintenance","Subscrições/AT":"Subscriptions/AT","Tesouraria":"Treasury","Todas as horas":"All hours","Vencimentos":"Payroll","Vendas":"Sales","Vendas por país":"Sales by country","Vendas por vendedor":"Sales by rep","Vendas ↔ Projetos":"Sales ↔ Projects","Viagens":"Travel","Visitas & Reuniões":"Visits & Meetings","Visitas & Reuniões (projetos)":"Visits & Meetings (projects)","Visão geral":"Overview","Qualidade de dados":"Data quality","Recursos Humanos":"Human Resources","Faturação legal (PT / ES)":"Legal invoicing (PT / ES)","Análise BI":"BI Analytics","Interfaces":"Interfaces","Comerciais":"Commercial","De projeto":"Project","Registar":"Log","Menu principal":"Main menu","Áreas":"Areas"}};
+  function appLang(){var l=(D&&D.lang)||"pt";return (l==="es"||l==="en")?l:"pt";}
+  function T(s){var l=appLang();if(l!=="pt"&&s){var d=I18N[l]||{};if(Object.prototype.hasOwnProperty.call(d,s))return d[s];var s2=String(s).replace(/Faturação/g,"Facturación").replace(/Fatura/g,"Factura");if(s2!==s&&Object.prototype.hasOwnProperty.call(d,s2))return d[s2];}return s;}
+  window.T=T;
+  function navT(list){return (list||[]).map(function(g){return {group:T(g.group),i:g.i,dept:g.dept,always:g.always,items:(g.items||[]).map(function(it){return {id:it.id,sub:it.sub,l:T(it.l),dept:it.dept,always:it.always,hidden:it.hidden,fam:it.fam};})};});}
+  window.setLang=function(l){D.lang=(l==="es"||l==="en")?l:"pt";if(typeof logAct==="function")logAct("Definições","Idioma alterado: "+({pt:"Português",es:"Español",en:"English"}[D.lang]));if(typeof save==="function")save();if(typeof rTabs==="function")try{rTabs();}catch(e){}if(typeof ren==="function")ren();else if(typeof rPnl==="function")rPnl();};
+  if(typeof pgHead==="function"&&!pgHead.__i18n){var _pgHeadOrig=pgHead;pgHead=function(icon,title,action){return _pgHeadOrig(icon,T(title),action);};pgHead.__i18n=1;try{window.pgHead=pgHead;}catch(e){}}
+  function langCard(){var l=appLang();function o(v,t){return '<option value="'+v+'"'+(l===v?" selected":"")+'>'+t+'</option>';}return '<div class="cd"><div class="ct2" style="margin-bottom:6px">Idioma · Idioma · Language</div><div style="font-size:12px;color:#506280;margin-bottom:8px">Idioma da interface (menu, títulos e navegação). O conteúdo detalhado de cada ecrã está a ser traduzido de forma incremental.</div><select onchange="setLang(this.value)" style="border:1px solid #E4E8EB;border-radius:8px;padding:8px 11px;font-size:14px;font-family:inherit">'+o("pt","Português")+o("es","Español")+o("en","English")+'</select></div>';}
 
   
   // ===================== CONTRATOS / LICENÇAS / RENOVAÇÕES =====================
@@ -7618,7 +7611,19 @@ var invOpts='<option value="">— sem movimento associado —</option>'+(D.invoi
     h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Rentabilidade por cliente</div><div style="font-size:12px;color:#506280;margin-bottom:10px">Faturado menos o custo dos projetos (horas registadas × custo/hora). Não inclui a repartição do custo fixo com pessoal.</div>';
     h+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th style="text-align:right">Faturado</th><th style="text-align:right">Custo projetos</th><th style="text-align:right">Custo comercial</th><th style="text-align:right">Margem</th><th style="text-align:right">%</th></tr></thead><tbody>';
     if(!cls.length)h+='<tr><td colspan="6" style="text-align:center;padding:22px;color:#506280">Sem faturação nem custos registados.</td></tr>';
-    cls.forEach(function(x){h+='<tr style="cursor:pointer" onclick="openClient(\''+x.c.id+'\')"><td style="font-weight:600">'+esc(x.c.name)+'</td><td style="text-align:right">'+fmt(x.fat)+'</td><td style="text-align:right;color:#506280">'+fmt(x.cst)+'</td><td style="text-align:right;color:#506280">'+(x.com>0?fmt(x.com):"—")+'</td><td style="text-align:right;font-weight:700;color:'+(x.mrg>=0?GRN:DNG)+'">'+fmt(x.mrg)+'</td><td style="text-align:right;font-size:12px;color:'+(x.mrg>=0?GRN:DNG)+'">'+(x.fat>0?Math.round(x.mrg/x.fat*100)+"%":"—")+'</td></tr>';});
+    window.mwHoldToggle=window.mwHoldToggle||function(gid){var tg=document.getElementById("ar_"+gid);var op=tg&&tg.getAttribute("data-open")==="1";if(tg)tg.setAttribute("data-open",op?"0":"1");var ic=document.getElementById("ic_"+gid);if(ic)ic.textContent=op?"▸":"▾";Array.prototype.forEach.call(document.getElementsByClassName(gid),function(r){r.style.display=op?"none":"";});};
+    (function(){
+      var groups={},order=[];
+      cls.forEach(function(x){var key=x.c.holding?("H:"+x.c.holding):("@"+x.c.id);if(!groups[key]){groups[key]={hold:x.c.holding||null,name:x.c.holding||x.c.name,members:[],fat:0,cst:0,com:0};order.push(key);}var g=groups[key];g.members.push(x);g.fat+=x.fat;g.cst+=x.cst;g.com+=(x.com||0);});
+      var arr=order.map(function(k){var g=groups[k];g.mrg=g.fat-g.cst-g.com;return g;});
+      arr.sort(function(a,b){return b.mrg-a.mrg;});
+      arr.forEach(function(g,gi){var pct=g.fat>0?Math.round(g.mrg/g.fat*100)+"%":"—";
+        if(g.hold&&g.members.length>1){var gid="qh"+gi;
+          h+='<tr id="ar_'+gid+'" data-open="0" style="cursor:pointer;background:#F6F8FA" onclick="mwHoldToggle(\''+gid+'\')" title="Holding — clica para ver as unidades"><td style="font-weight:700"><span id="ic_'+gid+'" style="color:#506280;display:inline-block;width:14px">▸</span> '+esc(g.name)+' <span style="font-weight:400;color:#506280;font-size:12px">· '+g.members.length+' unidades</span></td><td style="text-align:right;font-weight:700">'+fmt(g.fat)+'</td><td style="text-align:right;color:#506280">'+fmt(g.cst)+'</td><td style="text-align:right;color:#506280">'+(g.com>0?fmt(g.com):"—")+'</td><td style="text-align:right;font-weight:800;color:'+(g.mrg>=0?GRN:DNG)+'">'+fmt(g.mrg)+'</td><td style="text-align:right;font-size:12px;color:'+(g.mrg>=0?GRN:DNG)+'">'+pct+'</td></tr>';
+          g.members.slice().sort(function(a,b){return b.mrg-a.mrg;}).forEach(function(x){h+='<tr class="'+gid+'" style="display:none;cursor:pointer" onclick="openClient(\''+x.c.id+'\')"><td style="padding-left:28px;color:#506280">'+esc(x.c.name)+'</td><td style="text-align:right">'+fmt(x.fat)+'</td><td style="text-align:right;color:#506280">'+fmt(x.cst)+'</td><td style="text-align:right;color:#506280">'+(x.com>0?fmt(x.com):"—")+'</td><td style="text-align:right;color:'+(x.mrg>=0?GRN:DNG)+'">'+fmt(x.mrg)+'</td><td style="text-align:right;font-size:12px;color:'+(x.mrg>=0?GRN:DNG)+'">'+(x.fat>0?Math.round(x.mrg/x.fat*100)+"%":"—")+'</td></tr>';});
+        } else {var x=g.members[0];h+='<tr style="cursor:pointer" onclick="openClient(\''+x.c.id+'\')"><td style="font-weight:600">'+esc(x.c.name)+'</td><td style="text-align:right">'+fmt(x.fat)+'</td><td style="text-align:right;color:#506280">'+fmt(x.cst)+'</td><td style="text-align:right;color:#506280">'+(x.com>0?fmt(x.com):"—")+'</td><td style="text-align:right;font-weight:700;color:'+(x.mrg>=0?GRN:DNG)+'">'+fmt(x.mrg)+'</td><td style="text-align:right;font-size:12px;color:'+(x.mrg>=0?GRN:DNG)+'">'+(x.fat>0?Math.round(x.mrg/x.fat*100)+"%":"—")+'</td></tr>';}
+      });
+    })();
     if(cls.length)h+='<tr style="border-top:2px solid #E4E8EB"><td style="font-weight:700">Total</td><td style="text-align:right;font-weight:700">'+fmt(totFat)+'</td><td style="text-align:right;font-weight:700">'+fmt(totCst)+'</td><td style="text-align:right;font-weight:700">'+fmt(totCom)+'</td><td style="text-align:right;font-weight:800;color:'+(totMrg>=0?GRN:DNG)+'">'+fmt(totMrg)+'</td><td style="text-align:right;font-weight:700">'+(totFat>0?Math.round(totMrg/totFat*100)+"%":"—")+'</td></tr>';
     h+='</tbody></table></div>'+(_ry!=="all"?'<div style="font-size:12px;color:#506280;margin-top:8px">Ano '+_ry+': faturas emitidas no ano (menos notas de crédito do ano), horas registadas no ano e visitas feitas no ano.</div>':'')+'</div>';
     app.innerHTML=h;
@@ -12033,6 +12038,159 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
 
 })();
 
+
+  /* ===== QUALIDADE DE DADOS (admin): fundir clientes duplicados + ligar cliente a projetos (out 2026) =====
+     Bloco interno (mesmo scope da app). Fusão genérica e segura: reaponta clientId em todo o D,
+     corrige textos, põe tombstone no duplicado e limpa o índice. Nada é apagado sem confirmação escrita. */
+  (function(){
+    function ADMIN(){try{return (typeof currentRole!=="undefined"&&currentRole==="admin")||window.__mwRole==="admin";}catch(e){return false;}}
+    function _d(){return (typeof D!=="undefined")?D:window.D;}
+    function sA(s){return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"");}
+    function nrm(s){return sA(s).toLowerCase().replace(/\s+/g," ").trim();}
+    function nkey(s){return sA(s).toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\b(lda|ltda|sa|unipessoal|eirl)\b/g," ").replace(/\s+/g," ").trim();}
+    function nnif(n){n=String(n==null?"":n).replace(/\D/g,"");return n.length>=7?n:"";}
+    function byId(id){try{return (typeof clientById==="function")?clientById(id):(_d().clients||[]).filter(function(c){return c.id===id;})[0];}catch(e){return null;}}
+    function cnm(id){try{return (typeof cn==="function")?cn(id):((byId(id)||{}).name||"");}catch(e){return "";}}
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+    // ---- referências por cliente (impacto) ----
+    function refCount(id){var D=_d(),n=0;
+      (D.deals||[]).forEach(function(x){if(x.clientId===id)n++;});
+      (D.contacts||[]).forEach(function(x){if(x.clientId===id)n++;});
+      (D.clientSpecs||[]).forEach(function(x){if(x.clientId===id)n++;});
+      return n;}
+
+    // ---- deteção de duplicados ----
+    function dupGroups(){var D=_d(),cl=D.clients||[];var byNif={},byName={};
+      cl.forEach(function(c){var nf=nnif(c.nif);if(nf){(byNif[nf]=byNif[nf]||[]).push(c);}var k=nkey(c.name);(byName[k]=byName[k]||[]).push(c);});
+      var groups=[],seen={};
+      Object.keys(byNif).forEach(function(nf){var g=byNif[nf];if(g.length>1){groups.push({motivo:"NIF igual",nif:nf,cls:g});g.forEach(function(c){seen[c.id]=1;});}});
+      Object.keys(byName).forEach(function(k){var g=byName[k];if(k&&g.length>1&&!g.every(function(c){return seen[c.id];})){groups.push({motivo:"Nome igual",nif:"",cls:g});}});
+      // ordenar membros por referências e marcar sugestão de manter
+      groups.forEach(function(gr){gr.cls=gr.cls.map(function(c){return {c:c,refs:refCount(c.id)};}).sort(function(a,b){return b.refs-a.refs;});gr.keep=gr.cls[0].c.id;gr.tot=gr.cls.reduce(function(s,x){return s+x.refs;},0);});
+      groups.sort(function(a,b){return b.tot-a.tot;});
+      return groups;}
+
+    // ---- FUSÃO ----
+    function mergeClients(keepId,dropIds){var D=_d();if(!keepId||!dropIds||!dropIds.length)return;
+      var set={};dropIds.forEach(function(id){if(id!==keepId)set[id]=1;});
+      // 1) reapontar clientId em todo o D (apanha deals, contactos, specs, tickets, etc.)
+      (function walk(o){if(!o||typeof o!=="object")return;if(Array.isArray(o)){for(var i=0;i<o.length;i++)walk(o[i]);return;}
+        for(var k in o){if(k==="clientId"&&set[o[k]]){o[k]=keepId;}else{var v=o[k];if(v&&typeof v==="object")walk(v);}}})(D);
+      // 2) corrigir textos de nome para o cliente mantido
+      var keepName=cnm(keepId),dropNames={};dropIds.forEach(function(id){var c=byId(id);if(c)dropNames[nrm(c.name)]=1;});
+      (D.projectos||[]).forEach(function(p){if(p.clientNome&&dropNames[nrm(p.clientNome)])p.clientNome=keepName;});
+      (D.invoices||[]).forEach(function(i){if(i.clienteNome&&dropNames[nrm(i.clienteNome)])i.clienteNome=keepName;});
+      // 3) remover duplicados + tombstone (para o sync/migrate não os repor)
+      dropIds.forEach(function(id){if(id!==keepId&&typeof tombDel==="function")tombDel("cli",id);});
+      D.clients=(D.clients||[]).filter(function(c){return !set[c.id];});
+      try{if(typeof logAct==="function")logAct("Qualidade de dados","Clientes fundidos ("+dropIds.length+") em «"+keepName+"»");}catch(e){}
+      try{if(typeof _idxClear==="function")_idxClear();}catch(e){}
+      try{if(typeof save==="function")save();}catch(e){}
+      try{if(typeof ren==="function")ren();}catch(e){}
+    }
+    window.qdMerge=function(gi){if(!ADMIN())return;var g=(window.__qdGroups||[])[gi];if(!g)return;
+      var keep=(document.querySelector('input[name="qdk'+gi+'"]:checked')||{}).value||g.keep;
+      var drops=g.cls.map(function(x){return x.c.id;}).filter(function(id){return id!==keep;});
+      if(!drops.length)return;
+      var keepName=cnm(keep);
+      var msg="Fundir "+drops.length+" registo(s) em <b>"+esc(keepName)+"</b>?<br><br>Todos os negócios, faturas e contactos passam para este cliente e os duplicados são removidos. Esta ação é registada na auditoria.";
+      if(typeof confirmM==="function")confirmM(msg,function(){mergeClients(keep,drops);if(typeof toast==="function")toast("Clientes fundidos em «"+keepName+"».",{type:"ok"});},{yesLabel:"Fundir",danger:true});
+      else{mergeClients(keep,drops);}
+    };
+
+    // ---- projetos sem cliente ----
+    function dealOfP(p){try{if(typeof _dById==="function")return _dById(p.dealId);}catch(e){}try{return (_d().deals||[]).filter(function(d){return d.id===p.dealId;})[0];}catch(e){}return null;}
+    function projClientId(p){try{var dl=dealOfP(p);if(dl&&dl.clientId&&byId(dl.clientId))return dl.clientId;}catch(e){}if(p.clientId&&byId(p.clientId))return p.clientId;return null;}
+    function matchClient(text){var t=nrm(text);if(!t)return null;var D=_d(),cl=D.clients||[];
+      // exato
+      for(var i=0;i<cl.length;i++){if(nrm(cl[i].name)===t)return {c:cl[i],conf:0.95,ev:text};}
+      // subsequência do nome do cliente (>=5) no texto
+      var nk=nkey(text),best=null;
+      cl.forEach(function(c){var k=nkey(c.name);if(k.length>=5&&nk.indexOf(k)>=0){if(!best||k.length>best.k.length)best={c:c,k:k};}});
+      if(best)return {c:best.c,conf:Math.min(0.9,0.75+best.k.length/120),ev:best.k};
+      return null;}
+    function projProposals(){var D=_d(),out=[];(D.projectos||[]).forEach(function(p){if(projClientId(p))return;
+      var m=null,method=null;
+      if((p.clientNome||"").trim()){m=matchClient(p.clientNome);if(m)method="nome de cliente";}
+      if(!m&&(p.nome||"").trim()){m=matchClient(p.nome);if(m)method="nome do projeto";}
+      if(!m){var blob=((p.tarefas||[]).map(function(t){return t.titulo||"";}).join(" | "))+" | "+((p.horas||[]).map(function(h){return h.nota||"";}).join(" | "));m=matchClient(blob);if(m){method="tarefas/horas";m.conf=Math.max(0.6,m.conf-0.1);}}
+      out.push({p:p,prop:(m?m.c:null),conf:(m?Math.round(m.conf*100)/100:0),method:method,ev:(m?m.ev:"")});});
+      out.sort(function(a,b){return b.conf-a.conf;});return out;}
+    window.qdLink=function(projId){if(!ADMIN())return;var D=_d();var p=(D.projectos||[]).filter(function(x){return x.id===projId;})[0];if(!p)return;
+      var selEl=document.getElementById("qdsel_"+projId);if(!selEl){return;}
+      var v=(selEl.value||"").trim();var cid="";
+      if(v&&selEl.getAttribute("data-pn")&&nrm(v)===nrm(selEl.getAttribute("data-pn"))&&selEl.getAttribute("data-pid")){cid=selEl.getAttribute("data-pid");}
+      else{var c=cliByName(v);cid=c?c.id:"";}
+      if(!cid){if(typeof toast==="function")toast("Cliente não reconhecido — escolhe um da lista.",{type:"error"});return;}
+      p.clientId=cid;p.clientNome=cnm(cid);
+      try{if(typeof logAct==="function")logAct("Qualidade de dados","Projeto ligado a cliente: «"+esc(p.nome||"")+"» → "+p.clientNome);}catch(e){}
+      try{if(typeof _idxClear==="function")_idxClear();}catch(e){}
+      try{if(typeof save==="function")save();}catch(e){}
+      try{if(typeof ren==="function")ren();}catch(e){}
+      if(typeof toast==="function")toast("Projeto ligado a «"+p.clientNome+"».",{type:"ok"});
+    };
+
+    // ---- página ----
+    // datalist partilhado (uma só lista para todos os projetos — leve)
+    function clientDatalist(){var D=_d();var seen={},opts=[];(D.clients||[]).slice().sort(function(a,b){return nrm(a.name)<nrm(b.name)?-1:1;}).forEach(function(c){var k=nrm(c.name);if(seen[k])return;seen[k]=1;opts.push('<option value="'+esc(c.name)+'">');});return '<datalist id="qdcl">'+opts.join("")+'</datalist>';}
+    function cliByName(v){var t=nrm(v);if(!t)return null;return (_d().clients||[]).filter(function(c){return nrm(c.name)===t;})[0]||null;}
+    function picker(pid,propName,propId){return '<input id="qdsel_'+esc(pid)+'" list="qdcl" autocomplete="off" data-pid="'+esc(propId||"")+'" data-pn="'+esc(propName||"")+'" value="'+esc(propName||"")+'" placeholder="Escrever cliente…" style="width:100%;min-width:200px;border:1px solid #D5DBE0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit">';}
+    function renderQualidade(){var app=document.getElementById("app");if(!app)return;
+      if(!ADMIN()){app.innerHTML=(typeof pgHead==="function"?pgHead("🧹","Qualidade de dados",""):"<h2>Qualidade de dados</h2>")+'<div class="cd"><div style="color:#506280">Só os administradores têm acesso a esta área.</div></div>';return;}
+      var groups=dupGroups();window.__qdGroups=groups;
+      var props=projProposals();
+      var withProp=props.filter(function(x){return x.prop;}),noProp=props.filter(function(x){return !x.prop;});
+      var h=(typeof pgHead==="function"?pgHead("🧹","Qualidade de dados",""):"<h2>Qualidade de dados</h2>");
+      h+=clientDatalist();
+      // KPIs
+      function kp(v,k){return '<div class="cd" style="flex:1;min-width:150px;text-align:center"><div style="font-size:24px;font-weight:800;color:#00679E">'+v+'</div><div style="font-size:12px;color:#506280">'+k+'</div></div>';}
+      h+='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">'+kp(groups.length,"grupos de duplicados")+kp(withProp.length,"projetos com cliente a confirmar")+kp(noProp.length,"projetos sem cliente")+'</div>';
+      // duplicados
+      h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Clientes duplicados</div>';
+      if(!groups.length)h+='<div style="font-size:13px;color:#277247">Sem duplicados detetados. ✓</div>';
+      groups.forEach(function(g,gi){
+        h+='<div style="border:1px solid #E4E8EB;border-radius:8px;padding:10px 12px;margin:8px 0">';
+        h+='<div style="font-size:12px;color:#506280;margin-bottom:6px"><span style="font-weight:700;color:#00679E">'+esc(g.motivo)+'</span>'+(g.nif?" · NIF "+esc(g.nif):"")+' — escolhe qual <b>manter</b>:</div>';
+        g.cls.forEach(function(x){var c=x.c;var isKeep=c.id===g.keep;
+          h+='<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px;cursor:pointer"><input type="radio" name="qdk'+gi+'" value="'+esc(c.id)+'"'+(isKeep?" checked":"")+'><b>'+esc(c.name)+'</b><span style="color:#506280">· '+(c.nif?"NIF "+esc(c.nif):"sem NIF")+' · '+x.refs+' referência(s)</span></label>';});
+        h+='<button class="btn bs" style="background:#9E3700;margin-top:6px" onclick="qdMerge('+gi+')">Fundir este grupo</button>';
+        h+='</div>';
+      });
+      h+='</div>';
+      // projetos com proposta
+      h+='<div class="cd"><div class="ct2" style="margin-bottom:6px">Projetos — ligar a cliente</div><div style="font-size:12px;color:#506280;margin-bottom:8px">Projetos sem cliente associado. A sugestão vem do reconhecimento (nome, tarefas, horas) e deve ser confirmada. Podes mudar o cliente na lista antes de ligar.</div>';
+      if(!withProp.length&&!noProp.length)h+='<div style="font-size:13px;color:#277247">Todos os projetos têm cliente. ✓</div>';
+      if(withProp.length){h+='<div style="overflow-x:auto"><table><thead><tr><th>Projeto</th><th>Sugestão</th><th>Cliente</th><th></th></tr></thead><tbody>';
+        withProp.forEach(function(x){var conf=x.conf>=0.9?'<span style="color:#277247;font-weight:700">alta</span>':(x.conf>=0.8?'<span style="color:#8A6D00;font-weight:700">média</span>':'<span style="color:#6b6357">baixa</span>');
+          h+='<tr><td style="font-weight:600">'+esc((x.p.nome||"").slice(0,48))+'<div style="font-size:11px;color:#506280;font-weight:400">'+esc(x.method||"")+' · '+conf+'</div></td><td style="font-size:12px;color:#506280">'+esc(x.prop.name)+'</td><td>'+picker(x.p.id,x.prop.name,x.prop.id)+'</td><td><button class="btn bs" style="background:#00679E" onclick="qdLink(\''+esc(x.p.id)+'\')">Ligar</button></td></tr>';});
+        h+='</tbody></table></div>';}
+      if(noProp.length){h+='<div style="font-size:12px;color:#506280;margin-top:10px">Sem sugestão automática ('+noProp.length+') — liga manualmente se aplicável:</div><div style="overflow-x:auto"><table><thead><tr><th>Projeto</th><th>Cliente</th><th></th></tr></thead><tbody>';
+        noProp.slice(0,60).forEach(function(x){h+='<tr><td style="font-weight:600">'+esc((x.p.nome||"").slice(0,48))+'</td><td>'+picker(x.p.id,"","")+'</td><td><button class="btn bs" style="background:#00679E" onclick="qdLink(\''+esc(x.p.id)+'\')">Ligar</button></td></tr>';});
+        h+='</tbody></table></div>';if(noProp.length>60)h+='<div style="font-size:12px;color:#506280;margin-top:6px">… e mais '+(noProp.length-60)+'.</div>';}
+      h+='</div>';
+      app.innerHTML=h;
+    }
+    window.renderQualidade=renderQualidade;
+
+    // ---- registar no menu (grupo admin) + dispatch ----
+    try{
+      var grp=(DEPT_GROUPS||[]).filter(function(g){return g.dept==="admin";})[0];
+      if(grp&&!grp.items.some(function(it){return it.id==="qualidade";}))grp.items.push({id:"qualidade",l:"Qualidade de dados",dept:"admin"});
+      if(typeof TAB2DEPT!=="undefined")TAB2DEPT["qualidade"]="admin";
+    }catch(e){}
+    try{var _cs=window.canSeeTab||(typeof canSeeTab!=="undefined"?canSeeTab:null);
+      if(_cs&&!_cs.__qd){var wcs=function(id){if(id==="qualidade")return ADMIN();return _cs.apply(this,arguments);};wcs.__qd=1;try{window.canSeeTab=wcs;}catch(e){}try{canSeeTab=wcs;}catch(e){}}}catch(e){}
+    (function(){function wrap(){if(typeof rPnl!=="function"||rPnl.__qd)return;var _r=rPnl;var w=function(){if(typeof cTab!=="undefined"&&cTab==="qualidade"){try{return renderQualidade();}catch(e){}}return _r.apply(this,arguments);};w.__qd=1;rPnl=w;try{window.rPnl=w;}catch(e){}}
+      wrap();setTimeout(wrap,0);setTimeout(wrap,800);setTimeout(wrap,2500);})();
+    try{if(typeof rTabs==="function")rTabs();}catch(e){}
+
+    // ---- prevenção: aviso de nome duplicado ao criar cliente (svCl) ----
+    try{if(typeof svCl==="function"&&!svCl.__qd){var _sv=svCl;var wsv=function(){try{var el=document.getElementById("f1");var nm=el?el.value:"";var k=nkey(nm);
+      var dup=(_d().clients||[]).filter(function(c){return nkey(c.name)===k&&k;})[0];
+      if(dup&&typeof confirmM==="function"){confirmM("Já existe um cliente parecido: <b>"+esc(dup.name)+"</b>.<br>Criar mesmo assim um novo registo?",function(){_sv();},{yesLabel:"Criar na mesma",danger:false});return;}}catch(e){}return _sv.apply(this,arguments);};wsv.__qd=1;svCl=wsv;try{window.svCl=wsv;}catch(e){}}}catch(e){}
+  })();
+
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
 })();
 </script>
@@ -12160,7 +12318,7 @@ window.subFaturar=function(id){if(typeof isReadOnlyNow==="function"&&isReadOnlyN
   function famChips(){var app=$("#app");if(!app||typeof cTab==="undefined")return;if($(".mw-chips",app))return;
     for(var i=0;i<FAM.length;i++){var f=FAM[i];if(!f.some(function(x){return x[0]===cTab;}))continue;
       var vis=f.filter(function(x){return typeof window.canSeeTab!=="function"||window.canSeeTab(x[0]);});if(vis.length<2)return;
-      var bar=document.createElement("div");bar.className="mw-chips";bar.innerHTML=vis.map(function(x){return '<button type="button" class="'+(x[0]===cTab?"on":"")+'" data-t="'+x[0]+'">'+E(x[1])+'</button>';}).join("");
+      var bar=document.createElement("div");bar.className="mw-chips";bar.innerHTML=vis.map(function(x){return '<button type="button" class="'+(x[0]===cTab?"on":"")+'" data-t="'+x[0]+'">'+E((window.T||function(s){return s;})(x[1]))+'</button>';}).join("");
       bar.onclick=function(ev){var b=ev.target.closest("button");if(b)go(b.getAttribute("data-t"));};
       var head=app.firstElementChild;if(head&&head.nextSibling)app.insertBefore(bar,head.nextSibling);else app.insertBefore(bar,app.firstChild);return;}}
 
